@@ -1,9 +1,16 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { NgClass } from '@angular/common';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 
 import { Button } from 'primeng/button';
-import { MessageService } from 'primeng/api';
+import { ConfirmDialog } from 'primeng/confirmdialog';
+import { ConfirmationService, MessageService } from 'primeng/api';
+import { DatePicker } from 'primeng/datepicker';
+import { InputNumber } from 'primeng/inputnumber';
+import { InputText } from 'primeng/inputtext';
+import { Select } from 'primeng/select';
 import { Steps } from 'primeng/steps';
 import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
@@ -14,48 +21,94 @@ import {
 } from '../../../core/models/expediente.model';
 import {
   type ArchivoDetalle,
+  type DocumentoGeneradoDetalle,
   type ExpedienteDetalle,
 } from '../../../core/models/expediente-detalle.model';
-import { type RespuestaValidacion } from '../../../core/models/validacion.model';
 import { ArchivoService } from '../../../core/services/archivo.service';
-import { DevAuthService } from '../../../core/services/dev-auth.service';
+import { CartaVrinService } from '../../../core/services/carta-vrin.service';
+import { DocumentoService } from '../../../core/services/documento.service';
 import { ExpedienteService } from '../../../core/services/expediente.service';
+import { ResolucionService } from '../../../core/services/resolucion.service';
 import { BadgeEtapa } from '../../../shared/badge-etapa/badge-etapa';
-import { ValidacionDrawer } from '../../validacion/validacion-drawer/validacion-drawer';
+import { ValidacionExpediente } from '../../validacion/validacion-expediente';
+
+import { Dialog } from 'primeng/dialog';
 
 @Component({
   selector: 'app-vista-expediente',
-  imports: [BadgeEtapa, Button, RouterLink, Steps, Tag, Toast, ValidacionDrawer],
+  imports: [
+    BadgeEtapa,
+    Button,
+    ConfirmDialog,
+    DatePicker,
+    Dialog,
+    InputNumber,
+    InputText,
+    NgClass,
+    ReactiveFormsModule,
+    RouterLink,
+    Select,
+    Steps,
+    Tag,
+    Toast,
+    ValidacionExpediente,
+  ],
   templateUrl: './expediente.html',
   styleUrl: './expediente.scss',
 })
 export class VistaExpediente implements OnInit, OnDestroy {
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
+  private readonly fb = inject(FormBuilder);
   private readonly sanitizer = inject(DomSanitizer);
-  private readonly auth = inject(DevAuthService);
   private readonly expedienteService = inject(ExpedienteService);
   private readonly archivoService = inject(ArchivoService);
+  private readonly cartaVrinService = inject(CartaVrinService);
+  private readonly resolucionService = inject(ResolucionService);
+  private readonly documentoService = inject(DocumentoService);
   private readonly mensajes = inject(MessageService);
+  private readonly confirmacion = inject(ConfirmationService);
 
   protected readonly detalle = signal<ExpedienteDetalle | null>(null);
   protected readonly cargando = signal(true);
   protected readonly urlCarta = signal<SafeResourceUrl | null>(null);
+  protected readonly urlDocGenerado = signal<SafeResourceUrl | null>(null);
+  protected readonly urlDocResolucion = signal<SafeResourceUrl | null>(null);
   protected readonly drawerValidacion = signal(false);
-  protected readonly completando = signal(false);
+  protected readonly subsanando = signal(false);
+  protected readonly guardandoCarta = signal(false);
+  protected readonly guardandoOpp = signal(false);
+  protected readonly adjuntandoOpp = signal(false);
+  protected readonly guardandoResolucion = signal(false);
+  protected readonly adjuntandoAnexo = signal(false);
+  protected readonly modalDesembolso = signal(false);
+  protected readonly modalDoi = signal(false);
+  protected readonly guardandoDesembolso = signal(false);
+  protected readonly guardandoDoi = signal(false);
+  protected readonly cerrandoRendicion = signal(false);
+  protected readonly adjuntandoComprobante = signal(false);
 
   private blobUrlCarta?: string;
+  private blobUrlDocGenerado?: string;
+  private blobUrlDocResolucion?: string;
+  private expedienteId?: number;
+  private docGeneradoCargadoId?: number;
+  private docResolucionCargadoId?: number;
+  private pollingId?: ReturnType<typeof setInterval>;
+  private intentosPolling = 0;
 
   protected readonly pasos = [
-    { label: 'Carta Docente' },
-    { label: 'Carta VRIN / OPP' },
-    { label: 'Resolución' },
-    { label: 'Rendición' },
+    { label: 'Carta Docente', command: () => this.cambiarPaso(0) },
+    { label: 'Carta VRIN / OPP', command: () => this.cambiarPaso(1) },
+    { label: 'Resolución', command: () => this.cambiarPaso(2) },
+    { label: 'Rendición', command: () => this.cambiarPaso(3) },
   ];
 
-  protected readonly indiceActivo = computed(() =>
-    Math.max((this.detalle()?.etapa_actual ?? 1) - 1, 0),
-  );
+  protected readonly indiceActivoVisible = signal<number>(0);
+
+  protected cambiarPaso(index: number): void {
+    this.indiceActivoVisible.set(index);
+  }
 
   protected readonly carta = computed(() => {
     const archivos = this.detalle()?.archivos ?? [];
@@ -66,40 +119,130 @@ export class VistaExpediente implements OnInit, OnDestroy {
     (this.detalle()?.observaciones ?? []).filter((o) => o.resuelta_at === null),
   );
 
-  // HU-25: Calidad valida solo expedientes EN_REVISION_CALIDAD con documentos completos.
-  protected readonly puedeValidar = computed(() => {
-    const e = this.detalle();
-    return (
-      this.auth.usuarioActual()?.rol === 'CALIDAD' &&
-      e?.estado === 'EN_REVISION_CALIDAD' &&
-      e.documentos_completos
-    );
-  });
-
-  // Subsanación (RN-12): Secretaría/Admin completa los documentos de un OBSERVADO.
-  protected readonly puedeCompletarDocumentos = computed(() => {
-    const rol = this.auth.usuarioActual()?.rol ?? '';
-    return ['SECRETARIA', 'ADMINISTRADOR'].includes(rol) && this.detalle()?.estado === 'OBSERVADO';
-  });
-
-  // HU-26: contador «x/3 Verificados» del checklist persistido (SECRETARIA/ADMIN).
-  protected readonly mostrarContadorChecklist = computed(() => {
-    const rol = this.auth.usuarioActual()?.rol ?? '';
-    return ['SECRETARIA', 'ADMINISTRADOR'].includes(rol);
-  });
-
-  protected readonly verificados = computed(() => {
-    const checklist = this.detalle()?.validacion_calidad?.checklist;
-    if (!checklist) {
-      return 0;
-    }
-    return Object.values(checklist).filter(Boolean).length;
-  });
-
   protected readonly severidadBadge = computed<'success' | 'warn' | 'danger'>(() => {
     const estado = this.detalle()?.estado;
     return estado ? (ESTADO_INFO[estado]?.severity ?? 'warn') : 'warn';
   });
+
+  protected readonly puedeValidar = computed(() =>
+    (this.detalle()?.transiciones_disponibles ?? []).some(
+      (t) => t.accion?.clave === 'validar' && t.habilitada,
+    ),
+  );
+
+  protected readonly puedeSubsanar = computed(() =>
+    (this.detalle()?.transiciones_disponibles ?? []).some(
+      (t) => t.accion?.clave === 'subsanar' && t.habilitada,
+    ),
+  );
+
+  // Fase 6 — Etapa 2: formularios gobernados por transiciones_disponibles.
+  protected readonly puedeGenerarCarta = computed(() =>
+    (this.detalle()?.transiciones_disponibles ?? []).some(
+      (t) => t.accion?.clave === 'generar_carta' && t.habilitada,
+    ),
+  );
+
+  protected readonly puedeRegistrarOpp = computed(
+    () =>
+      this.detalle()?.estado === 'EN_ESPERA_OPP' &&
+      (this.detalle()?.transiciones_disponibles ?? []).some((t) => t.habilitada),
+  );
+
+  protected readonly docCartaGenerada = computed<DocumentoGeneradoDetalle | null>(
+    () =>
+      (this.detalle()?.documentos_generados ?? []).filter((d) => d.tipo === 'CARTA_VRIN' && d.es_vigente)[0] ?? null,
+  );
+
+  protected readonly puedeGenerarResolucion = computed(() =>
+    (this.detalle()?.transiciones_disponibles ?? []).some(
+      (t) => t.accion?.clave === 'generar_resolucion' && t.habilitada,
+    ),
+  );
+
+  protected readonly docResolucionGenerada = computed<DocumentoGeneradoDetalle | null>(
+    () =>
+      (this.detalle()?.documentos_generados ?? []).filter((d) => d.tipo === 'RESOLUCION' && d.es_vigente)[0] ?? null,
+  );
+
+  protected readonly adjuntosOpp = computed(() =>
+    (this.detalle()?.archivos ?? []).filter((a) => a.tipo === 'CARTA_OPP'),
+  );
+
+  protected readonly adjuntosAnexo = computed(() =>
+    (this.detalle()?.archivos ?? []).filter((a) => a.tipo === 'ANEXO'),
+  );
+
+  protected readonly comprobantes = computed(() =>
+    (this.detalle()?.archivos ?? []).filter((a) => a.tipo === 'COMPROBANTE_RENDICION'),
+  );
+
+  protected readonly verificados = computed(() => {
+    const checklist = this.detalle()?.validacion_calidad?.checklist;
+    return checklist ? Object.keys(checklist).length : 0;
+  });
+
+  protected readonly opcionesDisponibilidad = [
+    { label: 'Sí — hay disponibilidad presupuestal', value: 'SI' },
+    { label: 'No — sin disponibilidad', value: 'NO' },
+  ];
+
+  protected readonly cartaForm = this.fb.group({
+    numero_completo: ['', Validators.required],
+    fecha: [new Date() as Date | null, Validators.required],
+    asunto: ['Solicito financiamiento para publicación en revista indexada para el docente '],
+    registro_mp_numero: ['', Validators.required],
+    fecha_aceptacion: [null as Date | null, Validators.required]
+  });
+
+  protected readonly oppForm = this.fb.group({
+    disponibilidad: ['SI' as 'SI' | 'NO', Validators.required],
+    monto_aprobado: [null as number | null],
+    meta_presupuestal: [''],
+    especifica_gasto: [''],
+    fuente_financiamiento: [''],
+    carta_numero: ['', Validators.required],
+    carta_fecha: [null as Date | null, Validators.required],
+    registro_vrin_numero: ['', Validators.required],
+    registro_vrin_fecha: [null as Date | null, Validators.required],
+  });
+
+  protected readonly resolucionForm = this.fb.group({
+    numero: [null as number | null, [Validators.required, Validators.min(1)]],
+    anio: [new Date().getFullYear(), [Validators.required]],
+    fecha_emision: [new Date() as Date | null, Validators.required],
+  });
+
+  protected readonly desembolsoForm = this.fb.group({
+    fecha_desembolso: [new Date() as Date | null, Validators.required],
+  });
+
+  protected readonly doiForm = this.fb.group({
+    doi: ['', Validators.required],
+  });
+
+  protected readonly rendicionForm = this.fb.group({
+    fecha_informe: [new Date() as Date | null, Validators.required],
+  });
+
+  constructor() {
+    this.oppForm.controls.disponibilidad.valueChanges.subscribe((valor) => {
+      const camposSi = [
+        this.oppForm.controls.monto_aprobado,
+        this.oppForm.controls.meta_presupuestal,
+        this.oppForm.controls.especifica_gasto,
+        this.oppForm.controls.fuente_financiamiento,
+      ];
+      if (valor === 'SI') {
+        camposSi.forEach((c) => c.enable({ emitEvent: false }));
+      } else {
+        camposSi.forEach((c) => {
+          c.reset(null, { emitEvent: false });
+          c.disable({ emitEvent: false });
+        });
+      }
+    });
+  }
 
   ngOnInit(): void {
     const id = Number(this.route.snapshot.paramMap.get('id'));
@@ -107,17 +250,33 @@ export class VistaExpediente implements OnInit, OnDestroy {
       this.router.navigate(['/expedientes']);
       return;
     }
+    this.expedienteId = id;
+    this.cargar(id);
+  }
+
+  private cargar(id: number, silencioso = false): void {
+    if (!silencioso) {
+      this.cargando.set(true);
+    }
     this.expedienteService.obtener(id).subscribe({
       next: (detalle) => {
         this.detalle.set(detalle);
-        this.cargando.set(false);
-        this.prepararVistaCarta(detalle);
-        // La bandeja abre el drawer directo al pulsar «Validar Requisitos».
-        if (this.route.snapshot.queryParamMap.get('accion') === 'validar') {
-          this.drawerValidacion.set(true);
+        this.indiceActivoVisible.set(Math.max((detalle.etapa_actual ?? 1) - 1, 0));
+        if (!silencioso) {
+          this.cargando.set(false);
         }
+        this.prepararVistaCarta(detalle);
+        this.prepararVistaDocGenerado(detalle);
+        this.prepararVistaDocResolucion(detalle);
+        this.gestionarPolling(detalle);
+        this.sugerirNumeroSiCorresponde();
+        this.sugerirNumeroResolucionSiCorresponde();
       },
       error: (error) => {
+        if (silencioso) {
+          this.detenerPolling();
+          return;
+        }
         this.cargando.set(false);
         this.mensajes.add({
           severity: 'error',
@@ -131,65 +290,440 @@ export class VistaExpediente implements OnInit, OnDestroy {
     });
   }
 
-  ngOnDestroy(): void {
-    if (this.blobUrlCarta) {
-      URL.revokeObjectURL(this.blobUrlCarta);
-    }
-  }
+  // Polling D-14: tras generar la carta, el PDF tarda unos segundos; se
+  // reconsulta el detalle cada 2 s hasta que pdf_path aparezca (máx. 30).
+  private gestionarPolling(detalle: ExpedienteDetalle): void {
+    const docCarta = detalle.documentos_generados?.filter((d) => d.tipo === 'CARTA_VRIN' && d.es_vigente)[0];
+    const docResol = detalle.documentos_generados?.filter((d) => d.tipo === 'RESOLUCION' && d.es_vigente)[0];
+    
+    const pendienteCarta = docCarta !== undefined && docCarta.pdf_path === null;
+    const pendienteResol = docResol !== undefined && docResol.pdf_path === null;
 
-  protected abrirValidacion(): void {
-    this.drawerValidacion.set(true);
-  }
-
-  protected alGuardarValidacion(respuesta: RespuestaValidacion): void {
-    this.mensajes.add({
-      severity: respuesta.estado === 'VALIDADO_CALIDAD' ? 'success' : 'warn',
-      summary: 'Validación registrada',
-      detail:
-        respuesta.estado === 'VALIDADO_CALIDAD'
-          ? 'El expediente cumple los requisitos y quedó validado.'
-          : 'El expediente no cumple los requisitos; se registró la observación.',
-    });
-    this.recargar();
-  }
-
-  protected completarDocumentos(): void {
-    const e = this.detalle();
-    if (!e || this.completando()) {
+    if (!pendienteCarta && !pendienteResol) {
+      this.detenerPolling();
       return;
     }
-    this.completando.set(true);
-    this.expedienteService.marcarDocumentosCompletos(e.id).subscribe({
+
+    if (this.pollingId !== undefined) {
+      return;
+    }
+
+    this.intentosPolling = 0;
+    this.pollingId = setInterval(() => {
+      this.intentosPolling += 1;
+      if (this.intentosPolling > 30 || this.expedienteId === undefined) {
+        this.detenerPolling();
+        return;
+      }
+      this.cargar(this.expedienteId, true);
+    }, 2000);
+  }
+
+  private detenerPolling(): void {
+    if (this.pollingId !== undefined) {
+      clearInterval(this.pollingId);
+      this.pollingId = undefined;
+    }
+  }
+
+  private sugerirNumeroSiCorresponde(): void {
+    if (!this.puedeGenerarCarta() || this.cartaForm.controls.numero_completo.value) {
+      return;
+    }
+    const anio = new Date().getFullYear();
+    this.cartaVrinService.sugerencia(anio).subscribe({
+      next: ({ siguiente_numero }) => {
+        if (!this.cartaForm.controls.numero_completo.value) {
+          const numeroStr = String(siguiente_numero).padStart(4, '0');
+          this.cartaForm.controls.numero_completo.setValue(`CARTA Nº ${numeroStr}-${anio}-VRIN-UNAMBA`);
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  private sugerirNumeroResolucionSiCorresponde(): void {
+    if (!this.puedeGenerarResolucion() || this.resolucionForm.controls.numero.value !== null) {
+      return;
+    }
+    const anio = this.resolucionForm.controls.anio.value ?? new Date().getFullYear();
+    this.resolucionService.sugerencia(anio).subscribe({
+      next: ({ siguiente_numero }) => {
+        if (this.resolucionForm.controls.numero.value === null) {
+          this.resolucionForm.controls.numero.setValue(siguiente_numero);
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  private prepararVistaDocGenerado(detalle: ExpedienteDetalle): void {
+    const doc = detalle.documentos_generados?.find((d) => d.tipo === 'CARTA_VRIN');
+    if (!doc || doc.pdf_path === null || doc.id === this.docGeneradoCargadoId) {
+      return;
+    }
+    this.docGeneradoCargadoId = doc.id;
+    this.documentoService.obtenerBlob(detalle.id, doc.id, 'pdf').subscribe({
+      next: (blob) => {
+        if (this.blobUrlDocGenerado) {
+          URL.revokeObjectURL(this.blobUrlDocGenerado);
+        }
+        this.blobUrlDocGenerado = URL.createObjectURL(blob);
+        this.urlDocGenerado.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlDocGenerado));
+      },
+      error: () => {},
+    });
+  }
+
+  private prepararVistaDocResolucion(detalle: ExpedienteDetalle): void {
+    const doc = detalle.documentos_generados?.filter((d) => d.tipo === 'RESOLUCION' && d.es_vigente)[0];
+    if (!doc || doc.pdf_path === null || doc.id === this.docResolucionCargadoId) {
+      return;
+    }
+    this.docResolucionCargadoId = doc.id;
+    this.documentoService.obtenerBlob(detalle.id, doc.id, 'pdf').subscribe({
+      next: (blob) => {
+        if (this.blobUrlDocResolucion) {
+          URL.revokeObjectURL(this.blobUrlDocResolucion);
+        }
+        this.blobUrlDocResolucion = URL.createObjectURL(blob);
+        this.urlDocResolucion.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlDocResolucion));
+      },
+      error: () => {},
+    });
+  }
+
+  protected confirmarGenerarCarta(): void {
+    if (this.cartaForm.invalid || this.guardandoCarta()) {
+      this.cartaForm.markAllAsTouched();
+      return;
+    }
+    const valores = this.cartaForm.getRawValue();
+    const numero_completo = valores.numero_completo || '';
+    
+    this.confirmacion.confirm({
+      header: 'Generar Carta VRIN → OPP',
+      message: `Se emitirá la ${numero_completo} y el expediente pasará a «En espera OPP». ¿Continuar?`,
+      icon: 'pi pi-send',
+      acceptLabel: 'Generar carta',
+      rejectLabel: 'Cancelar',
+      accept: () => this.generarCarta(),
+    });
+  }
+
+  private generarCarta(): void {
+    const detalle = this.detalle();
+    if (!detalle || this.guardandoCarta()) {
+      return;
+    }
+    const valores = this.cartaForm.getRawValue();
+    
+    // Parse "CARTA Nº 0667-2026-VRIN-UNAMBA" -> 667, 2026
+    const match = valores.numero_completo?.match(/N?[°º]?\s*(\d+)-(\d{4})/i);
+    const numero = match ? parseInt(match[1], 10) : 0;
+    const anio = match ? parseInt(match[2], 10) : new Date().getFullYear();
+
+    this.guardandoCarta.set(true);
+    this.expedienteService
+      .generarCarta(detalle.id, {
+        numero: numero,
+        anio: anio,
+        fecha: this.iso(valores.fecha) ?? '',
+        ciudad: 'Abancay',
+        registro_mp_numero: valores.registro_mp_numero?.trim() || null,
+      })
+      .subscribe({
+        next: (respuesta) => {
+          this.guardandoCarta.set(false);
+          this.mensajes.add({
+            severity: 'success',
+            summary: `${valores.numero_completo} generada`,
+            detail: 'El expediente pasó a «En espera OPP».',
+          });
+          this.cargar(detalle.id);
+        },
+        error: (error) => {
+          this.guardandoCarta.set(false);
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'No se pudo generar la carta',
+            detail:
+              (error as { error?: { message?: string } })?.error?.message ??
+              'Ocurrió un error inesperado.',
+          });
+        },
+      });
+  }
+
+  protected guardarRespuestaOpp(): void {
+    const detalle = this.detalle();
+    if (!detalle || this.guardandoOpp()) {
+      return;
+    }
+    const valores = this.oppForm.getRawValue();
+
+    if (valores.disponibilidad === 'SI') {
+      const faltantes: string[] = [];
+      if (!valores.monto_aprobado || valores.monto_aprobado <= 0) {
+        faltantes.push('monto aprobado');
+      }
+      if (!/^[0-9]{3}$/.test(valores.meta_presupuestal ?? '')) {
+        faltantes.push('meta presupuestal (3 dígitos)');
+      }
+      if (!valores.especifica_gasto?.trim()) {
+        faltantes.push('específica de gasto');
+      }
+      if (!valores.fuente_financiamiento?.trim()) {
+        faltantes.push('fuente de financiamiento');
+      }
+      if (faltantes.length > 0) {
+        this.oppForm.markAllAsTouched();
+        this.mensajes.add({
+          severity: 'warn',
+          summary: 'Faltan datos de la asignación',
+          detail: `Completa: ${faltantes.join(', ')}.`,
+        });
+        return;
+      }
+    }
+
+    const payload: Record<string, string | number | null> = {
+      disponibilidad: valores.disponibilidad,
+      carta_numero: (valores.carta_numero ?? '').trim(),
+      carta_fecha: this.iso(valores.carta_fecha) ?? '',
+      registro_vrin_numero: (valores.registro_vrin_numero ?? '').trim(),
+      registro_vrin_fecha: this.iso(valores.registro_vrin_fecha) ?? '',
+    };
+    if (valores.disponibilidad === 'SI') {
+      payload['monto_aprobado'] = valores.monto_aprobado ?? 0;
+      payload['meta_presupuestal'] = (valores.meta_presupuestal ?? '').trim();
+      payload['especifica_gasto'] = (valores.especifica_gasto ?? '').trim();
+      payload['fuente_financiamiento'] = (valores.fuente_financiamiento ?? '').trim();
+    }
+
+    this.guardandoOpp.set(true);
+    this.expedienteService.registrarRespuestaOpp(detalle.id, payload).subscribe({
+      next: (respuesta) => {
+        this.guardandoOpp.set(false);
+        this.mensajes.add({
+          severity: respuesta.estado === 'DISPONIBILIDAD_CONFIRMADA' ? 'success' : 'warn',
+          summary:
+            respuesta.estado === 'DISPONIBILIDAD_CONFIRMADA'
+              ? 'Disponibilidad confirmada'
+              : 'Expediente cerrado: sin disponibilidad presupuestal',
+          detail: `${detalle.codigo} · ${respuesta.estado}.`,
+        });
+        this.oppForm.reset({ disponibilidad: 'SI' });
+        this.cargar(detalle.id);
+      },
+      error: (error) => {
+        this.guardandoOpp.set(false);
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'No se pudo registrar la respuesta',
+          detail:
+            (error as { error?: { message?: string } })?.error?.message ??
+            'Ocurrió un error inesperado.',
+        });
+      },
+    });
+  }
+
+  protected seleccionarEscaneoOpp(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0] ?? null;
+    input.value = '';
+    const detalle = this.detalle();
+    if (!archivo || !detalle || this.adjuntandoOpp()) {
+      return;
+    }
+    const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!['pdf', 'jpg', 'jpeg', 'png'].includes(extension)) {
+      this.mensajes.add({
+        severity: 'error',
+        summary: 'Archivo no permitido',
+        detail: 'El escaneo debe ser PDF, JPG o PNG.',
+      });
+      return;
+    }
+    if (archivo.size > 25 * 1024 * 1024) {
+      this.mensajes.add({
+        severity: 'error',
+        summary: 'Archivo muy grande',
+        detail: 'El escaneo no puede superar los 25 MB.',
+      });
+      return;
+    }
+    this.adjuntandoOpp.set(true);
+    this.expedienteService.subirArchivo(detalle.id, archivo, 'CARTA_OPP').subscribe({
+      next: (guardado) => {
+        this.adjuntandoOpp.set(false);
+        this.mensajes.add({
+          severity: 'success',
+          summary: 'Escaneo adjuntado',
+          detail: guardado.nombre_original,
+        });
+        this.cargar(detalle.id, true);
+      },
+      error: (error) => {
+        this.adjuntandoOpp.set(false);
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'No se pudo adjuntar',
+          detail:
+            (error as { error?: { message?: string } })?.error?.message ??
+            'Ocurrió un error inesperado.',
+        });
+      },
+    });
+  }
+
+  protected seleccionarAnexo(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0] ?? null;
+    input.value = '';
+    const detalle = this.detalle();
+    if (!archivo || !detalle || this.adjuntandoAnexo()) {
+      return;
+    }
+    const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!['pdf', 'jpg', 'jpeg', 'png', 'docx', 'xlsx'].includes(extension)) {
+      this.mensajes.add({
+        severity: 'error',
+        summary: 'Archivo no permitido',
+        detail: 'El anexo debe ser PDF, JPG, PNG, DOCX o XLSX.',
+      });
+      return;
+    }
+    if (archivo.size > 50 * 1024 * 1024) {
+      this.mensajes.add({
+        severity: 'error',
+        summary: 'Archivo muy grande',
+        detail: 'El anexo no puede superar los 50 MB.',
+      });
+      return;
+    }
+    this.adjuntandoAnexo.set(true);
+    // etapa 3 y tipo ANEXO
+    this.expedienteService.subirArchivo(detalle.id, archivo, 'ANEXO', 3).subscribe({
+      next: (guardado) => {
+        this.adjuntandoAnexo.set(false);
+        this.mensajes.add({
+          severity: 'success',
+          summary: 'Anexo adjuntado',
+          detail: guardado.nombre_original,
+        });
+        this.cargar(detalle.id, true);
+      },
+      error: (error) => {
+        this.adjuntandoAnexo.set(false);
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'No se pudo adjuntar',
+          detail:
+            (error as { error?: { message?: string } })?.error?.message ??
+            'Ocurrió un error inesperado.',
+        });
+      },
+    });
+  }
+
+  protected descargarDocGenerado(formato: 'pdf' | 'docx'): void {
+    const detalle = this.detalle();
+    const doc = this.docCartaGenerada();
+    if (!detalle || !doc) {
+      return;
+    }
+    this.documentoService.obtenerBlob(detalle.id, doc.id, formato, formato === 'pdf').subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = `${detalle.codigo}_carta_vrin_v${doc.version}.${formato}`.toLowerCase();
+        enlace.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'Descarga fallida',
+          detail: 'No se pudo descargar el documento generado.',
+        });
+      },
+    });
+  }
+
+  protected numeroCartaFormateado(numero: number | string, anio: number | string): string {
+    return `${String(numero).padStart(3, '0')}-${anio}`;
+  }
+
+  private iso(fecha: Date | null): string | undefined {
+    if (!(fecha instanceof Date) || Number.isNaN(fecha.getTime())) {
+      return undefined;
+    }
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    return `${fecha.getFullYear()}-${mes}-${dia}`;
+  }
+
+  protected alValidado(): void {
+    this.drawerValidacion.set(false);
+    if (this.expedienteId) {
+      this.cargar(this.expedienteId);
+    }
+  }
+
+  protected confirmarSubsanacion(): void {
+    const detalle = this.detalle();
+    if (!detalle) {
+      return;
+    }
+    this.confirmacion.confirm({
+      header: 'Completar documentos',
+      message: `¿Confirmar que el expediente ${detalle.codigo} tiene la documentación completa? Pasará a «En revisión» para Calidad (RN-12).`,
+      icon: 'pi pi-question-circle',
+      acceptLabel: 'Completar documentos',
+      rejectLabel: 'Cancelar',
+      accept: () => this.subsanar(detalle.id, detalle.codigo),
+    });
+  }
+
+  private subsanar(id: number, codigo: string): void {
+    if (this.subsanando()) {
+      return;
+    }
+    this.subsanando.set(true);
+    this.expedienteService.marcarDocumentosCompletos(id).subscribe({
       next: () => {
-        this.completando.set(false);
+        this.subsanando.set(false);
         this.mensajes.add({
           severity: 'success',
           summary: 'Documentos completos',
-          detail: 'El expediente pasó a revisión de Calidad.',
+          detail: `${codigo} pasó a revisión de Calidad.`,
         });
-        this.recargar();
+        this.cargar(id);
       },
       error: (error) => {
-        this.completando.set(false);
+        this.subsanando.set(false);
         this.mensajes.add({
           severity: 'error',
-          summary: 'No se pudo subsanar',
+          summary: 'No se pudo completar',
           detail:
             (error as { error?: { message?: string } })?.error?.message ??
-            'No se pudo marcar los documentos como completos.',
+            'Ocurrió un error inesperado.',
         });
       },
     });
   }
 
-  private recargar(): void {
-    const e = this.detalle();
-    if (!e) {
-      return;
+  ngOnDestroy(): void {
+    this.detenerPolling();
+    if (this.blobUrlCarta) {
+      URL.revokeObjectURL(this.blobUrlCarta);
     }
-    this.expedienteService.obtener(e.id).subscribe({
-      next: (detalle) => this.detalle.set(detalle),
-    });
+    if (this.blobUrlDocGenerado) {
+      URL.revokeObjectURL(this.blobUrlDocGenerado);
+    }
   }
 
   protected descargarCarta(): void {
@@ -238,6 +772,270 @@ export class VistaExpediente implements OnInit, OnDestroy {
 
   protected condicionLaboral(tipo: string): string {
     return tipo === 'NOMBRADO' ? 'Nombrado' : tipo === 'CONTRATADO' ? 'Contratado' : tipo;
+  }
+
+  protected confirmarGenerarResolucion(): void {
+    if (this.resolucionForm.invalid || this.guardandoResolucion()) {
+      this.resolucionForm.markAllAsTouched();
+      return;
+    }
+    const valores = this.resolucionForm.getRawValue();
+    const numeroStr = String(valores.numero ?? 0).padStart(3, '0');
+    this.confirmacion.confirm({
+      header: 'Confirmar generación de Resolución',
+      message: `¿Estás seguro de emitir la Resolución N° ${numeroStr}-${valores.anio}?`,
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, generar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => this.generarResolucion(),
+    });
+  }
+
+  private generarResolucion(): void {
+    const detalle = this.detalle();
+    if (!detalle || this.guardandoResolucion()) {
+      return;
+    }
+    const valores = this.resolucionForm.getRawValue();
+    this.guardandoResolucion.set(true);
+    this.expedienteService
+      .generarResolucion(detalle.id, {
+        numero: valores.numero ?? 0,
+        anio: valores.anio ?? new Date().getFullYear(),
+        fecha_emision: this.iso(valores.fecha_emision) ?? '',
+      })
+      .subscribe({
+        next: () => {
+          this.guardandoResolucion.set(false);
+          const numeroFormateado = String(valores.numero ?? 0).padStart(3, '0');
+          this.mensajes.add({
+            severity: 'success',
+            summary: `Resolución ${numeroFormateado}-${valores.anio} generada`,
+            detail: 'El documento fue emitido correctamente.',
+          });
+          this.cargar(detalle.id);
+        },
+        error: (error) => {
+          this.guardandoResolucion.set(false);
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'No se pudo generar',
+            detail:
+              (error as { error?: { message?: string } })?.error?.message ??
+              'Ocurrió un error inesperado.',
+          });
+        },
+      });
+  }
+
+  protected descargarDocResolucion(formato: 'pdf' | 'docx' = 'pdf'): void {
+    const doc = this.docResolucionGenerada();
+    const detalle = this.detalle();
+    if (!doc || !detalle) return;
+
+    this.documentoService.obtenerBlob(detalle.id, doc.id, formato, formato === 'pdf').subscribe({
+      next: (blob: Blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        const resol = detalle.resolucion as unknown as { numero?: number; anio?: number } | undefined;
+        const nombreBase = `Resolucion_${resol?.numero ?? '000'}_${resol?.anio ?? '2026'}_v${doc.version}`;
+        a.download = `${nombreBase}.${formato}`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudo descargar el documento.',
+        });
+      },
+    });
+  }
+
+  protected anularDocumento(idDoc: number): void {
+    const detalle = this.detalle();
+    if (!detalle) return;
+    this.confirmacion.confirm({
+      header: 'Confirmar anulación',
+      message: '¿Estás seguro de anular este documento? Perderá validez legal (es_vigente = 0).',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, anular',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => {
+        this.expedienteService.anularDocumento(detalle.id, idDoc).subscribe({
+          next: () => {
+            this.mensajes.add({
+              severity: 'success',
+              summary: 'Documento anulado',
+              detail: 'Se ha registrado la anulación correctamente.',
+            });
+            this.cargar(detalle.id);
+          },
+          error: (error) => {
+            this.mensajes.add({
+              severity: 'error',
+              summary: 'No se pudo anular',
+              detail:
+                (error as { error?: { message?: string } })?.error?.message ??
+                'Ocurrió un error inesperado.',
+            });
+          },
+        });
+      },
+    });
+  }
+
+  protected abrirModalDesembolso(): void {
+    this.desembolsoForm.reset({ fecha_desembolso: new Date() });
+    this.modalDesembolso.set(true);
+  }
+
+  protected registrarDesembolso(): void {
+    if (this.desembolsoForm.invalid || this.guardandoDesembolso()) return;
+    const detalle = this.detalle();
+    if (!detalle) return;
+
+    const fecha = this.desembolsoForm.value.fecha_desembolso;
+    if (!fecha) return;
+
+    this.guardandoDesembolso.set(true);
+    this.expedienteService
+      .registrarDesembolso(detalle.id, { fecha_desembolso: this.iso(fecha) ?? '' })
+      .subscribe({
+        next: () => {
+          this.guardandoDesembolso.set(false);
+          this.modalDesembolso.set(false);
+          this.mensajes.add({ severity: 'success', summary: 'Éxito', detail: 'Fecha de desembolso registrada.' });
+          this.cargar(detalle.id);
+        },
+        error: (error) => {
+          this.guardandoDesembolso.set(false);
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: (error as { error?: { message?: string } })?.error?.message ?? 'Ocurrió un error inesperado.',
+          });
+        },
+      });
+  }
+
+  protected abrirModalDoi(): void {
+    this.doiForm.reset({ doi: this.detalle()?.articulo?.doi ?? '' });
+    this.modalDoi.set(true);
+  }
+
+  protected actualizarDoi(): void {
+    if (this.doiForm.invalid || this.guardandoDoi()) return;
+    const detalle = this.detalle();
+    if (!detalle) return;
+
+    const doi = this.doiForm.value.doi;
+    if (!doi) return;
+
+    this.guardandoDoi.set(true);
+    this.expedienteService
+      .actualizarDoi(detalle.id, { doi })
+      .subscribe({
+        next: () => {
+          this.guardandoDoi.set(false);
+          this.modalDoi.set(false);
+          this.mensajes.add({ severity: 'success', summary: 'Éxito', detail: 'DOI actualizado.' });
+          this.cargar(detalle.id);
+        },
+        error: (error) => {
+          this.guardandoDoi.set(false);
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'Error',
+            detail: (error as { error?: { message?: string } })?.error?.message ?? 'Ocurrió un error inesperado.',
+          });
+        },
+      });
+  }
+
+  protected seleccionarComprobante(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0] ?? null;
+    input.value = '';
+    const detalle = this.detalle();
+    if (!archivo || !detalle || this.adjuntandoComprobante()) {
+      return;
+    }
+    const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!['pdf'].includes(extension)) {
+      this.mensajes.add({ severity: 'error', summary: 'Archivo no permitido', detail: 'El comprobante debe ser PDF.' });
+      return;
+    }
+    if (archivo.size > 25 * 1024 * 1024) {
+      this.mensajes.add({ severity: 'error', summary: 'Archivo muy grande', detail: 'El comprobante no puede superar los 25 MB.' });
+      return;
+    }
+    this.adjuntandoComprobante.set(true);
+    this.expedienteService.subirArchivo(detalle.id, archivo, 'COMPROBANTE_RENDICION', 4).subscribe({
+      next: (guardado) => {
+        this.adjuntandoComprobante.set(false);
+        this.mensajes.add({ severity: 'success', summary: 'Comprobante adjuntado', detail: guardado.nombre_original });
+        this.cargar(detalle.id, true);
+      },
+      error: (error) => {
+        this.adjuntandoComprobante.set(false);
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'No se pudo adjuntar',
+          detail: (error as { error?: { message?: string } })?.error?.message ?? 'Ocurrió un error inesperado.',
+        });
+      },
+    });
+  }
+
+  protected cerrarRendicion(): void {
+    if (this.rendicionForm.invalid || this.cerrandoRendicion()) {
+      this.rendicionForm.markAllAsTouched();
+      return;
+    }
+    const detalle = this.detalle();
+    if (!detalle) return;
+
+    const fecha = this.rendicionForm.value.fecha_informe;
+    if (!fecha) return;
+
+    this.confirmacion.confirm({
+      header: 'Confirmar cierre de rendición',
+      message: '¿Estás seguro de cerrar esta rendición? No podrás agregar más comprobantes ni editar la fecha.',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, cerrar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-success',
+      rejectButtonStyleClass: 'p-button-text',
+      accept: () => {
+        this.cerrandoRendicion.set(true);
+        this.expedienteService
+          .cerrarRendicion(detalle.id, { fecha_informe: this.iso(fecha) ?? '' })
+          .subscribe({
+            next: () => {
+              this.cerrandoRendicion.set(false);
+              this.mensajes.add({ severity: 'success', summary: 'Rendición cerrada', detail: 'El trámite ha finalizado.' });
+              this.cargar(detalle.id);
+            },
+            error: (error) => {
+              this.cerrandoRendicion.set(false);
+              this.mensajes.add({
+                severity: 'error',
+                summary: 'No se pudo cerrar',
+                detail: (error as { error?: { message?: string } })?.error?.message ?? 'Ocurrió un error inesperado.',
+              });
+            },
+          });
+      },
+    });
   }
 
   protected iniciales(nombre: string | null | undefined): string {

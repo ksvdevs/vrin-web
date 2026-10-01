@@ -1,11 +1,11 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
 import { Button } from 'primeng/button';
 import { DatePicker } from 'primeng/datepicker';
 import { Dialog } from 'primeng/dialog';
-import { MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService } from 'primeng/api';
 import { Select } from 'primeng/select';
 import { TableModule, type TableLazyLoadEvent } from 'primeng/table';
 import { Toast } from 'primeng/toast';
@@ -16,20 +16,25 @@ import {
   type EstadoExpediente,
   type ExpedienteFila,
 } from '../../../core/models/expediente.model';
+import type { Plantilla } from '../../../core/models/plantilla.model';
 import { DevAuthService } from '../../../core/services/dev-auth.service';
 import {
   ExpedienteService,
   type FiltrosExpediente,
 } from '../../../core/services/expediente.service';
+import { PlantillaService, SeleccionService } from '../../../core/services/plantilla.service';
 import { BadgeEtapa } from '../../../shared/badge-etapa/badge-etapa';
+import { ConfirmDialog } from 'primeng/confirmdialog';
 
 @Component({
   selector: 'app-lista-expedientes',
   imports: [
     BadgeEtapa,
     Button,
+    ConfirmDialog,
     DatePicker,
     Dialog,
+    FormsModule,
     ReactiveFormsModule,
     RouterLink,
     Select,
@@ -44,6 +49,8 @@ export class ListaExpedientes implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly expedienteService = inject(ExpedienteService);
+  private readonly plantillaService = inject(PlantillaService);
+  private readonly seleccionService = inject(SeleccionService);
   private readonly mensajes = inject(MessageService);
 
   protected readonly filas = signal<ExpedienteFila[]>([]);
@@ -52,8 +59,18 @@ export class ListaExpedientes implements OnInit {
   protected readonly primeraFila = signal(0);
   protected readonly dialogoFiltros = signal(false);
 
+  // HU-41 — selección vigente de plantillas (solo administrador).
+  protected readonly plantillasCarta = signal<Plantilla[]>([]);
+  protected readonly plantillasResolucion = signal<Plantilla[]>([]);
+  protected readonly seleccionCartaId = signal<number | null>(null);
+  protected readonly seleccionResolucionId = signal<number | null>(null);
+
   protected readonly esSecretariaOAdmin = computed(() =>
     ['SECRETARIA', 'ADMINISTRADOR'].includes(this.auth.usuarioActual()?.rol ?? ''),
+  );
+
+  protected readonly esAdmin = computed(
+    () => this.auth.usuarioActual()?.rol === 'ADMINISTRADOR',
   );
 
   protected readonly opcionesEstado = ESTADOS_EXPEDIENTE.map((estado) => ({
@@ -71,6 +88,60 @@ export class ListaExpedientes implements OnInit {
 
   ngOnInit(): void {
     this.auth.cargarUsuarioActual().subscribe();
+    this.cargarSeleccionPlantillas();
+  }
+
+  // HU-41 — plantillas activas por tipo + selección vigente (solo admin).
+  private cargarSeleccionPlantillas(): void {
+    this.plantillaService.listar(1).subscribe({
+      next: (plantillas) => this.plantillasCarta.set(plantillas.filter((p) => p.estado === 'ACTIVO')),
+      error: () => {},
+    });
+    this.plantillaService.listar(2).subscribe({
+      next: (plantillas) =>
+        this.plantillasResolucion.set(plantillas.filter((p) => p.estado === 'ACTIVO')),
+      error: () => {},
+    });
+    this.seleccionService.listarVigentes().subscribe({
+      next: (selecciones) => {
+        for (const seleccion of selecciones) {
+          const id = seleccion.plantilla?.id ?? null;
+          if (seleccion.tipo_documento?.codigo === 'CARTA') {
+            this.seleccionCartaId.set(id);
+          }
+          if (seleccion.tipo_documento?.codigo === 'RESOLUCION') {
+            this.seleccionResolucionId.set(id);
+          }
+        }
+      },
+      error: () => {},
+    });
+  }
+
+  protected alCambiarPlantilla(tipoDocumentoId: number, plantillaId: number | null): void {
+    if (plantillaId === null) {
+      return;
+    }
+    this.seleccionService
+      .seleccionar({ modulo: 'ARTICULOS', tipo_documento_id: tipoDocumentoId, plantilla_id: plantillaId })
+      .subscribe({
+        next: () => {
+          this.mensajes.add({
+            severity: 'success',
+            summary: 'Plantilla seleccionada',
+            detail: 'La selección vigente se actualizó (RN-13).',
+          });
+        },
+        error: (error) => {
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'No se pudo seleccionar',
+            detail:
+              (error as { error?: { message?: string } })?.error?.message ??
+              'Ocurrió un error inesperado.',
+          });
+        },
+      });
   }
 
   protected alCargarLazy(event: TableLazyLoadEvent): void {
@@ -110,13 +181,45 @@ export class ListaExpedientes implements OnInit {
   }
 
   protected navegar(fila: ExpedienteFila): void {
-    // «Validar Requisitos» abre el drawer de validación directo en el detalle.
-    this.router.navigate(
-      ['/expedientes', fila.id],
-      fila.accion_principal.clave === 'validar'
-        ? { queryParams: { accion: 'validar' } }
-        : undefined,
-    );
+    this.router.navigate(['/expedientes', fila.id]);
+  }
+
+  protected editarFila(fila: ExpedienteFila): void {
+    this.router.navigate(['/expedientes', fila.id, 'editar']);
+  }
+
+  private readonly confirmacion = inject(ConfirmationService);
+
+  protected confirmarEliminar(fila: ExpedienteFila): void {
+    this.confirmacion.confirm({
+      message: `¿Estás seguro de eliminar lógicamente el expediente ${fila.codigo}? Esta acción no se puede deshacer.`,
+      header: 'Confirmar Eliminación',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, eliminar',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.cargando.set(true);
+        this.expedienteService.eliminar(fila.id).subscribe({
+          next: () => {
+            this.mensajes.add({
+              severity: 'success',
+              summary: 'Expediente eliminado',
+              detail: `El expediente ${fila.codigo} fue eliminado.`,
+            });
+            this.cargar(Math.floor(this.primeraFila() / 5) + 1);
+          },
+          error: (error) => {
+            this.cargando.set(false);
+            this.mensajes.add({
+              severity: 'error',
+              summary: 'Error al eliminar',
+              detail: (error as any)?.error?.message ?? 'No se pudo eliminar el expediente.',
+            });
+          },
+        });
+      },
+    });
   }
 
   protected severidadAccion(clave: string): 'success' | 'danger' | 'secondary' {

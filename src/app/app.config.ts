@@ -7,13 +7,13 @@ import { ConfirmationService, MessageService } from 'primeng/api';
 import { providePrimeNG } from 'primeng/config';
 
 import { routes } from './app.routes';
-import { devAuthInterceptor } from './core/interceptors/dev-auth.interceptor';
+import { authInterceptor } from './core/interceptors/auth.interceptor';
 
 export const appConfig: ApplicationConfig = {
   providers: [
     provideBrowserGlobalErrorListeners(),
     provideRouter(routes),
-    provideHttpClient(withInterceptors([devAuthInterceptor])),
+    provideHttpClient(withInterceptors([authInterceptor])),
     providePrimeNG({
       theme: {
         preset: Aura,

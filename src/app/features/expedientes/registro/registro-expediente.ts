@@ -1,6 +1,6 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl } from '@angular/forms';
-import { Router } from '@angular/router';
+import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { ConfirmationService, MessageService } from 'primeng/api';
@@ -72,7 +72,9 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   private readonly expedienteService = inject(ExpedienteService);
   private readonly mensajes = inject(MessageService);
   private readonly confirmacion = inject(ConfirmationService);
+  private readonly route = inject(ActivatedRoute);
 
+  protected readonly editandoId = signal<number | null>(null);
   protected readonly guardando = signal(false);
   protected readonly expedienteCreado = signal<Expediente | null>(null);
   protected readonly cartaSubida = signal<ArchivoExpediente | null>(null);
@@ -122,6 +124,13 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   ngOnInit(): void {
     this.auth.cargarUsuarioActual().subscribe();
 
+    const idStr = this.route.snapshot.paramMap.get('id');
+    if (idStr) {
+      const id = Number(idStr);
+      this.editandoId.set(id);
+      this.cargarParaEdicion(id);
+    }
+
     this.suscripcionBusqueda = this.busquedaDocente$
       .pipe(debounceTime(300), distinctUntilChanged())
       .subscribe((q) => {
@@ -164,8 +173,49 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     this.formulario.controls.docente.setValue(sugerencia);
   }
 
+  private cargarParaEdicion(id: number): void {
+    this.expedienteService.obtener(id).subscribe({
+      next: (detalle) => {
+        const docente = detalle.docente;
+        const sugerencia: SugerenciaDocente = { label: docente?.nombre_completo ?? '', valor: docente as any };
+        
+        let fechaCarta: Date | null = null;
+        if (detalle.carta_docente_fecha) {
+          const [anio, mes, dia] = detalle.carta_docente_fecha.split('-').map(Number);
+          fechaCarta = new Date(anio, mes - 1, dia);
+        }
+
+        this.formulario.patchValue({
+          carta_docente_numero: detalle.carta_docente_numero,
+          carta_docente_fecha: fechaCarta,
+          docente: sugerencia,
+          revista: detalle.articulo?.revista,
+          base_indexadora: detalle.articulo?.base_indexadora as BaseIndexadora,
+          cuartil: detalle.articulo?.cuartil as Cuartil,
+          titulo: detalle.articulo?.titulo,
+          monto_solicitado: detalle.articulo?.monto_solicitado,
+          doi: detalle.articulo?.doi,
+          documentos_completos: detalle.documentos_completos,
+        });
+
+        const cartaDocente = detalle.archivos?.find((a: any) => a.tipo === 'CARTA_DOCENTE');
+        if (cartaDocente) {
+          this.cartaSubida.set({
+            ...cartaDocente,
+            sha256: cartaDocente.sha256 ?? undefined,
+            mime: cartaDocente.mime ?? undefined
+          });
+        }
+      },
+      error: () => {
+        this.mensajes.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el expediente para edición.' });
+        this.router.navigate(['/expedientes']);
+      }
+    });
+  }
+
   protected cancelar(): void {
-    this.router.navigate(['/']);
+    this.router.navigate(['/expedientes']);
   }
 
   protected guardar(): void {
@@ -318,20 +368,40 @@ export class RegistroExpediente implements OnInit, OnDestroy {
 
   private enviar(payload: ExpedientePayload): void {
     this.guardando.set(true);
-    this.expedienteService.registrar(payload).subscribe({
-      next: (respuesta) => {
-        this.guardando.set(false);
-        if (esRespuestaDuplicidad(respuesta)) {
-          this.confirmarDuplicado(respuesta, payload);
-        } else {
-          this.alRegistrar(respuesta);
-        }
-      },
-      error: (error) => {
-        this.guardando.set(false);
-        this.procesarErrorRegistro(error);
-      },
-    });
+    const id = this.editandoId();
+    
+    if (id) {
+      this.expedienteService.actualizar(id, payload).subscribe({
+        next: (respuesta) => {
+          this.guardando.set(false);
+          this.mensajes.add({
+            severity: 'success',
+            summary: 'Expediente actualizado',
+            detail: `Expediente actualizado con éxito.`,
+          });
+          this.router.navigate(['/expedientes']);
+        },
+        error: (error) => {
+          this.guardando.set(false);
+          this.procesarErrorRegistro(error);
+        },
+      });
+    } else {
+      this.expedienteService.registrar(payload).subscribe({
+        next: (respuesta) => {
+          this.guardando.set(false);
+          if (esRespuestaDuplicidad(respuesta)) {
+            this.confirmarDuplicado(respuesta, payload);
+          } else {
+            this.alRegistrar(respuesta);
+          }
+        },
+        error: (error) => {
+          this.guardando.set(false);
+          this.procesarErrorRegistro(error);
+        },
+      });
+    }
   }
 
   private confirmarDuplicado(respuesta: RespuestaDuplicidad, payload: ExpedientePayload): void {

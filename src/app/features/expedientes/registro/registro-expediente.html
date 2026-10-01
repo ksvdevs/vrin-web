@@ -10,8 +10,8 @@
   <section class="panel" aria-label="Registro de expediente">
     <header class="cabecera">
       <div class="titulo">
-        <h1>Registrar Expediente de Artículo Financiado</h1>
-        <p class="subtitulo">Etapa 1: registro del expediente y la carta del docente</p>
+        <h1>{{ editandoId() ? 'Editar' : 'Registrar' }} Expediente de Artículo Financiado</h1>
+        <p class="subtitulo">{{ editandoId() ? 'Modificando datos de la' : '' }} Etapa 1: registro del expediente y la carta del docente</p>
       </div>
       <p-button
         icon="pi pi-times"

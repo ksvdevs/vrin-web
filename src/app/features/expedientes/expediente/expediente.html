@@ -1,5 +1,12 @@
 <main class="detalle-page">
   <p-toast />
+  <p-confirmdialog />
+
+  <app-validacion-expediente
+    [(visible)]="drawerValidacion"
+    [expediente]="detalle()"
+    (guardado)="alValidado()"
+  />
 
   @if (detalle(); as e) {
     <header class="barra">
@@ -20,34 +27,36 @@
           <p class="subtitulo">Registrado el {{ e.fecha_registro }}</p>
         </div>
       </div>
-      <div class="barra-acciones">
-        @if (puedeCompletarDocumentos()) {
+      <div class="cabecera-acciones">
+        <app-badge-etapa [estado]="e.estado" [etapa]="e.etapa_actual" />
+        @if (puedeSubsanar()) {
           <p-button
-            label="Completar Documentos"
-            icon="pi pi-check-circle"
-            severity="success"
-            [loading]="completando()"
-            (onClick)="completarDocumentos()"
+            label="Marcar documentos completos"
+            icon="pi pi-clipboard-check"
+            severity="secondary"
+            [outlined]="true"
+            (onClick)="confirmarSubsanacion()"
           />
         }
         @if (puedeValidar()) {
           <p-button
             label="Validar Requisitos"
             icon="pi pi-check-square"
-            (onClick)="abrirValidacion()"
+            severity="success"
+            (onClick)="drawerValidacion.set(true)"
           />
         }
-        <app-badge-etapa [estado]="e.estado" [etapa]="e.etapa_actual" />
       </div>
     </header>
 
-    <p-steps [model]="pasos" [activeIndex]="indiceActivo()" [readonly]="true" />
+    <p-steps [model]="pasos" [activeIndex]="indiceActivoVisible()" (activeIndexChange)="cambiarPaso($event)" [readonly]="false" />
 
     <div class="contenido">
       <div class="columna-izquierda">
-        <section class="tarjeta">
-          <h2 class="tarjeta-titulo"><i class="pi pi-file"></i> Documento</h2>
-          <div class="fila-datos">
+        @if (indiceActivoVisible() === 0) {
+          <section class="tarjeta">
+            <h2 class="tarjeta-titulo"><i class="pi pi-file"></i> Documento</h2>
+            <div class="fila-datos">
             <div class="dato">
               <span class="etiqueta">Número de Carta Docente *</span>
               <strong>{{ e.carta_docente_numero }}</strong>
@@ -136,8 +145,12 @@
         <section class="tarjeta">
           <h2 class="tarjeta-titulo">
             <i class="pi pi-check-square"></i> Validación Técnica de Requisitos
-            @if (mostrarContadorChecklist() && e.validacion_calidad) {
-              <span class="contador-checklist">{{ verificados() }}/3 Verificados</span>
+            @if (e.validacion_calidad) {
+              <p-tag
+                class="contador"
+                [value]="verificados() + '/3 Verificados'"
+                [severity]="verificados() === 3 ? 'success' : 'secondary'"
+              />
             }
           </h2>
           @if (e.validacion_calidad; as v) {
@@ -145,7 +158,7 @@
               <div class="dato">
                 <span class="etiqueta">Resultado</span>
                 <p-tag
-                  [value]="v.resultado === 'CUMPLE' ? 'Cumple' : 'No cumple'"
+                  [value]="v.resultado === 'CUMPLE' ? 'Validado' : 'No cumple'"
                   [severity]="v.resultado === 'CUMPLE' ? 'success' : 'danger'"
                 />
               </div>
@@ -162,8 +175,13 @@
               <ul class="checklist">
                 @for (item of checklistItems(v.checklist); track item.etiqueta) {
                   <li>
-                    <i [class]="item.cumple ? 'pi pi-check-circle cumple' : 'pi pi-times-circle no-cumple'"></i>
-                    {{ item.etiqueta }}
+                    <span class="requisito-linea">
+                      {{ item.etiqueta }}
+                      <p-tag
+                        [value]="item.cumple ? 'CUMPLE' : 'NO CUMPLE'"
+                        [severity]="item.cumple ? 'success' : 'danger'"
+                      />
+                    </span>
                   </li>
                 }
               </ul>
@@ -175,34 +193,372 @@
             <p class="pendiente">Pendiente de validación por Calidad.</p>
           }
         </section>
+        }
 
-        <section class="tarjeta">
-          <h2 class="tarjeta-titulo"><i class="pi pi-send"></i> Carta VRIN / OPP</h2>
+        @if (indiceActivoVisible() === 1) {
+          <section class="tarjeta mb-3">
+            <h2 class="tarjeta-titulo"><i class="pi pi-file"></i> Documento</h2>
+            <div class="fila">
+              <div class="campo">
+                <label>Número de Carta Docente <span class="text-red-500">*</span></label>
+                <input pInputText [value]="e.carta_docente_numero" readonly class="w-full" />
+              </div>
+              <div class="campo">
+                <label>Fecha de Carta Docente <span class="text-red-500">*</span></label>
+                <input pInputText [value]="e.carta_docente_fecha" readonly class="w-full" />
+              </div>
+            </div>
+            
+              <div class="mt-3 p-3 border-round flex align-items-center justify-content-between surface-100">
+              <div class="flex align-items-center gap-2">
+                <i class="pi pi-file-pdf text-blue-500 text-xl"></i>
+                <span class="font-medium">Carta Docente.pdf</span>
+              </div>
+              <p-button icon="pi pi-eye" [text]="true" [rounded]="true" (onClick)="cambiarPaso(0)"></p-button>
+            </div>
+          </section>
+
+          <section class="tarjeta mb-3">
+            <h2 class="tarjeta-titulo"><i class="pi pi-user"></i> Investigador Solicitante</h2>
+            
+            <div class="mb-3 p-3 surface-50 border-round">
+              <div class="font-bold text-lg mb-1">{{ e.docente?.nombre_completo }}</div>
+              <div class="text-500 text-sm mb-3">DNI: {{ e.docente?.dni }}</div>
+              
+              <div class="grid grid-nogutter">
+                <div class="col-12 md:col-6 mb-2">
+                  <span class="font-medium mr-1">Facultad:</span> {{ e.docente?.facultad?.nombre }}
+                </div>
+                <div class="col-12 md:col-6 mb-2">
+                  <span class="font-medium mr-1">Condición Laboral:</span> {{ e.docente?.tipo_contrato }}
+                </div>
+                <div class="col-12 md:col-6">
+                  <span class="font-medium mr-1">Escuela Profesional:</span> {{ e.docente?.escuela?.nombre }}
+                </div>
+              </div>
+            </div>
+
+            <h3 class="text-base font-bold text-primary mb-2 mt-4"><i class="pi pi-book mr-2"></i> Artículo Indexado Elegible</h3>
+            
+            <div class="p-3 surface-50 border-round">
+              <div class="text-xs text-500 mb-1 font-bold">TÍTULO DEL MANUSCRITO APROBADO</div>
+              <div class="font-medium mb-4">{{ e.articulo?.titulo }}</div>
+              
+              <div class="grid grid-nogutter mb-3">
+                <div class="col-12 md:col-4 mb-3 md:mb-0">
+                  <div class="text-xs text-500 mb-1">Revista Científica</div>
+                  <div class="font-medium">{{ e.articulo?.revista }}</div>
+                </div>
+                <div class="col-12 md:col-4 mb-3 md:mb-0">
+                  <div class="text-xs text-500 mb-1">Indexación / Base de Datos</div>
+                  <div class="font-medium">{{ e.articulo?.base_indexadora }}</div>
+                </div>
+                <div class="col-12 md:col-4 p-2 bg-green-50 border-round">
+                  <div class="text-xs text-green-700 mb-1">Monto Solicitado</div>
+                  <div class="font-bold text-green-700">{{ formatoSoles(e.articulo?.monto_solicitado) }}</div>
+                </div>
+              </div>
+              
+              <div class="mb-3">
+                <div class="text-xs text-500 mb-1"><i class="pi pi-link mr-1"></i> DOI (Identificador Digital de Objeto):</div>
+                <div class="font-medium">{{ e.articulo?.doi || '—' }}</div>
+              </div>
+              
+              <div>
+                <p-tag [value]="'Cuartil: ' + e.articulo?.cuartil" severity="secondary"></p-tag>
+              </div>
+            </div>
+          </section>
+
+          <section class="tarjeta">
+            <div class="flex justify-content-between align-items-center mb-3">
+              <h2 class="tarjeta-titulo mb-0"><i class="pi pi-folder"></i> Datos Legales del Expediente</h2>
+              <span class="text-xs text-500">Edición autorizada</span>
+            </div>
+
+            @if (puedeGenerarCarta()) {
+              <form [formGroup]="cartaForm" (ngSubmit)="confirmarGenerarCarta()">
+                <div class="fila mb-3">
+                  <div class="campo">
+                    <label for="numero_completo">NUMERO DE CARTA VRIN <span class="text-red-500">*</span></label>
+                    <input pInputText id="numero_completo" formControlName="numero_completo" class="w-full text-uppercase font-medium" />
+                    @if (cartaForm.controls.numero_completo.touched && cartaForm.controls.numero_completo.invalid) {
+                      <small class="error">Obligatorio.</small>
+                    }
+                  </div>
+                  <div class="campo">
+                    <label for="fecha_carta">FECHA DE CARTA VRIN <span class="text-red-500">*</span></label>
+                    <p-datepicker
+                      inputId="fecha_carta"
+                      formControlName="fecha"
+                      dateFormat="dd/mm/yy"
+                      [showIcon]="true"
+                      [showOnFocus]="false"
+                      appendTo="body"
+                      styleClass="w-full"
+                    />
+                    @if (cartaForm.controls.fecha.touched && cartaForm.controls.fecha.invalid) {
+                      <small class="error">Obligatorio.</small>
+                    }
+                  </div>
+                </div>
+
+                <div class="campo mb-3">
+                  <label for="asunto_carta">Asunto <span class="text-red-500">*</span></label>
+                  <input pInputText id="asunto_carta" formControlName="asunto" class="w-full" />
+                </div>
+
+                <div class="fila mb-3">
+                  <div class="campo">
+                    <label for="registro_mp">REGISTRO DE CARTA DOCENTE <span class="text-red-500">*</span></label>
+                    <input pInputText id="registro_mp" formControlName="registro_mp_numero" class="w-full" />
+                  </div>
+                  <div class="campo">
+                    <label for="fecha_acept">FECHA DE ACEPTACION <span class="text-red-500">*</span></label>
+                    <p-datepicker
+                      inputId="fecha_acept"
+                      formControlName="fecha_aceptacion"
+                      dateFormat="dd/mm/yy"
+                      [showIcon]="true"
+                      [showOnFocus]="false"
+                      appendTo="body"
+                      styleClass="w-full"
+                    />
+                  </div>
+                </div>
+
+                <div class="flex justify-content-end gap-2 mt-4">
+                  <p-button label="Descartar" severity="secondary" styleClass="w-8rem p-button-outlined bg-gray-800 text-white border-none hover:bg-gray-700"></p-button>
+                  <p-button label="Guardar Cambios" severity="success" type="submit" [disabled]="cartaForm.invalid" [loading]="guardandoCarta()" styleClass="w-12rem bg-teal-500 border-none hover:bg-teal-600"></p-button>
+                </div>
+              </form>
+            }
+
           @if (e.carta_vrin; as cv) {
             <div class="fila-datos">
               <div class="dato">
-                <span class="etiqueta">Número de Carta</span>
-                <strong>{{ cv.numero }}</strong>
+                <span class="etiqueta">Número de Carta VRIN</span>
+                <strong>{{ numeroCartaFormateado(cv.numero, cv.anio) }}</strong>
               </div>
               <div class="dato">
-                <span class="etiqueta">Año</span>
-                <strong>{{ cv.anio }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Fecha</span>
+                <span class="etiqueta">Fecha de emisión</span>
                 <strong>{{ formatoFecha(cv.fecha) }}</strong>
               </div>
+              <div class="dato">
+                <span class="etiqueta">Ciudad</span>
+                <strong>{{ cv.ciudad ?? '—' }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Registro de mesa de partes</span>
+                <strong>{{ e.registro_mp_numero ?? '—' }}</strong>
+              </div>
             </div>
-          } @else {
+
+            @if (docCartaGenerada(); as doc) {
+              @if (urlDocGenerado(); as url) {
+                <div class="acciones-archivo">
+                  <p-button
+                    label="Descargar PDF"
+                    icon="pi pi-download"
+                    size="small"
+                    severity="secondary"
+                    [outlined]="true"
+                    (onClick)="descargarDocGenerado('pdf')"
+                  />
+                  <p-button
+                    label="Descargar Word"
+                    icon="pi pi-file-word"
+                    size="small"
+                    severity="secondary"
+                    [outlined]="true"
+                    (onClick)="descargarDocGenerado('docx')"
+                  />
+                  <p-button
+                    label="Anular"
+                    icon="pi pi-times"
+                    size="small"
+                    severity="danger"
+                    [outlined]="true"
+                    (onClick)="anularDocumento(doc.id)"
+                  />
+                </div>
+              } @else {
+                <p class="pendiente">
+                  <i class="pi pi-spin pi-spinner"></i> Convirtiendo a PDF…
+                </p>
+              }
+            }
+          } @else if (!puedeGenerarCarta()) {
             <p class="pendiente">Pendiente.</p>
           }
-          @if (e.respuesta_opp; as opp) {
+
+          @if (puedeRegistrarOpp()) {
+            <form [formGroup]="oppForm" class="form-etapa" (ngSubmit)="guardarRespuestaOpp()">
+              <h3 class="subtitulo-seccion">Registrar Respuesta OPP</h3>
+              <div class="campo">
+                <label for="disponibilidad">Disponibilidad presupuestal *</label>
+                <p-select
+                  inputId="disponibilidad"
+                  formControlName="disponibilidad"
+                  [options]="opcionesDisponibilidad"
+                  optionLabel="label"
+                  optionValue="value"
+                  appendTo="body"
+                  styleClass="select-ancho"
+                />
+              </div>
+              @if (oppForm.controls.disponibilidad.value === 'SI') {
+                <div class="fila">
+                  <div class="campo">
+                    <label for="monto_aprobado">Monto aprobado (S/) *</label>
+                    <p-inputnumber
+                      inputId="monto_aprobado"
+                      formControlName="monto_aprobado"
+                      mode="currency"
+                      currency="PEN"
+                      locale="es-PE"
+                      [min]="0.01"
+                      [minFractionDigits]="2"
+                      [maxFractionDigits]="2"
+                      styleClass="numero-ancho"
+                    />
+                  </div>
+                  <div class="campo">
+                    <label for="meta">Meta presupuestal *</label>
+                    <input
+                      pInputText
+                      id="meta"
+                      formControlName="meta_presupuestal"
+                      maxlength="3"
+                      placeholder="3 dígitos, p. ej. 017"
+                    />
+                    <small class="ayuda">Formato: 3 dígitos.</small>
+                  </div>
+                </div>
+                <div class="fila">
+                  <div class="campo">
+                    <label for="especifica">Específica de gasto *</label>
+                    <input
+                      pInputText
+                      id="especifica"
+                      formControlName="especifica_gasto"
+                      maxlength="30"
+                      placeholder="p. ej. 2.3.27.11 99"
+                    />
+                  </div>
+                  <div class="campo">
+                    <label for="fuente">Fuente de financiamiento *</label>
+                    <input
+                      pInputText
+                      id="fuente"
+                      formControlName="fuente_financiamiento"
+                      maxlength="100"
+                    />
+                  </div>
+                </div>
+              }
+              <div class="fila">
+                <div class="campo">
+                  <label for="carta_opp_numero">Número de carta OPP *</label>
+                  <input
+                    pInputText
+                    id="carta_opp_numero"
+                    formControlName="carta_numero"
+                    maxlength="80"
+                  />
+                  @if (oppForm.controls.carta_numero.touched && oppForm.controls.carta_numero.invalid) {
+                    <small class="error">Obligatorio.</small>
+                  }
+                </div>
+                <div class="campo">
+                  <label for="carta_opp_fecha">Fecha de carta OPP *</label>
+                  <p-datepicker
+                    inputId="carta_opp_fecha"
+                    formControlName="carta_fecha"
+                    dateFormat="dd/mm/yy"
+                    [showIcon]="true"
+                    [showOnFocus]="false"
+                    appendTo="body"
+                    styleClass="select-ancho"
+                  />
+                </div>
+              </div>
+              <div class="fila">
+                <div class="campo">
+                  <label for="reg_vrin_numero">Número de registro VRIN *</label>
+                  <input
+                    pInputText
+                    id="reg_vrin_numero"
+                    formControlName="registro_vrin_numero"
+                    maxlength="30"
+                  />
+                  @if (
+                    oppForm.controls.registro_vrin_numero.touched &&
+                    oppForm.controls.registro_vrin_numero.invalid
+                  ) {
+                    <small class="error">Obligatorio.</small>
+                  }
+                </div>
+                <div class="campo">
+                  <label for="reg_vrin_fecha">Fecha de registro VRIN *</label>
+                  <p-datepicker
+                    inputId="reg_vrin_fecha"
+                    formControlName="registro_vrin_fecha"
+                    dateFormat="dd/mm/yy"
+                    [showIcon]="true"
+                    [showOnFocus]="false"
+                    appendTo="body"
+                    styleClass="select-ancho"
+                  />
+                </div>
+              </div>
+
+              <div class="campo">
+                <label>Escaneo de la carta OPP (PDF/JPG/PNG, máx. 25 MB)</label>
+                <div class="selector-archivo-mini">
+                  <label class="boton-archivo-mini">
+                    Adjuntar escaneo OPP
+                    <input
+                      type="file"
+                      class="input-archivo"
+                      accept=".pdf,.jpg,.jpeg,.png"
+                      (change)="seleccionarEscaneoOpp($event)"
+                    />
+                  </label>
+                  @if (adjuntandoOpp()) {
+                    <i class="pi pi-spin pi-spinner"></i>
+                  }
+                </div>
+                @if (adjuntosOpp().length > 0) {
+                  <ul class="lista-adjuntos">
+                    @for (adj of adjuntosOpp(); track adj.id) {
+                      <li>
+                        <i class="pi pi-paperclip"></i>
+                        <span>{{ adj.nombre_original }}</span>
+                        <small>{{ formatoFecha(adj.created_at?.slice(0, 10)) }}</small>
+                      </li>
+                    }
+                  </ul>
+                }
+              </div>
+
+              <div class="acciones-form">
+                <p-button
+                  label="Guardar Respuesta"
+                  icon="pi pi-check"
+                  severity="success"
+                  [loading]="guardandoOpp()"
+                  (onClick)="guardarRespuestaOpp()"
+                />
+              </div>
+            </form>
+          } @else if (e.respuesta_opp; as opp) {
             <div class="fila-datos">
               <div class="dato">
                 <span class="etiqueta">Disponibilidad presupuestal</span>
                 <p-tag
-                  [value]="opp.disponibilidad ? 'Confirmada' : 'Sin disponibilidad'"
-                  [severity]="opp.disponibilidad ? 'success' : 'danger'"
+                  [value]="opp.disponibilidad === 'SI' ? 'Confirmada' : 'Sin disponibilidad'"
+                  [severity]="opp.disponibilidad === 'SI' ? 'success' : 'danger'"
                 />
               </div>
               <div class="dato">
@@ -220,10 +576,51 @@
             </div>
           }
         </section>
+        }
 
+        @if (indiceActivoVisible() === 2) {
         <section class="tarjeta">
           <h2 class="tarjeta-titulo"><i class="pi pi-file-edit"></i> Resolución</h2>
-          @if (e.resolucion; as r) {
+          @if (puedeGenerarResolucion()) {
+            <form [formGroup]="resolucionForm" class="formulario">
+              <div class="fila">
+                <div class="campo">
+                  <label for="res_numero">Número (Sugerido) *</label>
+                  <input pInputText id="res_numero" type="number" formControlName="numero" />
+                  @if (
+                    resolucionForm.controls.numero.touched &&
+                    resolucionForm.controls.numero.invalid
+                  ) {
+                    <small class="error">Obligatorio y > 0.</small>
+                  }
+                </div>
+                <div class="campo">
+                  <label for="res_anio">Año *</label>
+                  <input pInputText id="res_anio" type="number" formControlName="anio" />
+                </div>
+                <div class="campo">
+                  <label for="res_fecha">Fecha de Emisión *</label>
+                  <p-datepicker
+                    inputId="res_fecha"
+                    formControlName="fecha_emision"
+                    dateFormat="dd/mm/yy"
+                    [showIcon]="true"
+                    [showOnFocus]="false"
+                    appendTo="body"
+                    styleClass="select-ancho"
+                  />
+                </div>
+              </div>
+              <div class="acciones-form">
+                <p-button
+                  label="Generar Resolución Final"
+                  icon="pi pi-cog"
+                  [loading]="guardandoResolucion()"
+                  (onClick)="confirmarGenerarResolucion()"
+                />
+              </div>
+            </form>
+          } @else if (e.resolucion; as r) {
             <div class="fila-datos">
               <div class="dato">
                 <span class="etiqueta">Número de Resolución</span>
@@ -238,14 +635,88 @@
                 <strong>{{ formatoFecha(r.fecha_emision) }}</strong>
               </div>
             </div>
+
+            @if (docResolucionGenerada(); as doc) {
+              @if (urlDocResolucion(); as url) {
+                <div class="acciones-archivo">
+                  <p-button
+                    label="Descargar PDF"
+                    icon="pi pi-download"
+                    size="small"
+                    severity="secondary"
+                    [outlined]="true"
+                    (onClick)="descargarDocResolucion('pdf')"
+                  />
+                  <p-button
+                    label="Descargar Word"
+                    icon="pi pi-file-word"
+                    size="small"
+                    severity="secondary"
+                    [outlined]="true"
+                    (onClick)="descargarDocResolucion('docx')"
+                  />
+                  <p-button
+                    label="Anular"
+                    icon="pi pi-times"
+                    size="small"
+                    severity="danger"
+                    [outlined]="true"
+                    (onClick)="anularDocumento(doc.id)"
+                  />
+                </div>
+              } @else {
+                <p class="pendiente">
+                  <i class="pi pi-spin pi-spinner"></i> Convirtiendo a PDF…
+                </p>
+              }
+            }
           } @else {
             <p class="pendiente">Pendiente.</p>
           }
+          
+          @if (e.etapa_actual >= 3) {
+            <div class="campo mt-4">
+              <label>Anexos y documentos probatorios (Opcional, máx. 50 MB)</label>
+              <div class="selector-archivo-mini">
+                <label class="boton-archivo-mini">
+                  Adjuntar Anexo
+                  <input
+                    type="file"
+                    class="input-archivo"
+                    accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
+                    (change)="seleccionarAnexo($event)"
+                  />
+                </label>
+                @if (adjuntandoAnexo()) {
+                  <i class="pi pi-spin pi-spinner"></i>
+                }
+              </div>
+              @if (adjuntosAnexo().length > 0) {
+                <ul class="lista-adjuntos">
+                  @for (adj of adjuntosAnexo(); track adj.id) {
+                    <li>
+                      <i class="pi pi-paperclip"></i>
+                      <span>{{ adj.nombre_original }}</span>
+                      <small>{{ formatoFecha(adj.created_at?.slice(0, 10)) }}</small>
+                    </li>
+                  }
+                </ul>
+              }
+            </div>
+          }
         </section>
+        }
 
+        @if (indiceActivoVisible() === 3) {
         <section class="tarjeta">
           <h2 class="tarjeta-titulo"><i class="pi pi-wallet"></i> Rendición</h2>
-          @if (e.rendicion; as ren) {
+          @if (e.estado === 'RESOLUCION_EMITIDA') {
+            <p-button
+              label="Registrar fecha de desembolso"
+              icon="pi pi-calendar"
+              (onClick)="abrirModalDesembolso()"
+            />
+          } @else if (e.rendicion; as ren) {
             <div class="fila-datos">
               <div class="dato">
                 <span class="etiqueta">Fecha de desembolso</span>
@@ -264,10 +735,105 @@
                 <strong>{{ ren.estado ?? '—' }}</strong>
               </div>
             </div>
+
+            @if (ren.estado !== 'PRESENTADA') {
+              <div class="mt-4 p-4 border-round" [ngClass]="ren.dias_habiles_restantes < 0 ? 'bg-red-50 text-red-900 border-1 border-red-200' : 'bg-blue-50 text-blue-900 border-1 border-blue-200'">
+                <strong>Plazo reglamentario vigente:</strong> 
+                @if (ren.dias_habiles_restantes < 0) {
+                  Vencido hace {{ -ren.dias_habiles_restantes }} días hábiles.
+                } @else {
+                  {{ ren.dias_habiles_restantes }} días hábiles restantes.
+                }
+                <br>
+                <small>(Recuerde adjuntar los comprobantes de depósito bancario según el Art. 52)</small>
+              </div>
+            }
+
+            <div class="mt-4">
+              <p-button
+                label="Registrar DOI (Opcional)"
+                icon="pi pi-link"
+                severity="secondary"
+                [outlined]="true"
+                size="small"
+                (onClick)="abrirModalDoi()"
+              />
+              @if (e.articulo?.doi) {
+                <span class="ml-2 text-sm">
+                  DOI: <a [href]="e.articulo!.doi" target="_blank">{{ e.articulo!.doi }}</a>
+                </span>
+              }
+            </div>
+
+            @if (e.etapa_actual === 4 && ren.estado !== 'PRESENTADA') {
+              <div class="campo mt-4">
+                <label>Comprobantes de rendición (PDF, máx. 25 MB) *</label>
+                <div class="selector-archivo-mini">
+                  <label class="boton-archivo-mini">
+                    Adjuntar Comprobante
+                    <input
+                      type="file"
+                      class="input-archivo"
+                      accept=".pdf"
+                      (change)="seleccionarComprobante($event)"
+                    />
+                  </label>
+                  @if (adjuntandoComprobante()) {
+                    <i class="pi pi-spin pi-spinner"></i>
+                  }
+                </div>
+              </div>
+            }
+
+            @if (comprobantes().length > 0) {
+              <ul class="lista-adjuntos mt-2">
+                @for (adj of comprobantes(); track adj.id) {
+                  <li>
+                    <i class="pi pi-file-pdf text-red-500"></i>
+                    <span>{{ adj.nombre_original }}</span>
+                    <small>{{ formatoFecha(adj.created_at?.slice(0, 10)) }}</small>
+                  </li>
+                }
+              </ul>
+            }
+
+            @if (e.etapa_actual === 4 && ren.estado !== 'PRESENTADA') {
+              <form [formGroup]="rendicionForm" class="mt-4 p-4 surface-100 border-round">
+                <div class="campo">
+                  <label for="fecha_informe">Fecha de informe (según mesa de partes) *</label>
+                  <p-datepicker
+                    inputId="fecha_informe"
+                    formControlName="fecha_informe"
+                    dateFormat="dd/mm/yy"
+                    [showIcon]="true"
+                    [showOnFocus]="false"
+                    appendTo="body"
+                    styleClass="select-ancho"
+                  />
+                </div>
+                <div class="mt-3 flex gap-2">
+                  <p-button
+                    label="Guardar Borrador"
+                    icon="pi pi-save"
+                    severity="secondary"
+                    [outlined]="true"
+                    (onClick)="mensajes.add({severity:'info', summary:'Borrador', detail:'El expediente se mantiene en Por Rendir.'})"
+                  />
+                  <p-button
+                    label="Confirmar y Cerrar Rendición"
+                    icon="pi pi-check-circle"
+                    severity="success"
+                    [loading]="cerrandoRendicion()"
+                    (onClick)="cerrarRendicion()"
+                  />
+                </div>
+              </form>
+            }
           } @else {
             <p class="pendiente">Pendiente.</p>
           }
         </section>
+        }
 
         @if (observacionesPendientes().length > 0) {
           <section class="tarjeta tarjeta-observaciones">
@@ -288,35 +854,86 @@
       </div>
 
       <div class="columna-derecha">
-        @if (urlCarta(); as url) {
-          <div class="visor">
-            <div class="visor-barra">
-              <span class="visor-titulo"><i class="pi pi-eye"></i> Vista Oficial Previa</span>
-              <span class="visor-nombre">{{ carta()?.nombre_original }}</span>
-              <p-button
-                label="Descargar PDF"
-                icon="pi pi-download"
-                size="small"
-                severity="secondary"
-                [outlined]="true"
-                (onClick)="descargarCarta()"
-              />
+        @if (indiceActivoVisible() === 0) {
+          @if (urlCarta(); as url) {
+            <div class="visor">
+              <div class="visor-barra">
+                <span class="visor-titulo"><i class="pi pi-eye"></i> Carta Docente</span>
+                <span class="visor-nombre">{{ carta()?.nombre_original }}</span>
+                <p-button
+                  label="Descargar PDF"
+                  icon="pi pi-download"
+                  size="small"
+                  severity="secondary"
+                  [outlined]="true"
+                  (onClick)="descargarCarta()"
+                />
+              </div>
+              <iframe class="visor-iframe" [src]="url" title="Vista previa de la carta"></iframe>
             </div>
-            <iframe class="visor-iframe" [src]="url" title="Vista previa de la carta"></iframe>
-          </div>
-        } @else {
+          } @else {
+            <div class="visor visor-vacio">
+              <i class="pi pi-file-pdf visor-icono"></i>
+              <p>Sin carta adjunta</p>
+            </div>
+          }
+        }
+
+        @if (indiceActivoVisible() === 1) {
+          @if (urlDocGenerado(); as url) {
+            <div class="visor">
+              <div class="visor-barra">
+                <span class="visor-titulo"><i class="pi pi-eye"></i> Carta VRIN Generada</span>
+                <span class="visor-nombre">Carta N° {{ e.carta_vrin?.numero }}</span>
+                <p-button
+                  label="Descargar PDF"
+                  icon="pi pi-download"
+                  size="small"
+                  severity="secondary"
+                  [outlined]="true"
+                  (onClick)="descargarDocGenerado('pdf')"
+                />
+              </div>
+              <iframe class="visor-iframe" [src]="url" title="Vista previa de la carta generada"></iframe>
+            </div>
+          } @else {
+            <div class="visor visor-vacio">
+              <i class="pi pi-file-pdf visor-icono"></i>
+              <p>La carta VRIN aún no ha sido generada</p>
+            </div>
+          }
+        }
+
+        @if (indiceActivoVisible() === 2) {
+          @if (urlDocResolucion(); as url) {
+            <div class="visor">
+              <div class="visor-barra">
+                <span class="visor-titulo"><i class="pi pi-eye"></i> Resolución Generada</span>
+                <span class="visor-nombre">Resolución N° {{ e.resolucion?.numero }}</span>
+                <p-button
+                  label="Descargar PDF"
+                  icon="pi pi-download"
+                  size="small"
+                  severity="secondary"
+                  [outlined]="true"
+                  (onClick)="descargarDocResolucion('pdf')"
+                />
+              </div>
+              <iframe class="visor-iframe" [src]="url" title="Vista previa de la resolución generada"></iframe>
+            </div>
+          } @else {
+            <div class="visor visor-vacio">
+              <i class="pi pi-file-pdf visor-icono"></i>
+              <p>La resolución aún no ha sido generada</p>
+            </div>
+          }
+        }
+
+        @if (indiceActivoVisible() === 3) {
           <div class="visor visor-vacio">
-            <i class="pi pi-file-pdf visor-icono"></i>
-            <p>{{ carta() ? 'Vista previa no disponible' : 'Sin carta adjunta' }}</p>
-            @if (carta()) {
-              <p-button
-                label="Descargar PDF"
-                icon="pi pi-download"
-                severity="secondary"
-                [outlined]="true"
-                (onClick)="descargarCarta()"
-              />
-            }
+            <i class="pi pi-wallet visor-icono"></i>
+            <p>Sección de Rendición</p>
+            <p class="text-sm">Consulte los comprobantes adjuntos en el panel izquierdo.</p>
           </div>
         }
       </div>
@@ -329,12 +946,46 @@
     </div>
   }
 
-  @if (detalle(); as e) {
-    <app-validacion-drawer
-      [expediente]="e"
-      [visible]="drawerValidacion()"
-      (visibleChange)="drawerValidacion.set($event)"
-      (guardada)="alGuardarValidacion($event)"
-    />
-  }
+  <p-dialog
+    header="Registrar Desembolso"
+    [(visible)]="modalDesembolso"
+    [modal]="true"
+    [style]="{ width: '400px' }"
+  >
+    <form [formGroup]="desembolsoForm" (ngSubmit)="registrarDesembolso()" class="flex flex-column gap-3">
+      <div class="campo mt-3">
+        <label for="fecha_desembolso">Fecha de desembolso (SIAF) *</label>
+        <p-datepicker
+          inputId="fecha_desembolso"
+          formControlName="fecha_desembolso"
+          dateFormat="dd/mm/yy"
+          [showIcon]="true"
+          appendTo="body"
+          styleClass="w-full"
+        />
+      </div>
+      <div class="flex justify-content-end gap-2 mt-4">
+        <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="modalDesembolso.set(false)" />
+        <p-button label="Registrar" type="submit" severity="primary" [loading]="guardandoDesembolso()" />
+      </div>
+    </form>
+  </p-dialog>
+
+  <p-dialog
+    header="Registrar DOI"
+    [(visible)]="modalDoi"
+    [modal]="true"
+    [style]="{ width: '400px' }"
+  >
+    <form [formGroup]="doiForm" (ngSubmit)="actualizarDoi()" class="flex flex-column gap-3">
+      <div class="campo mt-3">
+        <label for="doi">DOI del artículo *</label>
+        <input pInputText id="doi" formControlName="doi" class="w-full" placeholder="https://doi.org/..." />
+      </div>
+      <div class="flex justify-content-end gap-2 mt-4">
+        <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="modalDoi.set(false)" />
+        <p-button label="Guardar" type="submit" severity="primary" [loading]="guardandoDoi()" />
+      </div>
+    </form>
+  </p-dialog>
 </main>

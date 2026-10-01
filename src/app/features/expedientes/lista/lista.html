@@ -3,14 +3,9 @@
 
   <header class="barra">
     <div class="titulo">
-      <p-button
-        icon="pi pi-arrow-left"
-        severity="secondary"
-        [text]="true"
-        [rounded]="true"
-        routerLink="/"
-        ariaLabel="Volver al inicio"
-      />
+      <div class="icono-titulo">
+        <i class="pi pi-book"></i>
+      </div>
       <div>
         <h1>Expedientes de Artículos Financiados</h1>
         <p class="subtitulo">
@@ -20,6 +15,30 @@
       </div>
     </div>
     <div class="acciones">
+      @if (esAdmin()) {
+        <div class="selector-plantillas">
+          <p-select
+            [options]="plantillasCarta()"
+            optionLabel="codigo"
+            optionValue="id"
+            [ngModel]="seleccionCartaId()"
+            (ngModelChange)="seleccionCartaId.set($event); alCambiarPlantilla(1, $event)"
+            placeholder="Plantilla Carta"
+            appendTo="body"
+            styleClass="select-plantilla"
+          />
+          <p-select
+            [options]="plantillasResolucion()"
+            optionLabel="codigo"
+            optionValue="id"
+            [ngModel]="seleccionResolucionId()"
+            (ngModelChange)="seleccionResolucionId.set($event); alCambiarPlantilla(2, $event)"
+            placeholder="Plantilla Resolución"
+            appendTo="body"
+            styleClass="select-plantilla"
+          />
+        </div>
+      }
       <p-button
         label="Filtros"
         icon="pi pi-filter"
@@ -56,6 +75,7 @@
         <th>ARTÍCULO</th>
         <th>PROGRESO DEL EXPEDIENTE (ETAPAS 1 A 4)</th>
         <th>ACCIÓN PRINCIPAL</th>
+        <th>OPCIONES</th>
       </tr>
     </ng-template>
     <ng-template #body let-fila>
@@ -80,6 +100,28 @@
             size="small"
             (onClick)="$event.stopPropagation(); navegar(fila)"
           />
+        </td>
+        <td>
+          <div class="flex gap-2">
+            @if (esSecretariaOAdmin()) {
+              <p-button
+                icon="pi pi-pencil"
+                severity="secondary"
+                [text]="true"
+                [rounded]="true"
+                (onClick)="$event.stopPropagation(); editarFila(fila)"
+                pTooltip="Editar"
+              />
+              <p-button
+                icon="pi pi-trash"
+                severity="danger"
+                [text]="true"
+                [rounded]="true"
+                (onClick)="$event.stopPropagation(); confirmarEliminar(fila)"
+                pTooltip="Eliminar"
+              />
+            }
+          </div>
         </td>
       </tr>
     </ng-template>
@@ -151,4 +193,6 @@
       />
     </ng-template>
   </p-dialog>
+
+  <p-confirmdialog [style]="{ width: '450px' }" />
 </main>

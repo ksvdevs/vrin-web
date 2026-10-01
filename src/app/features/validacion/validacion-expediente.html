@@ -1,0 +1,111 @@
+@if (visible()) {
+  <div class="validacion-overlay" role="dialog" aria-label="Validación de expediente">
+    <aside class="panel">
+      <header class="cabecera">
+        <div class="titulo">
+          <h1>Validación de Expediente de Artículo Financiado</h1>
+          <p class="subtitulo">Requisitos técnicos para el financiamiento de publicación (Etapa 1)</p>
+        </div>
+        <p-button
+          icon="pi pi-times"
+          severity="secondary"
+          [text]="true"
+          [rounded]="true"
+          ariaLabel="Cerrar"
+          (onClick)="visible.set(false)"
+        />
+      </header>
+
+      @if (expediente(); as e) {
+        <div class="cuerpo">
+          <section class="resumen">
+            <div class="fila-dato">
+              <span class="etiqueta">Expediente</span>
+              <strong>{{ e.codigo }}</strong>
+            </div>
+            <div class="fila-dato">
+              <span class="etiqueta">Docente</span>
+              <strong>{{ e.docente?.nombre_completo }} — DNI: {{ e.docente?.dni }}</strong>
+            </div>
+            <div class="fila-dato">
+              <span class="etiqueta">Artículo</span>
+              <strong>{{ e.articulo?.titulo }}</strong>
+            </div>
+            <div class="fila-dato">
+              <span class="etiqueta">Carta docente</span>
+              <strong>
+                {{ e.carta_docente_numero }} ·
+                {{ fechaCorta(e.carta_docente_fecha) }}
+              </strong>
+            </div>
+          </section>
+
+          <section class="requisitos">
+            <div class="requisitos-cabecera">
+              <h2>Checklist de requisitos</h2>
+              <p-tag [value]="verificados() + '/3 Verificados'" [severity]="verificados() === 3 ? 'success' : 'secondary'" />
+            </div>
+
+            @for (requisito of requisitos; track requisito.clave) {
+              <div class="requisito">
+                <div class="requisito-texto">
+                  <strong>{{ requisito.etiqueta }}</strong>
+                  <small>{{ requisito.ayuda }}</small>
+                </div>
+                <p-select
+                  [formControl]="formulario.controls[requisito.clave]"
+                  [options]="opciones"
+                  optionLabel="label"
+                  optionValue="value"
+                  placeholder="Selecciona"
+                  appendTo="body"
+                  styleClass="select-ancho"
+                />
+              </div>
+            }
+            @if (formulario.invalid && formulario.touched) {
+              <small class="error">Debes verificar los 3 requisitos para guardar.</small>
+            }
+          </section>
+
+          <div class="resultado-previa">
+            Resultado automático:
+            <p-tag
+              [value]="resultado() === 'CUMPLE' ? 'CUMPLE — Pasar a validado' : 'NO CUMPLE'"
+              [severity]="resultado() === 'CUMPLE' ? 'success' : 'danger'"
+            />
+          </div>
+
+          <div class="campo">
+            <label for="observacion">Observación (opcional)</label>
+            <textarea
+              pTextarea
+              id="observacion"
+              formControlName="observacion"
+              [rows]="3"
+              [autoResize]="true"
+              placeholder="Si el expediente No Cumple, registra aquí el motivo para el docente."
+            ></textarea>
+          </div>
+        </div>
+
+        <footer class="pie">
+          <p-button
+            label="Cancelar"
+            severity="secondary"
+            [text]="true"
+            (onClick)="visible.set(false)"
+          />
+          <p-button
+            label="Guardar Validación"
+            icon="pi pi-check"
+            severity="success"
+            [disabled]="formulario.invalid"
+            [loading]="guardando()"
+            (onClick)="guardar()"
+          />
+        </footer>
+      }
+    </aside>
+  </div>
+}

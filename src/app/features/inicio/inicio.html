@@ -43,15 +43,6 @@
         [outlined]="true"
         routerLink="/catalogos/docentes"
       />
-      @if (esAdmin()) {
-        <p-button
-          label="Plantillas"
-          icon="pi pi-file-word"
-          severity="secondary"
-          [outlined]="true"
-          routerLink="/plantillas"
-        />
-      }
     </div>
   </p-card>
 
@@ -73,4 +64,18 @@
       }
     </div>
   </p-card>
+
+  @if (esAdmin()) {
+    <p-card header="Documentos" subheader="Plantillas y motor de generación">
+      <div class="accesos">
+        <p-button
+          label="Plantillas"
+          icon="pi pi-file-word"
+          severity="secondary"
+          [outlined]="true"
+          routerLink="/plantillas"
+        />
+      </div>
+    </p-card>
+  }
 </main>

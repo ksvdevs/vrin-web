@@ -21,6 +21,22 @@ export interface ObservacionDetalle {
   created_at: string;
 }
 
+export interface TransicionDisponible {
+  destino: EstadoExpediente;
+  accion: { clave: string; etiqueta: string } | null;
+  habilitada: boolean;
+}
+
+export interface DocumentoGeneradoDetalle {
+  id: number;
+  tipo: 'CARTA_VRIN' | 'RESOLUCION';
+  version: number;
+  pdf_path: string | null;
+  es_vigente: boolean;
+  generado_at: string;
+  plantilla: { codigo: string; version: number } | null;
+}
+
 export interface ExpedienteDetalle {
   id: number;
   codigo: string;
@@ -32,6 +48,8 @@ export interface ExpedienteDetalle {
   documentos_completos: boolean;
   carta_docente_numero: string;
   carta_docente_fecha: string;
+  registro_mp_numero: string | null;
+  cerrado_at: string | null;
   fecha_registro: string;
   docente: {
     id: number;
@@ -67,7 +85,7 @@ export interface ExpedienteDetalle {
     emitida_por: string | null;
   } | null;
   respuesta_opp: {
-    disponibilidad: boolean | null;
+    disponibilidad: 'SI' | 'NO' | null;
     carta_numero: string | null;
     carta_fecha: string | null;
     monto_aprobado: number | null;
@@ -90,10 +108,23 @@ export interface ExpedienteDetalle {
     fecha_limite: string | null;
     fecha_informe: string | null;
     estado: string | null;
+    dias_habiles_restantes: number;
     con_retraso: boolean;
     cerrada_at: string | null;
     cerrada_por: string | null;
   } | null;
   archivos: ArchivoDetalle[];
   observaciones: ObservacionDetalle[];
+  transiciones_disponibles: TransicionDisponible[];
+  documentos_generados: DocumentoGeneradoDetalle[];
+}
+
+export interface ValidacionPayload {
+  resultado: 'CUMPLE' | 'NO_CUMPLE';
+  checklist: {
+    carta_aceptacion: boolean;
+    docente_ordinario_contratado: boolean;
+    afiliacion_universidad: boolean;
+  };
+  observacion?: string | null;
 }

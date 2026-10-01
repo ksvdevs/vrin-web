@@ -1,53 +1,62 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { Router } from '@angular/router';
-
-import { Button } from 'primeng/button';
-import { Card } from 'primeng/card';
-import { Tag } from 'primeng/tag';
-
-import { Rol, Usuario } from '../../core/models/usuario.model';
-import { DevAuthService } from '../../core/services/dev-auth.service';
+import { Component, inject } from '@angular/core';
+import { CardModule } from 'primeng/card';
+import { ButtonModule } from 'primeng/button';
+import { DialogModule } from 'primeng/dialog';
+import { InputTextModule } from 'primeng/inputtext';
+import { TextareaModule } from 'primeng/textarea';
+import { FormsModule } from '@angular/forms';
+import { HttpClient } from '@angular/common/http';
+import { MessageService } from 'primeng/api';
+import { environment } from '../../../environments/environment';
 
 @Component({
   selector: 'app-dev-login',
-  imports: [Button, Card, Tag],
+  standalone: true,
+  imports: [CardModule, ButtonModule, DialogModule, InputTextModule, TextareaModule, FormsModule],
   templateUrl: './dev-login.html',
   styleUrl: './dev-login.scss',
 })
-export class DevLogin implements OnInit {
-  private readonly auth = inject(DevAuthService);
-  private readonly router = inject(Router);
+export class DevLogin {
+  solicitarAccesoVisible = false;
+  enviando = false;
 
-  protected readonly usuarios = signal<Usuario[]>([]);
-  protected readonly cargando = signal(true);
-  protected readonly error = signal<string | null>(null);
+  solicitud = {
+    nombres: '',
+    apellidos: '',
+    dni: '',
+    email: '',
+    dependencia: '',
+    cargo: '',
+    motivo: ''
+  };
 
-  ngOnInit(): void {
-    this.auth.listarUsuariosDev().subscribe({
-      next: (usuarios) => {
-        this.usuarios.set(usuarios);
-        this.cargando.set(false);
+  private http = inject(HttpClient);
+  private messageService = inject(MessageService);
+
+  loginConGoogle() {
+    window.location.href = `${environment.apiUrl}/auth/google/redirect`;
+  }
+
+  enviarSolicitud() {
+    this.enviando = true;
+    this.http.post(`${environment.apiUrl}/solicitudes-acceso`, this.solicitud).subscribe({
+      next: () => {
+        this.messageService.add({
+          severity: 'success',
+          summary: 'Enviada',
+          detail: 'Su solicitud ha sido registrada y está pendiente de aprobación.'
+        });
+        this.solicitarAccesoVisible = false;
+        this.enviando = false;
       },
-      error: () => {
-        this.error.set('No se pudo conectar con la API. Verifica que el backend esté en ejecución.');
-        this.cargando.set(false);
-      },
+      error: (err) => {
+        this.messageService.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: err.error?.message || 'Verifique los datos e intente nuevamente.'
+        });
+        this.enviando = false;
+      }
     });
-  }
-
-  protected ingresarComo(usuario: Usuario): void {
-    this.auth.entrarComo(usuario.id);
-    this.router.navigateByUrl('/');
-  }
-
-  protected severidadRol(rol: Rol): 'danger' | 'info' | 'success' {
-    switch (rol) {
-      case 'ADMINISTRADOR':
-        return 'danger';
-      case 'SECRETARIA':
-        return 'info';
-      case 'CALIDAD':
-        return 'success';
-    }
   }
 }

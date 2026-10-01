@@ -1,44 +1,27 @@
-export interface TipoDocumentoPlantilla {
+// Fase 5 — gestor de plantillas y selección vigente (RN-13).
+export interface TipoDocumento {
   id: number;
   codigo: string;
   nombre: string;
-  activo: boolean;
 }
-
-export type EstadoPlantilla = 'ACTIVO' | 'INACTIVO';
 
 export interface Plantilla {
   id: number;
   codigo: string;
   nombre: string;
   modulo: string;
-  tipo_documento_id: number;
+  tipo_documento: TipoDocumento | null;
   version: number;
-  archivo_path: string;
+  estado: 'ACTIVO' | 'INACTIVO';
+  tokens_count: number;
+  sin_mapeo: string[];
   sha256: string;
-  tokens: string[];
-  estado: EstadoPlantilla;
-  tipo_documento?: TipoDocumentoPlantilla;
+  created_at: string;
 }
 
-export interface SubidaPlantillaResponse {
-  plantilla: Plantilla;
-  tokens: string[];
-  advertencia_tokens_sin_mapeo: string[];
-}
-
-export interface PlantillaSeleccion {
+export interface SeleccionPlantilla {
   modulo: string;
-  tipo_documento_id: number;
-  plantilla_id: number;
-  seleccionado_por: number;
+  tipo_documento: TipoDocumento | null;
+  plantilla: { id: number; codigo: string; nombre: string; version: number } | null;
   seleccionado_at: string;
-  plantilla?: Plantilla;
-  tipo_documento?: TipoDocumentoPlantilla;
-}
-
-export interface SeleccionPlantillaPayload {
-  modulo: string;
-  tipo_documento_id: number;
-  plantilla_id: number;
 }

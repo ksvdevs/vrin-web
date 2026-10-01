@@ -1,6 +1,5 @@
 <main class="plantillas-page">
   <p-toast />
-  <p-confirmdialog />
 
   <header class="barra">
     <div class="titulo">
@@ -13,92 +12,69 @@
         ariaLabel="Volver al inicio"
       />
       <div>
-        <h1>Plantillas de documentos</h1>
-        <p class="subtitulo">Gestión de plantillas DOCX del módulo Artículos Financiados</p>
+        <h1>Gestor de plantillas documentales</h1>
+        <p class="subtitulo">
+          Plantillas DOCX para la generación de cartas VRIN y resoluciones.
+          El DOCX es inmutable: corregir = subir una nueva versión.
+        </p>
       </div>
     </div>
     @if (esAdmin()) {
-      <p-button label="Nueva Plantilla" icon="pi pi-plus" (onClick)="abrirSubida()" />
+      <p-button
+        label="Subir plantilla"
+        icon="pi pi-upload"
+        (onClick)="dialogoSubida.set(true)"
+      />
     }
   </header>
 
-  @if (esAdmin()) {
-    <p-card header="Selección vigente" subheader="Plantilla activa por tipo de documento (módulo Artículos)">
-      <div class="seleccion-vigente">
-        @for (tipo of tipos(); track tipo.id) {
-          <div class="campo">
-            <label [attr.for]="'sel-' + tipo.id">Plantilla {{ tipo.nombre }}</label>
-            <p-select
-              [inputId]="'sel-' + tipo.id"
-              [options]="opcionesPorTipo().get(tipo.id) ?? []"
-              [ngModel]="seleccionVigente(tipo.id)"
-              (ngModelChange)="alCambiarSeleccion(tipo.id, $event)"
-              placeholder="Sin plantilla seleccionada"
-              [showClear]="false"
-              styleClass="select-ancho"
-              appendTo="body"
-            />
-          </div>
-        }
-      </div>
-    </p-card>
-  }
-
-  <p-table
-    [value]="plantillas()"
-    [loading]="cargando()"
-    [paginator]="true"
-    [rows]="10"
-    styleClass="p-datatable-striped"
-  >
+  <p-table [value]="plantillas()" [loading]="cargando()" [tableStyle]="{ 'min-width': '50rem' }">
     <ng-template #header>
       <tr>
-        <th>Código</th>
-        <th>Nombre</th>
-        <th>Tipo</th>
-        <th>Versión</th>
-        <th>Tokens</th>
-        <th>Estado</th>
+        <th>CÓDIGO</th>
+        <th>NOMBRE</th>
+        <th>TIPO</th>
+        <th>VERSIÓN</th>
+        <th>ESTADO</th>
+        <th>TOKENS</th>
+        <th>ADVERTENCIAS</th>
+        <th>FECHA</th>
         @if (esAdmin()) {
-          <th class="acciones">Acciones</th>
+          <th class="acciones">ACCIONES</th>
         }
       </tr>
     </ng-template>
-    <ng-template #body let-plantilla>
+    <ng-template #body let-p>
       <tr>
-        <td>{{ plantilla.codigo }}</td>
-        <td>{{ plantilla.nombre }}</td>
+        <td class="codigo">{{ p.codigo }}</td>
+        <td>{{ p.nombre }}</td>
+        <td>{{ p.tipo_documento?.nombre ?? '—' }}</td>
+        <td>v{{ p.version }}</td>
         <td>
           <p-tag
-            [value]="plantilla.tipo_documento?.nombre ?? '—'"
-            [severity]="plantilla.tipo_documento?.codigo === 'CARTA' ? 'info' : 'secondary'"
+            [value]="p.estado === 'ACTIVO' ? 'Activa' : 'Inactiva'"
+            [severity]="p.estado === 'ACTIVO' ? 'success' : 'secondary'"
           />
         </td>
-        <td>v{{ plantilla.version }}</td>
-        <td>{{ plantilla.tokens?.length ?? 0 }}</td>
+        <td>{{ p.tokens_count }}</td>
         <td>
-          <p-tag
-            [value]="plantilla.estado === 'ACTIVO' ? 'Activo' : 'Inactivo'"
-            [severity]="plantilla.estado === 'ACTIVO' ? 'success' : 'danger'"
-          />
+          @if (p.sin_mapeo.length > 0) {
+            <span class="tokens-advertencia" [title]="p.sin_mapeo.join(', ')">
+              {{ p.sin_mapeo.length }} sin mapeo
+            </span>
+          } @else {
+            <span class="tokens-ok">—</span>
+          }
         </td>
+        <td>{{ p.created_at?.slice(0, 10) ?? '—' }}</td>
         @if (esAdmin()) {
           <td class="acciones">
             <p-button
-              [icon]="plantilla.estado === 'ACTIVO' ? 'pi pi-ban' : 'pi pi-check'"
-              [severity]="plantilla.estado === 'ACTIVO' ? 'warn' : 'success'"
+              [label]="p.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'"
+              [severity]="p.estado === 'ACTIVO' ? 'danger' : 'success'"
               [text]="true"
-              [rounded]="true"
-              [ariaLabel]="plantilla.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'"
-              (onClick)="confirmarCambioEstado(plantilla)"
-            />
-            <p-button
-              icon="pi pi-trash"
-              severity="danger"
-              [text]="true"
-              [rounded]="true"
-              ariaLabel="Eliminar"
-              (onClick)="confirmarEliminar(plantilla)"
+              size="small"
+              (onClick)="alternarEstado(p)"
             />
           </td>
         }
@@ -106,7 +82,7 @@
     </ng-template>
     <ng-template #emptymessage>
       <tr>
-        <td [attr.colspan]="esAdmin() ? 7 : 6" class="vacio">
+        <td colspan="9" class="vacio">
           @if (!cargando()) {
             No hay plantillas registradas.
           }
@@ -116,71 +92,63 @@
   </p-table>
 
   <p-dialog
-    [(visible)]="dialogoVisible"
-    header="Nueva plantilla"
+    header="Subir plantilla DOCX"
+    [(visible)]="dialogoSubida"
     [modal]="true"
-    [style]="{ width: '32rem' }"
+    [style]="{ width: '30rem' }"
   >
-    <div class="formulario">
+    <form [formGroup]="formulario" class="formulario">
       <div class="campo">
-        <label for="nombre-plantilla">Nombre</label>
-        <input
-          pInputText
-          id="nombre-plantilla"
-          type="text"
-          [value]="nombreNueva()"
-          (input)="nombreNueva.set($any($event.target).value)"
-          placeholder="Ej. Carta VRIN → OPP"
-        />
+        <label for="nombre">Nombre de la plantilla *</label>
+        <input pInputText id="nombre" formControlName="nombre" maxlength="150" />
+        @if (formulario.controls.nombre.touched && formulario.controls.nombre.invalid) {
+          <small class="error">Obligatorio (máx. 150 caracteres).</small>
+        }
       </div>
       <div class="campo">
-        <label for="tipo-plantilla">Tipo de documento</label>
+        <label for="tipo">Tipo de documento *</label>
         <p-select
-          inputId="tipo-plantilla"
-          [options]="tipos()"
+          inputId="tipo"
+          formControlName="tipo_documento_id"
+          [options]="tipos"
           optionLabel="nombre"
           optionValue="id"
-          [ngModel]="tipoNuevaId()"
-          (ngModelChange)="tipoNuevaId.set($event)"
-          placeholder="Seleccione el tipo"
-          styleClass="select-ancho"
+          placeholder="Selecciona el tipo"
           appendTo="body"
+          styleClass="select-ancho"
         />
+        @if (formulario.controls.tipo_documento_id.touched && formulario.controls.tipo_documento_id.invalid) {
+          <small class="error">Obligatorio.</small>
+        }
       </div>
       <div class="campo">
-        <label>Archivo DOCX</label>
-        <div class="archivo">
-          <label class="boton-archivo">
-            Elegir archivo
-            <input
-              type="file"
-              class="input-archivo"
-              accept=".docx"
-              (change)="seleccionarArchivo($event)"
-            />
-          </label>
-          <span class="nombre-archivo">
-            {{ archivoNueva()?.name ?? 'Sin archivos seleccionados' }}
-          </span>
-        </div>
-        <small class="ayuda">
-          El DOCX es inmutable: corregir una plantilla = subir una nueva versión.
-          Los tokens (doble ángulo o doble llave) se indexan automáticamente.
-        </small>
+        <label>Archivo DOCX *</label>
+        <label class="boton-archivo">
+          Elegir archivo
+          <input
+            type="file"
+            class="input-archivo"
+            accept=".docx"
+            (change)="seleccionarArchivo($event)"
+          />
+        </label>
+        <span class="nombre-archivo">
+          {{ archivoSeleccionado()?.name ?? 'Sin archivos seleccionados' }}
+        </span>
       </div>
-    </div>
+      <p class="nota">
+        <i class="pi pi-info-circle"></i>
+        Al subir se indexan los tokens del documento. Los tokens sin mapeo conocido se
+        reportan como advertencia; el DOCX queda inmutable (corregir = subir nueva versión).
+      </p>
+    </form>
     <ng-template #footer>
-      <p-button
-        label="Cancelar"
-        severity="secondary"
-        [text]="true"
-        (onClick)="dialogoVisible.set(false)"
-      />
+      <p-button label="Cancelar" severity="secondary" [text]="true" (onClick)="dialogoSubida.set(false)" />
       <p-button
         label="Subir"
         icon="pi pi-upload"
+        severity="success"
         [loading]="subiendo()"
-        [disabled]="!nombreNueva().trim() || tipoNuevaId() === null || !archivoNueva()"
         (onClick)="subir()"
       />
     </ng-template>

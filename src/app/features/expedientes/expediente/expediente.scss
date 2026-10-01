@@ -17,10 +17,11 @@ $violeta: #eef2ff;
   flex-wrap: wrap;
 }
 
-.barra-acciones {
+.cabecera-acciones {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  flex-wrap: wrap;
 }
 
 .titulo {
@@ -77,13 +78,6 @@ $violeta: #eef2ff;
     gap: 0.5rem;
 
     i {
-      color: var(--p-text-muted-color);
-    }
-
-    .contador-checklist {
-      margin-left: auto;
-      font-size: 0.8rem;
-      font-weight: 600;
       color: var(--p-text-muted-color);
     }
   }
@@ -177,19 +171,21 @@ $violeta: #eef2ff;
   padding: 0;
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
 
-  i {
-    margin-right: 0.4rem;
+  .requisito-linea {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.45rem 0.75rem;
+    border: 1px solid var(--p-content-border-color);
+    border-radius: var(--p-border-radius-md);
   }
+}
 
-  .cumple {
-    color: $verde;
-  }
-
-  .no-cumple {
-    color: var(--p-red-500);
-  }
+.contador {
+  margin-left: auto;
 }
 
 .observacion {

@@ -1,46 +1,77 @@
 .login-page {
-  min-height: 100vh;
   display: flex;
   align-items: center;
   justify-content: center;
+  min-height: 100vh;
+  background-color: #f1f5f9;
+}
+
+.login-container {
   padding: 2rem;
-}
-
-p-card {
   width: 100%;
-  max-width: 560px;
+  max-width: 400px;
+  text-align: center;
 }
 
-.lista-usuarios {
+.logo-container {
+  margin-bottom: 2rem;
+
+  h2 {
+    margin: 0;
+    color: #1e293b;
+    font-size: 1.75rem;
+  }
+
+  .subtitle {
+    margin: 0;
+    color: #64748b;
+    font-size: 0.875rem;
+  }
+}
+
+.google-btn {
+  background-color: white !important;
+  color: #334155 !important;
+  border: 1px solid #cbd5e1 !important;
+  font-weight: 500;
+  
+  &:hover {
+    background-color: #f8fafc !important;
+  }
+}
+
+.divider {
+  position: relative;
+  text-align: center;
+  margin: 1.5rem 0;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    border-top: 1px solid #e2e8f0;
+  }
+
+  span {
+    background: white;
+    padding: 0 0.5rem;
+    color: #94a3b8;
+    position: relative;
+    font-size: 0.875rem;
+  }
+}
+
+.flex-col {
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
 }
 
-.usuario-fila {
-  display: flex;
-  align-items: center;
+.gap-2 {
+  gap: 0.5rem;
+}
+
+.gap-3 {
   gap: 1rem;
-  padding: 0.75rem;
-  border: 1px solid var(--p-content-border-color);
-  border-radius: var(--p-content-border-radius);
-}
-
-.usuario-datos {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-
-  .email {
-    font-size: 0.85rem;
-    color: var(--p-text-muted-color);
-  }
-}
-
-.estado {
-  color: var(--p-text-muted-color);
-
-  &.error {
-    color: var(--p-red-500);
-  }
 }

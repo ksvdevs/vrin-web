@@ -1,264 +1,59 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { RouterLink } from '@angular/router';
 
-import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
-import { Card } from 'primeng/card';
-import { ConfirmDialog } from 'primeng/confirmdialog';
 import { Dialog } from 'primeng/dialog';
 import { InputText } from 'primeng/inputtext';
+import { MessageService } from 'primeng/api';
 import { Select } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
 
-import {
-  Plantilla,
-  PlantillaSeleccion,
-  TipoDocumentoPlantilla,
-} from '../../core/models/plantilla.model';
+import type { Plantilla } from '../../core/models/plantilla.model';
 import { DevAuthService } from '../../core/services/dev-auth.service';
 import { PlantillaService } from '../../core/services/plantilla.service';
 
-const MODULO = 'ARTICULOS';
-const TAMANO_MAXIMO = 25 * 1024 * 1024;
+const TIPOS = [
+  { id: 1, codigo: 'CARTA', nombre: 'Carta VRIN → OPP' },
+  { id: 2, codigo: 'RESOLUCION', nombre: 'Resolución VRIN' },
+];
+
+const MAX_TAMANO = 25 * 1024 * 1024;
 
 @Component({
   selector: 'app-plantillas',
-  imports: [
-    Button,
-    Card,
-    ConfirmDialog,
-    Dialog,
-    FormsModule,
-    InputText,
-    RouterLink,
-    Select,
-    TableModule,
-    Tag,
-    Toast,
-  ],
+  imports: [Button, Dialog, InputText, ReactiveFormsModule, RouterLink, Select, TableModule, Tag, Toast],
   templateUrl: './plantillas.html',
   styleUrl: './plantillas.scss',
 })
 export class Plantillas implements OnInit {
-  protected readonly auth = inject(DevAuthService);
+  private readonly fb = inject(FormBuilder);
+  private readonly auth = inject(DevAuthService);
   private readonly plantillaService = inject(PlantillaService);
   private readonly mensajes = inject(MessageService);
-  private readonly confirmacion = inject(ConfirmationService);
-
-  protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol === 'ADMINISTRADOR');
 
   protected readonly plantillas = signal<Plantilla[]>([]);
-  protected readonly tipos = signal<TipoDocumentoPlantilla[]>([]);
-  protected readonly selecciones = signal<PlantillaSeleccion[]>([]);
   protected readonly cargando = signal(true);
-
-  // Modal de subida
-  protected readonly dialogoVisible = signal(false);
+  protected readonly dialogoSubida = signal(false);
   protected readonly subiendo = signal(false);
-  protected readonly nombreNueva = signal('');
-  protected readonly tipoNuevaId = signal<number | null>(null);
-  protected readonly archivoNueva = signal<File | null>(null);
+  protected readonly archivoSeleccionado = signal<File | null>(null);
 
-  // HU-41: opciones por tipo para los desplegables de selección vigente
-  protected readonly opcionesPorTipo = computed(() => {
-    const mapa = new Map<number, { label: string; value: number }[]>();
-    for (const plantilla of this.plantillas()) {
-      if (plantilla.estado !== 'ACTIVO') {
-        continue;
-      }
-      const opciones = mapa.get(plantilla.tipo_documento_id) ?? [];
-      opciones.push({
-        label: `${plantilla.codigo} — ${plantilla.nombre} (v${plantilla.version})`,
-        value: plantilla.id,
-      });
-      mapa.set(plantilla.tipo_documento_id, opciones);
-    }
-    return mapa;
+  protected readonly tipos = TIPOS;
+  protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol === 'ADMINISTRADOR');
+
+  protected readonly formulario = this.fb.group({
+    nombre: ['', [Validators.required, Validators.maxLength(150)]],
+    tipo_documento_id: [null as number | null, Validators.required],
   });
 
   ngOnInit(): void {
     this.auth.cargarUsuarioActual().subscribe();
-    this.cargarTodo();
+    this.cargar();
   }
 
-  protected seleccionVigente(tipoId: number): number | null {
-    return (
-      this.selecciones().find((s) => s.tipo_documento_id === tipoId)?.plantilla_id ?? null
-    );
-  }
-
-  protected alCambiarSeleccion(tipoId: number, plantillaId: number | null): void {
-    if (plantillaId === null) {
-      return;
-    }
-    this.plantillaService
-      .seleccionar({ modulo: MODULO, tipo_documento_id: tipoId, plantilla_id: plantillaId })
-      .subscribe({
-        next: () => {
-          this.mensajes.add({
-            severity: 'success',
-            summary: 'Plantilla vigente actualizada',
-            detail: 'La selección quedó registrada para el módulo Artículos.',
-          });
-          this.cargarSelecciones();
-        },
-        error: (error) => {
-          this.mensajes.add({
-            severity: 'error',
-            summary: 'No se pudo cambiar la selección',
-            detail: this.detalleError(error),
-          });
-          this.cargarSelecciones();
-        },
-      });
-  }
-
-  protected abrirSubida(): void {
-    this.nombreNueva.set('');
-    this.tipoNuevaId.set(null);
-    this.archivoNueva.set(null);
-    this.dialogoVisible.set(true);
-  }
-
-  protected seleccionarArchivo(evento: Event): void {
-    const input = evento.target as HTMLInputElement;
-    const archivo = input.files?.[0] ?? null;
-
-    if (!archivo) {
-      return;
-    }
-    if (!archivo.name.toLowerCase().endsWith('.docx')) {
-      this.mensajes.add({
-        severity: 'warn',
-        summary: 'Formato no válido',
-        detail: 'La plantilla debe ser un archivo .docx.',
-      });
-      input.value = '';
-      return;
-    }
-    if (archivo.size > TAMANO_MAXIMO) {
-      this.mensajes.add({
-        severity: 'warn',
-        summary: 'Archivo muy grande',
-        detail: 'La plantilla no puede superar los 25 MB.',
-      });
-      input.value = '';
-      return;
-    }
-    this.archivoNueva.set(archivo);
-  }
-
-  protected subir(): void {
-    const nombre = this.nombreNueva().trim();
-    const tipoId = this.tipoNuevaId();
-    const archivo = this.archivoNueva();
-
-    if (!nombre || tipoId === null || !archivo || this.subiendo()) {
-      return;
-    }
-
-    this.subiendo.set(true);
-    this.plantillaService.subir(nombre, tipoId, archivo).subscribe({
-      next: (respuesta) => {
-        this.subiendo.set(false);
-        this.dialogoVisible.set(false);
-        this.mensajes.add({
-          severity: 'success',
-          summary: 'Plantilla registrada',
-          detail: `${respuesta.plantilla.codigo} (v${respuesta.plantilla.version}) — ${respuesta.tokens.length} tokens indexados.`,
-        });
-        // RF-43: los tokens sin mapeo conocido se reportan como advertencia.
-        if (respuesta.advertencia_tokens_sin_mapeo.length > 0) {
-          this.mensajes.add({
-            severity: 'warn',
-            summary: 'Tokens sin mapeo conocido',
-            detail: respuesta.advertencia_tokens_sin_mapeo.join(', '),
-            life: 10000,
-          });
-        }
-        this.cargarTodo();
-      },
-      error: (error) => {
-        this.subiendo.set(false);
-        this.mensajes.add({
-          severity: 'error',
-          summary: 'No se pudo subir la plantilla',
-          detail: this.detalleError(error),
-        });
-      },
-    });
-  }
-
-  protected confirmarCambioEstado(plantilla: Plantilla): void {
-    const desactivar = plantilla.estado === 'ACTIVO';
-    this.confirmacion.confirm({
-      header: desactivar ? 'Desactivar plantilla' : 'Activar plantilla',
-      message: `¿${desactivar ? 'Desactivar' : 'Activar'} ${plantilla.codigo} — ${plantilla.nombre}?`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: desactivar ? 'Desactivar' : 'Activar',
-      rejectLabel: 'Cancelar',
-      acceptButtonStyleClass: desactivar ? 'p-button-danger' : undefined,
-      accept: () => this.cambiarEstado(plantilla),
-    });
-  }
-
-  protected confirmarEliminar(plantilla: Plantilla): void {
-    this.confirmacion.confirm({
-      header: 'Eliminar plantilla',
-      message: `¿Eliminar ${plantilla.codigo} — ${plantilla.nombre}? El retiro es lógico: el archivo se conserva.`,
-      icon: 'pi pi-trash',
-      acceptLabel: 'Eliminar',
-      rejectLabel: 'Cancelar',
-      acceptButtonStyleClass: 'p-button-danger',
-      accept: () => this.eliminar(plantilla),
-    });
-  }
-
-  private cambiarEstado(plantilla: Plantilla): void {
-    const estado = plantilla.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
-    this.plantillaService.cambiarEstado(plantilla.id, estado).subscribe({
-      next: () => {
-        this.mensajes.add({
-          severity: 'success',
-          summary: estado === 'ACTIVO' ? 'Plantilla activada' : 'Plantilla desactivada',
-          detail: `${plantilla.codigo} — ${plantilla.nombre}`,
-        });
-        this.cargarTodo();
-      },
-      error: (error) => {
-        this.mensajes.add({
-          severity: 'error',
-          summary: 'No se pudo cambiar el estado',
-          detail: this.detalleError(error),
-        });
-      },
-    });
-  }
-
-  private eliminar(plantilla: Plantilla): void {
-    this.plantillaService.eliminar(plantilla.id).subscribe({
-      next: () => {
-        this.mensajes.add({
-          severity: 'success',
-          summary: 'Plantilla eliminada',
-          detail: `${plantilla.codigo} quedó retirada (baja lógica).`,
-        });
-        this.cargarTodo();
-      },
-      error: (error) => {
-        this.mensajes.add({
-          severity: 'error',
-          summary: 'No se pudo eliminar',
-          detail: this.detalleError(error),
-        });
-      },
-    });
-  }
-
-  private cargarTodo(): void {
+  protected cargar(): void {
     this.cargando.set(true);
     this.plantillaService.listar().subscribe({
       next: (plantillas) => {
@@ -270,24 +65,117 @@ export class Plantillas implements OnInit {
         this.mensajes.add({
           severity: 'error',
           summary: 'Sin conexión',
-          detail: 'No se pudo obtener la lista de plantillas.',
+          detail: 'No se pudo obtener el listado de plantillas.',
         });
       },
     });
-    this.plantillaService.listarTipos().subscribe({
-      next: (tipos) => this.tipos.set(tipos),
-    });
-    this.cargarSelecciones();
   }
 
-  private cargarSelecciones(): void {
-    this.plantillaService.listarSeleccion(MODULO).subscribe({
-      next: (selecciones) => this.selecciones.set(selecciones),
-    });
+  protected seleccionarArchivo(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0] ?? null;
+    input.value = '';
+    if (!archivo) {
+      return;
+    }
+    const esDocx =
+      archivo.name.toLowerCase().endsWith('.docx') &&
+      (archivo.type === '' ||
+        archivo.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    if (!esDocx) {
+      this.mensajes.add({
+        severity: 'error',
+        summary: 'Archivo no permitido',
+        detail: 'La plantilla debe ser un archivo .docx.',
+      });
+      return;
+    }
+    if (archivo.size > MAX_TAMANO) {
+      this.mensajes.add({
+        severity: 'error',
+        summary: 'Archivo muy grande',
+        detail: 'La plantilla no puede superar los 25 MB.',
+      });
+      return;
+    }
+    this.archivoSeleccionado.set(archivo);
   }
 
-  private detalleError(error: unknown): string {
-    const mensaje = (error as { error?: { message?: string } })?.error?.message;
-    return mensaje ?? 'Ocurrió un error inesperado.';
+  protected subir(): void {
+    const archivo = this.archivoSeleccionado();
+    const valores = this.formulario.getRawValue();
+    if (this.formulario.invalid || !archivo) {
+      this.formulario.markAllAsTouched();
+      if (!archivo) {
+        this.mensajes.add({
+          severity: 'warn',
+          summary: 'Falta el archivo',
+          detail: 'Elige el DOCX de la plantilla.',
+        });
+      }
+      return;
+    }
+    this.subiendo.set(true);
+    this.plantillaService
+      .subir({
+        nombre: (valores.nombre ?? '').trim(),
+        tipo_documento_id: valores.tipo_documento_id ?? 0,
+        archivo,
+      })
+      .subscribe({
+        next: (plantilla) => {
+          this.subiendo.set(false);
+          this.dialogoSubida.set(false);
+          this.formulario.reset({ nombre: '', tipo_documento_id: null });
+          this.archivoSeleccionado.set(null);
+          this.mensajes.add({
+            severity: 'success',
+            summary: 'Plantilla subida',
+            detail: `${plantilla.codigo} · versión ${plantilla.version} · ${plantilla.tokens_count} tokens indexados.`,
+          });
+          if (plantilla.sin_mapeo.length > 0) {
+            this.mensajes.add({
+              severity: 'warn',
+              summary: 'Tokens sin mapeo conocido',
+              detail: plantilla.sin_mapeo.join(', '),
+              life: 8000,
+            });
+          }
+          this.cargar();
+        },
+        error: (error) => {
+          this.subiendo.set(false);
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'No se pudo subir la plantilla',
+            detail:
+              (error as { error?: { message?: string } })?.error?.message ??
+              'Ocurrió un error inesperado.',
+          });
+        },
+      });
+  }
+
+  protected alternarEstado(plantilla: Plantilla): void {
+    const nuevoEstado = plantilla.estado === 'ACTIVO' ? 'INACTIVO' : 'ACTIVO';
+    this.plantillaService.cambiarEstado(plantilla.id, nuevoEstado).subscribe({
+      next: () => {
+        this.mensajes.add({
+          severity: 'success',
+          summary: nuevoEstado === 'ACTIVO' ? 'Plantilla activada' : 'Plantilla desactivada',
+          detail: `${plantilla.codigo} · versión ${plantilla.version}`,
+        });
+        this.cargar();
+      },
+      error: (error) => {
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'No se pudo cambiar el estado',
+          detail:
+            (error as { error?: { message?: string } })?.error?.message ??
+            'Ocurrió un error inesperado.',
+        });
+      },
+    });
   }
 }

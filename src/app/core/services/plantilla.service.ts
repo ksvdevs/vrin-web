@@ -1,49 +1,47 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
-import {
-  EstadoPlantilla,
-  Plantilla,
-  PlantillaSeleccion,
-  SeleccionPlantillaPayload,
-  SubidaPlantillaResponse,
-  TipoDocumentoPlantilla,
-} from '../models/plantilla.model';
+import type { Plantilla, SeleccionPlantilla, TipoDocumento } from '../models/plantilla.model';
 import { ApiService } from './api.service';
 
 @Injectable({ providedIn: 'root' })
 export class PlantillaService {
   private readonly api = inject(ApiService);
 
-  listar(): Observable<Plantilla[]> {
-    return this.api.get<Plantilla[]>('/plantillas');
+  listar(tipoDocumentoId?: number): Observable<Plantilla[]> {
+    return this.api.get<Plantilla[]>('/plantillas', tipoDocumentoId ? { tipo_documento_id: tipoDocumentoId } : undefined);
   }
 
-  listarTipos(): Observable<TipoDocumentoPlantilla[]> {
-    return this.api.get<TipoDocumentoPlantilla[]>('/tipos-documento-plantilla');
+  subir(datos: {
+    nombre: string;
+    tipo_documento_id: number;
+    archivo: File;
+  }): Observable<Plantilla> {
+    const formulario = new FormData();
+    formulario.append('nombre', datos.nombre);
+    formulario.append('tipo_documento_id', String(datos.tipo_documento_id));
+    formulario.append('archivo', datos.archivo);
+    return this.api.post<Plantilla>('/plantillas', formulario);
   }
 
-  subir(nombre: string, tipoDocumentoId: number, archivo: File): Observable<SubidaPlantillaResponse> {
-    const formData = new FormData();
-    formData.append('nombre', nombre);
-    formData.append('tipo_documento_id', String(tipoDocumentoId));
-    formData.append('archivo', archivo);
-    return this.api.post<SubidaPlantillaResponse>('/plantillas', formData);
+  cambiarEstado(id: number, estado: 'ACTIVO' | 'INACTIVO'): Observable<{ id: number; estado: string }> {
+    return this.api.patch(`/plantillas/${id}`, { estado });
+  }
+}
+
+@Injectable({ providedIn: 'root' })
+export class SeleccionService {
+  private readonly api = inject(ApiService);
+
+  listarVigentes(modulo = 'ARTICULOS'): Observable<SeleccionPlantilla[]> {
+    return this.api.get<SeleccionPlantilla[]>('/plantilla-seleccion', { modulo });
   }
 
-  cambiarEstado(id: number, estado: EstadoPlantilla): Observable<Plantilla> {
-    return this.api.patch<Plantilla>(`/plantillas/${id}`, { estado });
-  }
-
-  eliminar(id: number): Observable<unknown> {
-    return this.api.delete(`/plantillas/${id}`);
-  }
-
-  listarSeleccion(modulo: string): Observable<PlantillaSeleccion[]> {
-    return this.api.get<PlantillaSeleccion[]>('/plantilla-seleccion', { modulo });
-  }
-
-  seleccionar(payload: SeleccionPlantillaPayload): Observable<PlantillaSeleccion> {
-    return this.api.post<PlantillaSeleccion>('/plantilla-seleccion', payload);
+  seleccionar(datos: {
+    modulo: string;
+    tipo_documento_id: number;
+    plantilla_id: number;
+  }): Observable<{ modulo: string; tipo_documento_id: number; plantilla_id: number }> {
+    return this.api.post('/plantilla-seleccion', datos);
   }
 }

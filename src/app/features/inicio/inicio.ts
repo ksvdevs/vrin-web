@@ -28,9 +28,7 @@ export class Inicio implements OnInit {
     return rol === 'ADMINISTRADOR' || rol === 'SECRETARIA';
   });
 
-  protected readonly esAdmin = computed(
-    () => this.auth.usuarioActual()?.rol === 'ADMINISTRADOR',
-  );
+  protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol === 'ADMINISTRADOR');
 
   ngOnInit(): void {
     this.auth.cargarUsuarioActual().subscribe();

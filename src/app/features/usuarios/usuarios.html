@@ -1,0 +1,59 @@
+<div class="p-6">
+  <div class="flex justify-between items-center mb-6">
+    <h1 class="text-2xl font-bold">Gestión de Usuarios</h1>
+    <p-button label="Nuevo Usuario" icon="pi pi-plus" (onClick)="abrirModal()" />
+  </div>
+
+  <div class="card bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+    <p-table [value]="usuarios" [tableStyle]="{ 'min-width': '50rem' }">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>Nombre</th>
+          <th>Correo</th>
+          <th>Rol</th>
+          <th>Último Acceso</th>
+          <th>Estado</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-u>
+        <tr>
+          <td class="font-medium">{{ u.nombre }}</td>
+          <td>{{ u.email }}</td>
+          <td>
+            <p-tag [value]="u.rol" [severity]="getSeverity(u.rol)" />
+          </td>
+          <td>{{ u.ultimo_login_at ? (u.ultimo_login_at | date:'dd/MM/yyyy HH:mm') : 'Nunca' }}</td>
+          <td>
+            <p-inputSwitch [(ngModel)]="u.activo" (onChange)="toggleActivo(u)" />
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="emptymessage">
+        <tr>
+          <td colspan="5" class="text-center p-4 text-gray-500">No se encontraron usuarios.</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+
+  <p-dialog header="Nuevo Usuario" [(visible)]="modalVisible" [modal]="true" [style]="{width: '400px'}">
+    <div class="flex flex-col gap-4 py-2">
+      <div class="flex flex-col gap-2">
+        <label for="nombre">Nombre completo</label>
+        <input pInputText id="nombre" [(ngModel)]="nuevoUsuario.nombre" />
+      </div>
+      <div class="flex flex-col gap-2">
+        <label for="email">Correo (@unamba.edu.pe)</label>
+        <input pInputText id="email" [(ngModel)]="nuevoUsuario.email" />
+      </div>
+      <div class="flex flex-col gap-2">
+        <label for="rol">Rol</label>
+        <p-select [options]="roles" [(ngModel)]="nuevoUsuario.rol" appendTo="body" styleClass="w-full" />
+      </div>
+    </div>
+    <ng-template pTemplate="footer">
+      <p-button label="Cancelar" icon="pi pi-times" [text]="true" (onClick)="modalVisible = false" />
+      <p-button label="Guardar" icon="pi pi-check" (onClick)="guardarUsuario()" [loading]="guardando" />
+    </ng-template>
+  </p-dialog>
+</div>
