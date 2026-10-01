@@ -1,0 +1,339 @@
+<main class="registro-overlay">
+  <p-toast />
+  <p-confirmdialog />
+
+  <app-docente-formulario
+    [(visible)]="dialogoDocenteVisible"
+    (guardado)="alGuardarDocenteNuevo($event)"
+  />
+
+  <section class="panel" aria-label="Registro de expediente">
+    <header class="cabecera">
+      <div class="titulo">
+        <h1>Registrar Expediente de Artículo Financiado</h1>
+        <p class="subtitulo">Etapa 1: registro del expediente y la carta del docente</p>
+      </div>
+      <p-button
+        icon="pi pi-times"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        ariaLabel="Cerrar"
+        (onClick)="cancelar()"
+      />
+    </header>
+
+    @if (expedienteCreado(); as expediente) {
+      <div class="cuerpo adjuntar">
+        <div class="resumen-expediente">
+          <p-tag [value]="expediente.codigo" severity="success" icon="pi pi-check" />
+          <p>
+            Estado: <strong>{{ etiquetaEstado(expediente.estado) }}</strong>
+          </p>
+        </div>
+
+        <h2 class="titulo-seccion">Adjuntar carta del docente</h2>
+        <p class="ayuda">
+          Formatos permitidos: PDF, DOC, DOCX, JPG o PNG (máximo 25 MB).
+        </p>
+
+        @if (cartaSubida(); as carta) {
+          <div class="carta-guardada">
+            <i class="pi pi-paperclip"></i>
+            <span>{{ carta.nombre_original }}</span>
+            <small>sha256: {{ carta.sha256 }}</small>
+          </div>
+        }
+
+        <div class="selector-archivo">
+          <label class="boton-archivo">
+            Elegir archivo
+            <input
+              type="file"
+              class="input-archivo"
+              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
+              (change)="seleccionarArchivo($event)"
+            />
+          </label>
+          <span class="nombre-archivo">
+            {{ archivoSeleccionado()?.name ?? 'Sin archivos seleccionados' }}
+          </span>
+          <p-button
+            label="Subir"
+            icon="pi pi-upload"
+            severity="success"
+            [disabled]="!archivoSeleccionado() || !!cartaSubida()"
+            [loading]="subiendo()"
+            (onClick)="subirCarta()"
+          />
+        </div>
+      </div>
+
+      <footer class="pie">
+        <p-button
+          label="Omitir por ahora"
+          severity="secondary"
+          [text]="true"
+          (onClick)="finalizar()"
+        />
+        <p-button label="Finalizar" icon="pi pi-check" (onClick)="finalizar()" />
+      </footer>
+    } @else {
+      <form [formGroup]="formulario" (ngSubmit)="guardar()" class="cuerpo formulario">
+        <div class="fila">
+          <div class="campo">
+            <label for="carta_docente_numero">Número de Carta Docente *</label>
+            <input
+              pInputText
+              id="carta_docente_numero"
+              formControlName="carta_docente_numero"
+              maxlength="80"
+              placeholder="p. ej. 017-2026-CP-MVZ-UNAMBA-ABANCAY/DZG"
+              autocomplete="off"
+            />
+            @if (
+              formulario.controls.carta_docente_numero.touched &&
+              formulario.controls.carta_docente_numero.invalid
+            ) {
+              <small class="error">{{ mensajeError(formulario.controls.carta_docente_numero) }}</small>
+            }
+          </div>
+          <div class="campo">
+            <label for="carta_docente_fecha">Fecha de Carta Docente *</label>
+            <p-datepicker
+              inputId="carta_docente_fecha"
+              formControlName="carta_docente_fecha"
+              dateFormat="dd/mm/yy"
+              [showIcon]="true"
+              [showOnFocus]="false"
+              appendTo="body"
+              placeholder="dd/mm/aaaa"
+              styleClass="select-ancho"
+            />
+            @if (
+              formulario.controls.carta_docente_fecha.touched &&
+              formulario.controls.carta_docente_fecha.invalid
+            ) {
+              <small class="error">{{ mensajeError(formulario.controls.carta_docente_fecha) }}</small>
+            }
+          </div>
+        </div>
+
+        <div class="fila">
+          <div class="campo">
+            <label for="grado">Grado *</label>
+            <input
+              pInputText
+              id="grado"
+              [value]="gradoDocente() ?? ''"
+              placeholder="Se completa al elegir el docente"
+              readonly
+              tabindex="-1"
+            />
+          </div>
+          <div class="campo">
+            <label for="docente">Docente *</label>
+            <div class="campo-horizontal">
+              <p-autocomplete
+                inputId="docente"
+                formControlName="docente"
+                [suggestions]="sugerencias()"
+                optionLabel="label"
+                [dropdown]="true"
+                [minQueryLength]="2"
+                placeholder="Buscar por nombre o DNI"
+                appendTo="body"
+                (completeMethod)="alBuscarDocente($event)"
+                styleClass="autocomplete-ancho"
+              />
+              <p-button
+                icon="pi pi-plus"
+                severity="success"
+                ariaLabel="Nuevo docente"
+                pTooltip="Nuevo docente"
+                tooltipPosition="top"
+                (onClick)="abrirNuevoDocente()"
+              />
+            </div>
+            @if (formulario.controls.docente.touched && formulario.controls.docente.invalid) {
+              <small class="error">{{ mensajeError(formulario.controls.docente) }}</small>
+            }
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="tipo_contrato">Tipo de contrato *</label>
+          <input
+            pInputText
+            id="tipo_contrato"
+            [value]="tipoContratoDocente() ?? ''"
+            placeholder="Se completa al elegir el docente"
+            readonly
+            tabindex="-1"
+          />
+        </div>
+
+        <div class="campo">
+          <label for="facultad">Facultad *</label>
+          <input
+            pInputText
+            id="facultad"
+            [value]="facultadDocente() ?? ''"
+            placeholder="Se completa al elegir el docente"
+            readonly
+            tabindex="-1"
+          />
+        </div>
+
+        <div class="campo">
+          <label for="escuela">Escuela Profesional *</label>
+          <input
+            pInputText
+            id="escuela"
+            [value]="escuelaDocente() ?? ''"
+            placeholder="Se completa al elegir el docente"
+            readonly
+            tabindex="-1"
+          />
+        </div>
+
+        <div class="campo">
+          <label for="revista">Revista *</label>
+          <input
+            pInputText
+            id="revista"
+            formControlName="revista"
+            maxlength="255"
+            placeholder="Buscar por nombre"
+            autocomplete="off"
+          />
+          @if (formulario.controls.revista.touched && formulario.controls.revista.invalid) {
+            <small class="error">{{ mensajeError(formulario.controls.revista) }}</small>
+          }
+        </div>
+
+        <div class="fila">
+          <div class="campo">
+            <label for="base_indexadora">Base de datos indexadora *</label>
+            <p-select
+              inputId="base_indexadora"
+              formControlName="base_indexadora"
+              [options]="opcionesBase"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Selecciona la base"
+              appendTo="body"
+              styleClass="select-ancho"
+            />
+            @if (
+              formulario.controls.base_indexadora.touched &&
+              formulario.controls.base_indexadora.invalid
+            ) {
+              <small class="error">{{ mensajeError(formulario.controls.base_indexadora) }}</small>
+            }
+          </div>
+          <div class="campo">
+            <label for="cuartil">Cuartil *</label>
+            <p-select
+              inputId="cuartil"
+              formControlName="cuartil"
+              [options]="opcionesCuartil"
+              optionLabel="label"
+              optionValue="value"
+              placeholder="Selecciona el cuartil"
+              appendTo="body"
+              styleClass="select-ancho"
+            />
+            @if (formulario.controls.cuartil.touched && formulario.controls.cuartil.invalid) {
+              <small class="error">{{ mensajeError(formulario.controls.cuartil) }}</small>
+            }
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="titulo">Título de Artículo *</label>
+          <textarea
+            pTextarea
+            id="titulo"
+            formControlName="titulo"
+            [rows]="3"
+            [autoResize]="true"
+            placeholder="Ingresa el título del artículo"
+          ></textarea>
+          @if (formulario.controls.titulo.touched && formulario.controls.titulo.invalid) {
+            <small class="error">{{ mensajeError(formulario.controls.titulo) }}</small>
+          }
+        </div>
+
+        <div class="fila">
+          <div class="campo">
+            <label for="monto_solicitado">Monto en soles *</label>
+            <p-inputnumber
+              inputId="monto_solicitado"
+              formControlName="monto_solicitado"
+              mode="currency"
+              currency="PEN"
+              locale="es-PE"
+              [min]="0.01"
+              [minFractionDigits]="2"
+              [maxFractionDigits]="2"
+              placeholder="0,00"
+              styleClass="numero-ancho"
+            />
+            @if (
+              formulario.controls.monto_solicitado.touched &&
+              formulario.controls.monto_solicitado.invalid
+            ) {
+              <small class="error">{{ mensajeError(formulario.controls.monto_solicitado) }}</small>
+            }
+          </div>
+          <div class="campo">
+            <label for="doi">Doi</label>
+            <input
+              pInputText
+              id="doi"
+              formControlName="doi"
+              maxlength="255"
+              placeholder="https://doi.org/… (no es obligatorio)"
+              autocomplete="off"
+            />
+            @if (formulario.controls.doi.touched && formulario.controls.doi.invalid) {
+              <small class="error">{{ mensajeError(formulario.controls.doi) }}</small>
+            }
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="documentos_completos">Documentos Completos *</label>
+          <p-select
+            inputId="documentos_completos"
+            formControlName="documentos_completos"
+            [options]="opcionesDocumentos"
+            optionLabel="label"
+            optionValue="value"
+            placeholder="Sí / No"
+            appendTo="body"
+            styleClass="select-ancho"
+          />
+          @if (
+            formulario.controls.documentos_completos.touched &&
+            formulario.controls.documentos_completos.invalid
+          ) {
+            <small class="error">{{ mensajeError(formulario.controls.documentos_completos) }}</small>
+          }
+        </div>
+      </form>
+
+      <footer class="pie">
+        <p-button label="Cancelar" severity="secondary" [text]="true" (onClick)="cancelar()" />
+        <p-button
+          label="Guardar"
+          icon="pi pi-save"
+          severity="success"
+          [loading]="guardando()"
+          (onClick)="guardar()"
+        />
+      </footer>
+    }
+  </section>
+</main>

@@ -1,0 +1,22 @@
+:host {
+  display: block;
+}
+
+:host ::ng-deep .alta-inline-select {
+  width: 100%;
+}
+
+.alta-inline-footer {
+  padding: 0.25rem 0.5rem;
+  border-top: 1px solid var(--p-content-border-color);
+}
+
+.alta-inline-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+
+  input {
+    width: 100%;
+  }
+}

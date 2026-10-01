@@ -1,0 +1,129 @@
+<p-dialog
+  [header]="docente() ? 'Editar docente' : 'Nuevo docente'"
+  [(visible)]="visible"
+  [modal]="true"
+  [style]="{ width: '36rem' }"
+>
+  <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
+    <div class="campo">
+      <label for="dni">DNI</label>
+      <input pInputText id="dni" formControlName="dni" maxlength="8" autocomplete="off" />
+      @if (formulario.controls.dni.touched && formulario.controls.dni.invalid) {
+        <small class="error">El DNI debe tener exactamente 8 dígitos.</small>
+      }
+    </div>
+
+    <div class="fila">
+      <div class="campo">
+        <label for="apellido_paterno">Apellido paterno</label>
+        <input pInputText id="apellido_paterno" formControlName="apellido_paterno" />
+        @if (
+          formulario.controls.apellido_paterno.touched &&
+          formulario.controls.apellido_paterno.invalid
+        ) {
+          <small class="error">Obligatorio.</small>
+        }
+      </div>
+      <div class="campo">
+        <label for="apellido_materno">Apellido materno</label>
+        <input pInputText id="apellido_materno" formControlName="apellido_materno" />
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="nombres">Nombres</label>
+      <input pInputText id="nombres" formControlName="nombres" />
+      @if (formulario.controls.nombres.touched && formulario.controls.nombres.invalid) {
+        <small class="error">Obligatorio.</small>
+      }
+    </div>
+
+    <div class="fila">
+      <div class="campo">
+        <label for="grado">Grado académico</label>
+        <p-select
+          inputId="grado"
+          formControlName="grado"
+          [options]="grados"
+          placeholder="Selecciona el grado"
+          styleClass="select-ancho"
+        />
+        @if (formulario.controls.grado.touched && formulario.controls.grado.invalid) {
+          <small class="error">Obligatorio.</small>
+        }
+      </div>
+      <div class="campo">
+        <label for="tipo_contrato">Tipo de contrato</label>
+        <p-select
+          inputId="tipo_contrato"
+          formControlName="tipo_contrato"
+          [options]="tiposContrato"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Selecciona el tipo"
+          styleClass="select-ancho"
+        />
+        @if (formulario.controls.tipo_contrato.touched && formulario.controls.tipo_contrato.invalid) {
+          <small class="error">Obligatorio.</small>
+        }
+      </div>
+    </div>
+
+    <div class="campo">
+      <label for="facultad">Facultad</label>
+      <app-select-con-alta-inline
+        formControlName="facultad_id"
+        [opciones]="facultades()"
+        placeholder="Selecciona la facultad"
+        etiquetaAlta="Agregar facultad"
+        tituloDialogo="Nueva facultad"
+        [puedeCrear]="esAdmin()"
+        [crear]="crearFacultad"
+        (creado)="alCrearFacultad($event)"
+      />
+      @if (formulario.controls.facultad_id.touched && formulario.controls.facultad_id.invalid) {
+        <small class="error">Obligatorio.</small>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="escuela">Escuela profesional</label>
+      <app-select-con-alta-inline
+        formControlName="escuela_id"
+        [opciones]="escuelasDisponibles()"
+        placeholder="Selecciona la escuela"
+        etiquetaAlta="Agregar escuela"
+        tituloDialogo="Nueva escuela profesional"
+        [puedeCrear]="esAdmin()"
+        [crear]="crearEscuela"
+        (creado)="alCrearEscuela($event)"
+      />
+      @if (formulario.controls.escuela_id.touched && formulario.controls.escuela_id.invalid) {
+        <small class="error">Obligatorio. Primero elige una facultad.</small>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="email">Email institucional (opcional)</label>
+      <input pInputText id="email" type="email" formControlName="email" autocomplete="off" />
+      @if (formulario.controls.email.touched && formulario.controls.email.invalid) {
+        <small class="error">Ingresa un email válido.</small>
+      }
+    </div>
+  </form>
+
+  <ng-template #footer>
+    <p-button
+      label="Cancelar"
+      severity="secondary"
+      [text]="true"
+      (onClick)="visible.set(false)"
+    />
+    <p-button
+      [label]="docente() ? 'Guardar cambios' : 'Registrar'"
+      icon="pi pi-check"
+      [loading]="guardando()"
+      (onClick)="guardar()"
+    />
+  </ng-template>
+</p-dialog>

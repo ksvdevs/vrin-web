@@ -1,0 +1,29 @@
+<main class="login-page">
+  <p-card header="SGR-VRIN" subheader="Acceso de desarrollo — selecciona un usuario">
+    @if (cargando()) {
+      <p class="estado">Cargando usuarios…</p>
+    } @else if (error(); as mensaje) {
+      <p class="estado error">{{ mensaje }}</p>
+    } @else {
+      <div class="lista-usuarios">
+        @for (usuario of usuarios(); track usuario.id) {
+          <div class="usuario-fila">
+            <div class="usuario-datos">
+              <strong>{{ usuario.nombre }}</strong>
+              <span class="email">{{ usuario.email }}</span>
+            </div>
+            <p-tag [value]="usuario.rol" [severity]="severidadRol(usuario.rol)" />
+            <p-button
+              label="Ingresar como"
+              icon="pi pi-sign-in"
+              size="small"
+              (onClick)="ingresarComo(usuario)"
+            />
+          </div>
+        } @empty {
+          <p class="estado">No hay usuarios disponibles.</p>
+        }
+      </div>
+    }
+  </p-card>
+</main>

@@ -1,0 +1,26 @@
+<div class="badge-etapa" [title]="'Estado: ' + titulo()">
+  @for (paso of pasos(); track paso.indice) {
+    <span
+      class="paso"
+      [class.completado]="paso.completado"
+      [class.fallido]="paso.fallido"
+      [class.actual]="paso.actual"
+    >
+      <span class="indicador">
+        @if (paso.completado) {
+          <i class="pi pi-check"></i>
+        } @else if (paso.fallido) {
+          <i class="pi pi-times"></i>
+        } @else if (paso.actual) {
+          <i class="pi pi-clock"></i>
+        } @else {
+          <span class="numero">{{ paso.indice }}</span>
+        }
+      </span>
+      <span class="etiqueta">{{ paso.etiqueta }}</span>
+    </span>
+    @if (!$last) {
+      <span class="conector" [class.hecho]="paso.completado"></span>
+    }
+  }
+</div>

@@ -1,0 +1,50 @@
+.inicio-page {
+  min-height: 100vh;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.barra {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+
+  h1 {
+    margin: 0;
+    font-size: 1.5rem;
+  }
+}
+
+.sesion {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+
+  .nombre {
+    font-weight: 600;
+  }
+}
+
+p-card {
+  max-width: 640px;
+}
+
+.ping-ok {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: flex-start;
+}
+
+.cargando {
+  color: var(--p-text-muted-color);
+}
+
+.accesos {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}

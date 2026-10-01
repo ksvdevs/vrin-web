@@ -1,0 +1,88 @@
+<p-drawer
+  [visible]="visible()"
+  (visibleChange)="visibleChange.emit($event)"
+  header="Validación de Expediente de Artículo Financiado"
+  position="right"
+  [style]="{ width: '32rem' }"
+>
+  <div class="validacion-contenido">
+    <section class="resumen">
+      <div class="dato">
+        <span class="etiqueta">Expediente</span>
+        <strong>{{ expediente().codigo }}</strong>
+      </div>
+      <div class="dato">
+        <span class="etiqueta">Investigador</span>
+        <strong>{{ expediente().docente?.nombre_completo ?? '—' }}</strong>
+        <small>DNI: {{ expediente().docente?.dni ?? '—' }}</small>
+      </div>
+      <div class="dato">
+        <span class="etiqueta">Artículo</span>
+        <span class="titulo-articulo">{{ expediente().articulo?.titulo ?? '—' }}</span>
+      </div>
+      <div class="dato">
+        <span class="etiqueta">Carta del docente</span>
+        <strong>N° {{ expediente().carta_docente_numero }}</strong>
+      </div>
+    </section>
+
+    <form [formGroup]="form" (ngSubmit)="guardar()" class="formulario">
+      <h3 class="subtitulo-seccion">Checklist de requisitos</h3>
+      @for (requisito of requisitos; track requisito.clave) {
+        <div class="requisito">
+          <span class="requisito-etiqueta">{{ requisito.etiqueta }}</span>
+          <p-selectbutton
+            [formControlName]="requisito.clave"
+            [options]="opcionesCumplimiento"
+            optionLabel="label"
+            optionValue="value"
+            [allowEmpty]="false"
+          />
+        </div>
+      }
+
+      <div class="campo">
+        <label for="observacion">Observación</label>
+        <textarea
+          id="observacion"
+          pTextarea
+          formControlName="observacion"
+          rows="3"
+          placeholder="Detalle el motivo si algún requisito no cumple…"
+        ></textarea>
+      </div>
+
+      @if (resultado(); as r) {
+        <div class="resultado-previo">
+          <span>Resultado:</span>
+          <p-tag
+            [value]="r === 'CUMPLE' ? 'Cumple' : 'No cumple'"
+            [severity]="r === 'CUMPLE' ? 'success' : 'danger'"
+          />
+        </div>
+      }
+
+      @if (error(); as mensaje) {
+        <p class="error-validacion">{{ mensaje }}</p>
+      }
+
+      <div class="acciones">
+        <p-button
+          label="Cancelar"
+          severity="secondary"
+          [text]="true"
+          (onClick)="cerrar()"
+          type="button"
+        />
+        <p-button
+          label="Guardar Validación"
+          icon="pi pi-check"
+          severity="success"
+          type="submit"
+          [loading]="guardando()"
+          [disabled]="form.invalid"
+        />
+      </div>
+    </form>
+  </div>
+</p-drawer>

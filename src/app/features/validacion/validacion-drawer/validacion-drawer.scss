@@ -1,0 +1,89 @@
+.validacion-contenido {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+
+.resumen {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-content-border-radius);
+  background: var(--p-content-hover-background);
+}
+
+.dato {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+
+  small {
+    color: var(--p-text-muted-color);
+  }
+}
+
+.etiqueta {
+  font-size: 0.8rem;
+  color: var(--p-text-muted-color);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.titulo-articulo {
+  font-size: 0.95rem;
+  line-height: 1.35;
+}
+
+.formulario {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.subtitulo-seccion {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.requisito {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+
+  .requisito-etiqueta {
+    flex: 1;
+    font-size: 0.95rem;
+  }
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+
+  label {
+    font-size: 0.9rem;
+    font-weight: 600;
+  }
+}
+
+.resultado-previo {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.error-validacion {
+  margin: 0;
+  color: var(--p-red-500);
+  font-size: 0.9rem;
+}
+
+.acciones {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+}

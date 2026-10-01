@@ -1,0 +1,340 @@
+<main class="detalle-page">
+  <p-toast />
+
+  @if (detalle(); as e) {
+    <header class="barra">
+      <div class="titulo">
+        <p-button
+          icon="pi pi-arrow-left"
+          severity="secondary"
+          [text]="true"
+          [rounded]="true"
+          routerLink="/expedientes"
+          ariaLabel="Volver a la bandeja"
+        />
+        <div>
+          <div class="linea-principal">
+            <h1>Expediente {{ e.codigo }}</h1>
+            <p-tag [value]="e.badge.label" [severity]="severidadBadge()" />
+          </div>
+          <p class="subtitulo">Registrado el {{ e.fecha_registro }}</p>
+        </div>
+      </div>
+      <div class="barra-acciones">
+        @if (puedeCompletarDocumentos()) {
+          <p-button
+            label="Completar Documentos"
+            icon="pi pi-check-circle"
+            severity="success"
+            [loading]="completando()"
+            (onClick)="completarDocumentos()"
+          />
+        }
+        @if (puedeValidar()) {
+          <p-button
+            label="Validar Requisitos"
+            icon="pi pi-check-square"
+            (onClick)="abrirValidacion()"
+          />
+        }
+        <app-badge-etapa [estado]="e.estado" [etapa]="e.etapa_actual" />
+      </div>
+    </header>
+
+    <p-steps [model]="pasos" [activeIndex]="indiceActivo()" [readonly]="true" />
+
+    <div class="contenido">
+      <div class="columna-izquierda">
+        <section class="tarjeta">
+          <h2 class="tarjeta-titulo"><i class="pi pi-file"></i> Documento</h2>
+          <div class="fila-datos">
+            <div class="dato">
+              <span class="etiqueta">Número de Carta Docente *</span>
+              <strong>{{ e.carta_docente_numero }}</strong>
+            </div>
+            <div class="dato">
+              <span class="etiqueta">Fecha de Carta Docente *</span>
+              <strong>{{ formatoFecha(e.carta_docente_fecha) }}</strong>
+            </div>
+          </div>
+          @if (carta(); as c) {
+            <div class="archivo-carta">
+              <i class="pi pi-file-pdf"></i>
+              <span class="nombre">{{ c.nombre_original }}</span>
+              <div class="acciones-archivo">
+                <p-button
+                  label="Descargar PDF"
+                  icon="pi pi-download"
+                  size="small"
+                  severity="secondary"
+                  [outlined]="true"
+                  (onClick)="descargarCarta()"
+                />
+              </div>
+            </div>
+          } @else {
+            <p class="pendiente">Sin carta adjunta.</p>
+          }
+        </section>
+
+        <section class="tarjeta">
+          <h2 class="tarjeta-titulo"><i class="pi pi-user"></i> Investigador Solicitante</h2>
+          <div class="docente-cabecera">
+            <span class="avatar">{{ iniciales(e.docente?.nombre_completo) }}</span>
+            <div>
+              <strong>{{ e.docente?.nombre_completo ?? '—' }}</strong>
+              <p class="dato-simple">DNI: {{ e.docente?.dni ?? '—' }}</p>
+            </div>
+          </div>
+          <div class="fila-datos">
+            <div class="dato">
+              <span class="etiqueta">Facultad</span>
+              <strong>{{ e.docente?.facultad?.nombre ?? '—' }}</strong>
+            </div>
+            <div class="dato">
+              <span class="etiqueta">Escuela Profesional</span>
+              <strong>{{ e.docente?.escuela?.nombre ?? '—' }}</strong>
+            </div>
+            <div class="dato">
+              <span class="etiqueta">Condición Laboral</span>
+              <strong>{{ e.docente ? condicionLaboral(e.docente.tipo_contrato) : '—' }}</strong>
+            </div>
+          </div>
+        </section>
+
+        <section class="tarjeta">
+          <h2 class="tarjeta-titulo"><i class="pi pi-book"></i> Artículo Indexado Elegible</h2>
+          @if (e.articulo; as a) {
+            <p class="titulo-articulo">{{ a.titulo }}</p>
+            <div class="fila-datos">
+              <div class="dato">
+                <span class="etiqueta">Revista Científica</span>
+                <strong>{{ a.revista }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Indexación / Base de Datos</span>
+                <strong>{{ a.base_indexadora }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Cuartil</span>
+                <strong>{{ a.cuartil }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Monto Solicitado</span>
+                <strong class="monto">{{ formatoSoles(a.monto_solicitado) }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">DOI (Identificador Digital de Objeto)</span>
+                <strong>{{ a.doi ?? '—' }}</strong>
+              </div>
+            </div>
+          } @else {
+            <p class="pendiente">Sin artículo registrado.</p>
+          }
+        </section>
+
+        <section class="tarjeta">
+          <h2 class="tarjeta-titulo">
+            <i class="pi pi-check-square"></i> Validación Técnica de Requisitos
+            @if (mostrarContadorChecklist() && e.validacion_calidad) {
+              <span class="contador-checklist">{{ verificados() }}/3 Verificados</span>
+            }
+          </h2>
+          @if (e.validacion_calidad; as v) {
+            <div class="fila-datos">
+              <div class="dato">
+                <span class="etiqueta">Resultado</span>
+                <p-tag
+                  [value]="v.resultado === 'CUMPLE' ? 'Cumple' : 'No cumple'"
+                  [severity]="v.resultado === 'CUMPLE' ? 'success' : 'danger'"
+                />
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Validado por</span>
+                <strong>{{ v.validado_por ?? '—' }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Fecha de validación</span>
+                <strong>{{ v.validado_at ?? '—' }}</strong>
+              </div>
+            </div>
+            @if (v.checklist) {
+              <ul class="checklist">
+                @for (item of checklistItems(v.checklist); track item.etiqueta) {
+                  <li>
+                    <i [class]="item.cumple ? 'pi pi-check-circle cumple' : 'pi pi-times-circle no-cumple'"></i>
+                    {{ item.etiqueta }}
+                  </li>
+                }
+              </ul>
+            }
+            @if (v.observacion) {
+              <p class="observacion-texto">{{ v.observacion }}</p>
+            }
+          } @else {
+            <p class="pendiente">Pendiente de validación por Calidad.</p>
+          }
+        </section>
+
+        <section class="tarjeta">
+          <h2 class="tarjeta-titulo"><i class="pi pi-send"></i> Carta VRIN / OPP</h2>
+          @if (e.carta_vrin; as cv) {
+            <div class="fila-datos">
+              <div class="dato">
+                <span class="etiqueta">Número de Carta</span>
+                <strong>{{ cv.numero }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Año</span>
+                <strong>{{ cv.anio }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Fecha</span>
+                <strong>{{ formatoFecha(cv.fecha) }}</strong>
+              </div>
+            </div>
+          } @else {
+            <p class="pendiente">Pendiente.</p>
+          }
+          @if (e.respuesta_opp; as opp) {
+            <div class="fila-datos">
+              <div class="dato">
+                <span class="etiqueta">Disponibilidad presupuestal</span>
+                <p-tag
+                  [value]="opp.disponibilidad ? 'Confirmada' : 'Sin disponibilidad'"
+                  [severity]="opp.disponibilidad ? 'success' : 'danger'"
+                />
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Monto aprobado</span>
+                <strong>{{ formatoSoles(opp.monto_aprobado) }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Carta OPP N°</span>
+                <strong>{{ opp.carta_numero ?? '—' }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Registro VRIN</span>
+                <strong>{{ opp.registro_vrin_numero ?? '—' }}</strong>
+              </div>
+            </div>
+          }
+        </section>
+
+        <section class="tarjeta">
+          <h2 class="tarjeta-titulo"><i class="pi pi-file-edit"></i> Resolución</h2>
+          @if (e.resolucion; as r) {
+            <div class="fila-datos">
+              <div class="dato">
+                <span class="etiqueta">Número de Resolución</span>
+                <strong>{{ r.numero }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Año</span>
+                <strong>{{ r.anio }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Fecha de emisión</span>
+                <strong>{{ formatoFecha(r.fecha_emision) }}</strong>
+              </div>
+            </div>
+          } @else {
+            <p class="pendiente">Pendiente.</p>
+          }
+        </section>
+
+        <section class="tarjeta">
+          <h2 class="tarjeta-titulo"><i class="pi pi-wallet"></i> Rendición</h2>
+          @if (e.rendicion; as ren) {
+            <div class="fila-datos">
+              <div class="dato">
+                <span class="etiqueta">Fecha de desembolso</span>
+                <strong>{{ formatoFecha(ren.fecha_desembolso) }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Fecha límite</span>
+                <strong>{{ formatoFecha(ren.fecha_limite) }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Fecha de informe</span>
+                <strong>{{ formatoFecha(ren.fecha_informe) }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Estado</span>
+                <strong>{{ ren.estado ?? '—' }}</strong>
+              </div>
+            </div>
+          } @else {
+            <p class="pendiente">Pendiente.</p>
+          }
+        </section>
+
+        @if (observacionesPendientes().length > 0) {
+          <section class="tarjeta tarjeta-observaciones">
+            <h2 class="tarjeta-titulo">
+              <i class="pi pi-exclamation-triangle"></i> Observaciones pendientes
+            </h2>
+            @for (obs of observacionesPendientes(); track obs.id) {
+              <div class="observacion">
+                <p-tag [value]="obs.origen" severity="warn" />
+                <div>
+                  <p class="observacion-texto">{{ obs.texto }}</p>
+                  <small>Etapa {{ obs.etapa }} · {{ obs.created_at }}</small>
+                </div>
+              </div>
+            }
+          </section>
+        }
+      </div>
+
+      <div class="columna-derecha">
+        @if (urlCarta(); as url) {
+          <div class="visor">
+            <div class="visor-barra">
+              <span class="visor-titulo"><i class="pi pi-eye"></i> Vista Oficial Previa</span>
+              <span class="visor-nombre">{{ carta()?.nombre_original }}</span>
+              <p-button
+                label="Descargar PDF"
+                icon="pi pi-download"
+                size="small"
+                severity="secondary"
+                [outlined]="true"
+                (onClick)="descargarCarta()"
+              />
+            </div>
+            <iframe class="visor-iframe" [src]="url" title="Vista previa de la carta"></iframe>
+          </div>
+        } @else {
+          <div class="visor visor-vacio">
+            <i class="pi pi-file-pdf visor-icono"></i>
+            <p>{{ carta() ? 'Vista previa no disponible' : 'Sin carta adjunta' }}</p>
+            @if (carta()) {
+              <p-button
+                label="Descargar PDF"
+                icon="pi pi-download"
+                severity="secondary"
+                [outlined]="true"
+                (onClick)="descargarCarta()"
+              />
+            }
+          </div>
+        }
+      </div>
+    </div>
+  } @else {
+    <div class="cargando">
+      @if (cargando()) {
+        <p><i class="pi pi-spin pi-spinner"></i> Cargando expediente…</p>
+      }
+    </div>
+  }
+
+  @if (detalle(); as e) {
+    <app-validacion-drawer
+      [expediente]="e"
+      [visible]="drawerValidacion()"
+      (visibleChange)="drawerValidacion.set($event)"
+      (guardada)="alGuardarValidacion($event)"
+    />
+  }
+</main>

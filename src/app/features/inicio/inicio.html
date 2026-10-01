@@ -1,0 +1,76 @@
+<main class="inicio-page">
+  <header class="barra">
+    <h1>SGR-VRIN</h1>
+    <div class="sesion">
+      @if (auth.usuarioActual(); as usuario) {
+        <span class="nombre">{{ usuario.nombre }}</span>
+        <p-tag [value]="usuario.rol" [severity]="severidadRol(usuario.rol)" />
+      } @else {
+        <span class="nombre">Cargando usuario…</span>
+      }
+      <p-button
+        label="Cambiar usuario"
+        icon="pi pi-user-edit"
+        severity="secondary"
+        size="small"
+        (onClick)="cambiarUsuario()"
+      />
+    </div>
+  </header>
+
+  <p-card header="Estado del sistema" subheader="Prueba de humo contra la API">
+    @if (ping(); as resultado) {
+      <div class="ping-ok">
+        <p-tag value="API en línea" severity="success" icon="pi pi-check" />
+        <p>Facultades registradas en la base de datos: <strong>{{ resultado.db }}</strong></p>
+      </div>
+    } @else if (pingError(); as mensaje) {
+      <div class="ping-ok">
+        <p-tag value="API sin conexión" severity="danger" icon="pi pi-times" />
+        <p>{{ mensaje }}</p>
+      </div>
+    } @else {
+      <p class="cargando">Consultando /api/ping…</p>
+    }
+  </p-card>
+
+  <p-card header="Catálogos" subheader="Mantenimiento de datos maestros">
+    <div class="accesos">
+      <p-button
+        label="Docentes"
+        icon="pi pi-users"
+        severity="secondary"
+        [outlined]="true"
+        routerLink="/catalogos/docentes"
+      />
+      @if (esAdmin()) {
+        <p-button
+          label="Plantillas"
+          icon="pi pi-file-word"
+          severity="secondary"
+          [outlined]="true"
+          routerLink="/plantillas"
+        />
+      }
+    </div>
+  </p-card>
+
+  <p-card header="Expedientes" subheader="Trámite de artículos financiados">
+    <div class="accesos">
+      <p-button
+        label="Ver expedientes"
+        icon="pi pi-folder-open"
+        severity="secondary"
+        [outlined]="true"
+        routerLink="/expedientes"
+      />
+      @if (puedeRegistrarExpedientes()) {
+        <p-button
+          label="+ Nuevo expediente"
+          icon="pi pi-file-plus"
+          routerLink="/expedientes/nuevo"
+        />
+      }
+    </div>
+  </p-card>
+</main>

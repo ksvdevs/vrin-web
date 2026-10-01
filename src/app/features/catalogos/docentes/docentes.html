@@ -1,0 +1,124 @@
+<main class="docentes-page">
+  <p-toast />
+  <p-confirmdialog />
+
+  <header class="barra">
+    <div class="titulo">
+      <p-button
+        icon="pi pi-arrow-left"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        routerLink="/"
+        ariaLabel="Volver al inicio"
+      />
+      <div>
+        <h1>Catálogo de docentes</h1>
+        <p class="subtitulo">Gestión de docentes de las escuelas profesionales</p>
+      </div>
+    </div>
+    @if (esAdmin()) {
+      <p-button label="Nuevo Docente" icon="pi pi-plus" (onClick)="abrirNuevo()" />
+    }
+  </header>
+
+  <div class="filtros">
+    <input
+      pInputText
+      type="search"
+      placeholder="Buscar por DNI, apellidos o nombres…"
+      [value]="busqueda()"
+      (input)="alBuscar($any($event.target).value)"
+      class="buscador"
+    />
+  </div>
+
+  <p-table
+    [value]="docentes()"
+    [loading]="cargando()"
+    [paginator]="true"
+    [rows]="10"
+    [rowsPerPageOptions]="[10, 20, 50]"
+    styleClass="p-datatable-striped"
+  >
+    <ng-template #header>
+      <tr>
+        <th>DNI</th>
+        <th>Apellidos y Nombres</th>
+        <th>Grado</th>
+        <th>Tipo contrato</th>
+        <th>Escuela</th>
+        <th>Estado</th>
+        @if (esAdmin()) {
+          <th class="acciones">Acciones</th>
+        }
+      </tr>
+    </ng-template>
+    <ng-template #body let-docente>
+      <tr>
+        <td>{{ docente.dni }}</td>
+        <td>
+          {{ docente.apellido_paterno }}
+          {{ docente.apellido_materno }}, {{ docente.nombres }}
+        </td>
+        <td>{{ docente.grado }}</td>
+        <td>
+          <p-tag
+            [value]="docente.tipo_contrato"
+            [severity]="docente.tipo_contrato === 'NOMBRADO' ? 'info' : 'secondary'"
+          />
+        </td>
+        <td>{{ nombreEscuela(docente) }}</td>
+        <td>
+          <p-tag
+            [value]="docente.activo ? 'Activo' : 'Inactivo'"
+            [severity]="docente.activo ? 'success' : 'danger'"
+          />
+        </td>
+        @if (esAdmin()) {
+          <td class="acciones">
+            <p-button
+              icon="pi pi-pencil"
+              severity="secondary"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="Editar"
+              (onClick)="abrirEdicion(docente)"
+            />
+            <p-button
+              [icon]="docente.activo ? 'pi pi-ban' : 'pi pi-check'"
+              [severity]="docente.activo ? 'warn' : 'success'"
+              [text]="true"
+              [rounded]="true"
+              [ariaLabel]="docente.activo ? 'Desactivar' : 'Activar'"
+              (onClick)="confirmarCambioEstado(docente)"
+            />
+            <p-button
+              icon="pi pi-trash"
+              severity="danger"
+              [text]="true"
+              [rounded]="true"
+              ariaLabel="Eliminar"
+              (onClick)="confirmarEliminar(docente)"
+            />
+          </td>
+        }
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr>
+        <td [attr.colspan]="esAdmin() ? 7 : 6" class="vacio">
+          @if (!cargando()) {
+            No se encontraron docentes.
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <app-docente-formulario
+    [(visible)]="dialogoVisible"
+    [docente]="docenteEnEdicion()"
+    (guardado)="alGuardarDocente()"
+  />
+</main>

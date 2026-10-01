@@ -1,0 +1,88 @@
+$verde: #10b981;
+$rojo: #ef4444;
+$ambar: #f59e0b;
+$gris: #cbd5e1;
+
+:host {
+  display: inline-block;
+}
+
+.badge-etapa {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+.paso {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+
+  .indicador {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.15rem;
+    height: 1.15rem;
+    border-radius: 50%;
+    font-size: 0.6rem;
+    background: var(--p-surface-200);
+    color: var(--p-text-muted-color);
+
+    i {
+      font-size: 0.55rem;
+    }
+  }
+
+  .etiqueta {
+    font-size: 0.75rem;
+    color: var(--p-text-muted-color);
+    white-space: nowrap;
+  }
+
+  &.completado {
+    .indicador {
+      background: rgba($verde, 0.15);
+      color: $verde;
+    }
+
+    .etiqueta {
+      color: $verde;
+      font-weight: 600;
+    }
+  }
+
+  &.actual {
+    .indicador {
+      background: rgba($ambar, 0.18);
+      color: $ambar;
+    }
+
+    .etiqueta {
+      color: $ambar;
+      font-weight: 600;
+    }
+  }
+
+  &.fallido {
+    .indicador {
+      background: rgba($rojo, 0.15);
+      color: $rojo;
+    }
+
+    .etiqueta {
+      color: $rojo;
+      font-weight: 600;
+    }
+  }
+}
+
+.conector {
+  width: 1.1rem;
+  height: 2px;
+  background: $gris;
+
+  &.hecho {
+    background: $verde;
+  }
+}

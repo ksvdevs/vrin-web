@@ -1,0 +1,154 @@
+<main class="lista-page">
+  <p-toast />
+
+  <header class="barra">
+    <div class="titulo">
+      <p-button
+        icon="pi pi-arrow-left"
+        severity="secondary"
+        [text]="true"
+        [rounded]="true"
+        routerLink="/"
+        ariaLabel="Volver al inicio"
+      />
+      <div>
+        <h1>Expedientes de Artículos Financiados</h1>
+        <p class="subtitulo">
+          Administra, audita y consulta las solicitudes, resoluciones y rendiciones de artículos
+          científicos VRIN
+        </p>
+      </div>
+    </div>
+    <div class="acciones">
+      <p-button
+        label="Filtros"
+        icon="pi pi-filter"
+        severity="secondary"
+        [outlined]="true"
+        [badge]="hayFiltros() ? '•' : undefined"
+        badgeSeverity="warn"
+        (onClick)="abrirFiltros()"
+      />
+      @if (esSecretariaOAdmin()) {
+        <p-button label="+ Nuevo" icon="pi pi-plus" routerLink="/expedientes/nuevo" />
+      }
+    </div>
+  </header>
+
+  <p-table
+    [value]="filas()"
+    [lazy]="true"
+    [loading]="cargando()"
+    [rows]="5"
+    [first]="primeraFila()"
+    [totalRecords]="total()"
+    [paginator]="true"
+    [showCurrentPageReport]="true"
+    currentPageReportTemplate="Mostrando registros del {first} al {last} de un total de {totalRecords} registro(s)"
+    [tableStyle]="{ 'min-width': '60rem' }"
+    (onLazyLoad)="alCargarLazy($event)"
+  >
+    <ng-template #header>
+      <tr>
+        <th>CÓDIGO</th>
+        <th>FECHA DE REGISTRO</th>
+        <th>INVESTIGADOR / DOCENTE</th>
+        <th>ARTÍCULO</th>
+        <th>PROGRESO DEL EXPEDIENTE (ETAPAS 1 A 4)</th>
+        <th>ACCIÓN PRINCIPAL</th>
+      </tr>
+    </ng-template>
+    <ng-template #body let-fila>
+      <tr class="fila-clic" (click)="navegar(fila)">
+        <td class="codigo">{{ fila.codigo }}</td>
+        <td>{{ fila.fecha_registro }}</td>
+        <td>
+          <div class="docente">
+            <strong>{{ fila.docente.nombre_completo }}</strong>
+            <small>DNI: {{ fila.docente.dni }}</small>
+          </div>
+        </td>
+        <td class="articulo">{{ fila.titulo ?? '—' }}</td>
+        <td>
+          <app-badge-etapa [estado]="fila.estado" [etapa]="fila.etapa" />
+        </td>
+        <td>
+          <p-button
+            [label]="fila.accion_principal.etiqueta"
+            [severity]="severidadAccion(fila.accion_principal.clave)"
+            [outlined]="fila.accion_principal.clave === 'revisar_rendicion'"
+            size="small"
+            (onClick)="$event.stopPropagation(); navegar(fila)"
+          />
+        </td>
+      </tr>
+    </ng-template>
+    <ng-template #emptymessage>
+      <tr>
+        <td colspan="6" class="vacio">
+          @if (!cargando()) {
+            No hay expedientes.
+          }
+        </td>
+      </tr>
+    </ng-template>
+  </p-table>
+
+  <p-dialog
+    header="Filtros de expedientes"
+    [(visible)]="dialogoFiltros"
+    [modal]="true"
+    [style]="{ width: '26rem' }"
+  >
+    <form [formGroup]="filtroForm" class="formulario" (ngSubmit)="aplicarFiltros()">
+      <div class="campo">
+        <label for="estado">Estado</label>
+        <p-select
+          inputId="estado"
+          formControlName="estado"
+          [options]="opcionesEstado"
+          optionLabel="label"
+          optionValue="value"
+          placeholder="Todos los estados"
+          appendTo="body"
+          styleClass="select-ancho"
+        />
+      </div>
+      <div class="fila">
+        <div class="campo">
+          <label for="desde">Registrado desde</label>
+          <p-datepicker
+            inputId="desde"
+            formControlName="desde"
+            dateFormat="dd/mm/yy"
+            [showIcon]="true"
+            [showOnFocus]="false"
+            appendTo="body"
+            styleClass="select-ancho"
+          />
+        </div>
+        <div class="campo">
+          <label for="hasta">Registrado hasta</label>
+          <p-datepicker
+            inputId="hasta"
+            formControlName="hasta"
+            dateFormat="dd/mm/yy"
+            [showIcon]="true"
+            [showOnFocus]="false"
+            appendTo="body"
+            styleClass="select-ancho"
+          />
+        </div>
+      </div>
+    </form>
+    <ng-template #footer>
+      <p-button label="Limpiar" severity="secondary" [text]="true" (onClick)="limpiarFiltros()" />
+      <p-button
+        label="Aplicar"
+        icon="pi pi-check"
+        severity="success"
+        (onClick)="aplicarFiltros()"
+      />
+    </ng-template>
+  </p-dialog>
+</main>

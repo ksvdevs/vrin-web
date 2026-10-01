@@ -1,0 +1,61 @@
+<p-select
+  [options]="opcionesVisibles()"
+  optionLabel="nombre"
+  optionValue="id"
+  [ngModel]="valor()"
+  (ngModelChange)="alCambiar($event)"
+  (onHide)="onTouched()"
+  [placeholder]="placeholder()"
+  [disabled]="deshabilitado()"
+  [showClear]="true"
+  styleClass="alta-inline-select"
+>
+  @if (puedeCrear()) {
+    <ng-template #footer>
+      <div class="alta-inline-footer">
+        <p-button
+          [label]="'+ ' + etiquetaAlta() + '…'"
+          icon="pi pi-plus"
+          severity="secondary"
+          [text]="true"
+          size="small"
+          (onClick)="abrirAlta()"
+        />
+      </div>
+    </ng-template>
+  }
+</p-select>
+
+<p-dialog
+  [header]="tituloDialogo()"
+  [(visible)]="dialogoVisible"
+  [modal]="true"
+  [style]="{ width: '24rem' }"
+>
+  <div class="alta-inline-form">
+    <label for="alta-inline-nombre">Nombre</label>
+    <input
+      pInputText
+      id="alta-inline-nombre"
+      [ngModel]="nuevoNombre()"
+      (ngModelChange)="nuevoNombre.set($event)"
+      (keyup.enter)="confirmarAlta()"
+      autocomplete="off"
+    />
+  </div>
+  <ng-template #footer>
+    <p-button
+      label="Cancelar"
+      severity="secondary"
+      [text]="true"
+      (onClick)="dialogoVisible.set(false)"
+    />
+    <p-button
+      label="Guardar"
+      icon="pi pi-check"
+      [loading]="creando()"
+      [disabled]="!nuevoNombre().trim()"
+      (onClick)="confirmarAlta()"
+    />
+  </ng-template>
+</p-dialog>

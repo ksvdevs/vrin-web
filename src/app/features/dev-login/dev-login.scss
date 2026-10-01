@@ -1,0 +1,46 @@
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+p-card {
+  width: 100%;
+  max-width: 560px;
+}
+
+.lista-usuarios {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.usuario-fila {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.75rem;
+  border: 1px solid var(--p-content-border-color);
+  border-radius: var(--p-content-border-radius);
+}
+
+.usuario-datos {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+
+  .email {
+    font-size: 0.85rem;
+    color: var(--p-text-muted-color);
+  }
+}
+
+.estado {
+  color: var(--p-text-muted-color);
+
+  &.error {
+    color: var(--p-red-500);
+  }
+}
