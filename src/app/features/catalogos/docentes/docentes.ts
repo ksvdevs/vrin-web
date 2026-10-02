@@ -11,7 +11,7 @@ import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
 
 import { Docente, DocentePayload } from '../../../core/models/docente.model';
-import { DevAuthService } from '../../../core/services/dev-auth.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { DocenteService } from '../../../core/services/docente.service';
 import { DocenteFormulario } from '../../../shared/docente-formulario/docente-formulario';
 
@@ -31,12 +31,12 @@ import { DocenteFormulario } from '../../../shared/docente-formulario/docente-fo
   styleUrl: './docentes.scss',
 })
 export class Docentes implements OnInit, OnDestroy {
-  protected readonly auth = inject(DevAuthService);
+  protected readonly auth = inject(AuthService);
   private readonly docenteService = inject(DocenteService);
   private readonly mensajes = inject(MessageService);
   private readonly confirmacion = inject(ConfirmationService);
 
-  protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol === 'ADMINISTRADOR');
+  protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol_codigo === 'ADMINISTRADOR_GENERAL');
 
   protected readonly docentes = signal<Docente[]>([]);
   protected readonly cargando = signal(true);
@@ -49,7 +49,7 @@ export class Docentes implements OnInit, OnDestroy {
   private suscripcionBusqueda?: Subscription;
 
   ngOnInit(): void {
-    this.auth.cargarUsuarioActual().subscribe();
+    this.auth.verificarSesion().subscribe();
     this.suscripcionBusqueda = this.busqueda$
       .pipe(debounceTime(300), distinctUntilChanged())
       .subscribe((q) => this.cargarDocentes(q));

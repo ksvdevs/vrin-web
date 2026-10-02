@@ -1,0 +1,338 @@
+$teal: #14b8a6;
+$teal-oscuro: #0d9488;
+$navy: #0b1220;
+$texto: #1e293b;
+$muted: #64748b;
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background: #ffffff;
+}
+
+.login-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1.25rem 12vw;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  .marca {
+    display: flex;
+    flex-direction: column;
+
+    .logo {
+      font-size: 1.5rem;
+      font-weight: 800;
+      line-height: 1.1;
+
+      .logo-oscuro {
+        color: #0f172a;
+      }
+
+      .logo-teal {
+        color: $teal;
+      }
+    }
+
+    .subtitulo {
+      font-size: 0.8rem;
+      color: $muted;
+    }
+  }
+
+  .header-acciones {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+
+    .vicerrectorado {
+      font-size: 0.9rem;
+      color: $texto;
+      font-weight: 500;
+    }
+
+    .divisor {
+      width: 1px;
+      height: 1.75rem;
+      background: #e2e8f0;
+    }
+
+    .tema-toggle {
+      display: flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.6rem;
+      border: 1px solid #e2e8f0;
+      border-radius: 999px;
+      background: #ffffff;
+      cursor: pointer;
+
+      i {
+        font-size: 0.85rem;
+        color: #94a3b8;
+
+        &.activo {
+          color: #f59e0b;
+        }
+
+        &.pi-moon.activo {
+          color: $teal-oscuro;
+        }
+      }
+    }
+
+    .btn-teal {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.6rem 1.25rem;
+      border: none;
+      border-radius: 8px;
+      background: $teal;
+      color: #ffffff;
+      font-weight: 600;
+      font-size: 0.9rem;
+      cursor: pointer;
+
+      &:hover {
+        background: $teal-oscuro;
+      }
+    }
+  }
+}
+
+.login-contenido {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem 1rem 4rem;
+}
+
+.tarjeta {
+  width: 100%;
+  max-width: 420px;
+  background: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0 20px 45px rgba(15, 23, 42, 0.15);
+  padding: 2.5rem 2.25rem;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+
+  .badge {
+    align-self: center;
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+    background: $teal;
+    color: #0f172a;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1rem;
+  }
+
+  h1 {
+    margin: 0 0 1.75rem;
+    text-align: center;
+    font-size: 1.5rem;
+    color: #0f172a;
+  }
+
+  form {
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .campo {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+
+    label {
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: #94a3b8;
+
+      .req {
+        color: $teal;
+      }
+    }
+  }
+
+  .input-icono {
+    position: relative;
+    display: flex;
+    align-items: center;
+
+    .icono-izq {
+      position: absolute;
+      left: 0.9rem;
+      color: #94a3b8;
+      font-size: 0.95rem;
+      pointer-events: none;
+    }
+
+    input {
+      width: 100%;
+      padding: 0.75rem 2.75rem 0.75rem 2.5rem;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      font-size: 0.95rem;
+      color: $texto;
+      outline: none;
+
+      &::placeholder {
+        color: #94a3b8;
+      }
+
+      &:focus {
+        border-color: $teal;
+        box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.15);
+      }
+    }
+
+    .icono-der {
+      position: absolute;
+      right: 0.5rem;
+      border: none;
+      background: transparent;
+      color: #94a3b8;
+      cursor: pointer;
+      padding: 0.4rem;
+
+      &:hover {
+        color: $teal-oscuro;
+      }
+    }
+  }
+
+  .btn-ingresar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.85rem;
+    border: none;
+    border-radius: 8px;
+    background: $teal;
+    color: #0f172a;
+    font-weight: 700;
+    font-size: 1rem;
+    cursor: pointer;
+    margin-top: 0.25rem;
+
+    &:hover:not(:disabled) {
+      background: $teal-oscuro;
+      color: #ffffff;
+    }
+
+    &:disabled {
+      opacity: 0.7;
+      cursor: wait;
+    }
+  }
+
+  .enlace-olvido {
+    align-self: flex-start;
+    margin: 1.25rem 0 1.5rem;
+    border: none;
+    background: transparent;
+    color: $teal;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0;
+
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+
+  .btn-google {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.6rem;
+    padding: 0.85rem;
+    border: none;
+    border-radius: 8px;
+    background: #0b1220;
+    color: #ffffff;
+    font-weight: 500;
+    font-size: 0.95rem;
+    cursor: pointer;
+
+    &:hover {
+      background: #1e293b;
+    }
+  }
+}
+
+.login-footer {
+  background: $navy;
+  padding: 1.5rem 14vw;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+
+  .footer-izq {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+
+    .footer-icono {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: #111c30;
+      border: 1px solid #1e293b;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      i {
+        color: $teal;
+        font-size: 1rem;
+      }
+    }
+
+    .footer-texto {
+      display: flex;
+      flex-direction: column;
+
+      strong {
+        color: #f1f5f9;
+        font-size: 0.85rem;
+      }
+
+      span {
+        color: #64748b;
+        font-size: 0.75rem;
+      }
+    }
+  }
+
+  .footer-der {
+    display: flex;
+    gap: 2rem;
+
+    a {
+      color: #cbd5e1;
+      font-size: 0.85rem;
+      text-decoration: none;
+
+      &:hover {
+        color: #ffffff;
+      }
+    }
+  }
+}

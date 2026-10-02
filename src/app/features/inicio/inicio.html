@@ -4,7 +4,7 @@
     <div class="sesion">
       @if (auth.usuarioActual(); as usuario) {
         <span class="nombre">{{ usuario.nombre }}</span>
-        <p-tag [value]="usuario.rol" [severity]="severidadRol(usuario.rol)" />
+        <p-tag [value]="usuario.rol" [severity]="severidadRol(usuario.rol_codigo)" />
       } @else {
         <span class="nombre">Cargando usuario…</span>
       }

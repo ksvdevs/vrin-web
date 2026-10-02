@@ -1,7 +1,6 @@
 import { Routes } from '@angular/router';
 
 import { authGuard, guestGuard } from './core/guards/auth.guard';
-import { DevLogin } from './features/dev-login/dev-login';
 import { Docentes } from './features/catalogos/docentes/docentes';
 import { Inicio } from './features/inicio/inicio';
 import { RegistroExpediente } from './features/expedientes/registro/registro-expediente';
@@ -12,7 +11,7 @@ import { Plantillas } from './features/plantillas/plantillas';
 import { LayoutComponent } from './shared/layout/layout';
 
 export const routes: Routes = [
-  { path: 'login', component: DevLogin, canActivate: [guestGuard] },
+  { path: 'login', loadComponent: () => import('./features/login/login').then(m => m.Login), canActivate: [guestGuard] },
   { 
     path: '', 
     component: LayoutComponent, 
@@ -26,6 +25,7 @@ export const routes: Routes = [
       { path: 'expedientes/:id', component: VistaExpediente },
       { path: 'plantillas', component: Plantillas },
       { path: 'usuarios', loadComponent: () => import('./features/usuarios/usuarios').then(m => m.Usuarios) },
+      { path: 'roles', loadComponent: () => import('./features/roles/roles').then(m => m.Roles) },
     ]
   },
   { path: '**', redirectTo: '' },

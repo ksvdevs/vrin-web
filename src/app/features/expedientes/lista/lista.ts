@@ -17,7 +17,7 @@ import {
   type ExpedienteFila,
 } from '../../../core/models/expediente.model';
 import type { Plantilla } from '../../../core/models/plantilla.model';
-import { DevAuthService } from '../../../core/services/dev-auth.service';
+import { AuthService } from '../../../core/services/auth.service';
 import {
   ExpedienteService,
   type FiltrosExpediente,
@@ -45,7 +45,7 @@ import { ConfirmDialog } from 'primeng/confirmdialog';
   styleUrl: './lista.scss',
 })
 export class ListaExpedientes implements OnInit {
-  protected readonly auth = inject(DevAuthService);
+  protected readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly expedienteService = inject(ExpedienteService);
@@ -66,11 +66,11 @@ export class ListaExpedientes implements OnInit {
   protected readonly seleccionResolucionId = signal<number | null>(null);
 
   protected readonly esSecretariaOAdmin = computed(() =>
-    ['SECRETARIA', 'ADMINISTRADOR'].includes(this.auth.usuarioActual()?.rol ?? ''),
+    ['SECRETARIA', 'ADMINISTRADOR_GENERAL'].includes(this.auth.usuarioActual()?.rol_codigo ?? ''),
   );
 
   protected readonly esAdmin = computed(
-    () => this.auth.usuarioActual()?.rol === 'ADMINISTRADOR',
+    () => this.auth.usuarioActual()?.rol_codigo === 'ADMINISTRADOR_GENERAL',
   );
 
   protected readonly opcionesEstado = ESTADOS_EXPEDIENTE.map((estado) => ({
@@ -87,7 +87,7 @@ export class ListaExpedientes implements OnInit {
   private filtrosAplicados: FiltrosExpediente = {};
 
   ngOnInit(): void {
-    this.auth.cargarUsuarioActual().subscribe();
+    this.auth.verificarSesion().subscribe();
     this.cargarSeleccionPlantillas();
   }
 

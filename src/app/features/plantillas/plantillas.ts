@@ -12,7 +12,7 @@ import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
 
 import type { Plantilla } from '../../core/models/plantilla.model';
-import { DevAuthService } from '../../core/services/dev-auth.service';
+import { AuthService } from '../../core/services/auth.service';
 import { PlantillaService } from '../../core/services/plantilla.service';
 
 const TIPOS = [
@@ -30,7 +30,7 @@ const MAX_TAMANO = 25 * 1024 * 1024;
 })
 export class Plantillas implements OnInit {
   private readonly fb = inject(FormBuilder);
-  private readonly auth = inject(DevAuthService);
+  private readonly auth = inject(AuthService);
   private readonly plantillaService = inject(PlantillaService);
   private readonly mensajes = inject(MessageService);
 
@@ -41,7 +41,7 @@ export class Plantillas implements OnInit {
   protected readonly archivoSeleccionado = signal<File | null>(null);
 
   protected readonly tipos = TIPOS;
-  protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol === 'ADMINISTRADOR');
+  protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol_codigo === 'ADMINISTRADOR_GENERAL');
 
   protected readonly formulario = this.fb.group({
     nombre: ['', [Validators.required, Validators.maxLength(150)]],
@@ -49,7 +49,7 @@ export class Plantillas implements OnInit {
   });
 
   ngOnInit(): void {
-    this.auth.cargarUsuarioActual().subscribe();
+    this.auth.verificarSesion().subscribe();
     this.cargar();
   }
 

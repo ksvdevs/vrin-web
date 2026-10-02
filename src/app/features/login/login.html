@@ -1,0 +1,124 @@
+<p-toast />
+
+<div class="login-page">
+  <header class="login-header">
+    <div class="marca">
+      <div class="logo">
+        <span class="logo-oscuro">SGR</span><span class="logo-teal">–VRIN</span>
+      </div>
+      <span class="subtitulo">Sistema de Gestión de Resoluciones VRIN</span>
+    </div>
+    <div class="header-acciones">
+      <span class="vicerrectorado">Vicerrectorado de Investigación</span>
+      <span class="divisor"></span>
+      <button type="button" class="tema-toggle" (click)="alternarTema()" aria-label="Cambiar tema">
+        <i class="pi pi-sun" [class.activo]="!temaOscuro()"></i>
+        <i class="pi pi-moon" [class.activo]="temaOscuro()"></i>
+      </button>
+      <button type="button" class="btn-teal">
+        <i class="pi pi-lock"></i>
+        <span>Iniciar sesión</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="login-contenido">
+    <div class="tarjeta">
+      <div class="badge">SGR</div>
+      <h1>Iniciar sesión</h1>
+
+      <form (ngSubmit)="ingresar()">
+        <div class="campo">
+          <label for="email">Correo electrónico <span class="req">*</span></label>
+          <div class="input-icono">
+            <i class="pi pi-at icono-izq"></i>
+            <input
+              id="email"
+              type="email"
+              placeholder="usuario@unamba.edu.pe"
+              [(ngModel)]="email"
+              name="email"
+              autocomplete="username"
+              required
+            />
+          </div>
+        </div>
+
+        <div class="campo">
+          <label for="clave">Contraseña <span class="req">*</span></label>
+          <div class="input-icono">
+            <i class="pi pi-lock icono-izq"></i>
+            <input
+              id="clave"
+              [type]="verClave() ? 'text' : 'password'"
+              placeholder="••••••••••••"
+              [(ngModel)]="clave"
+              name="clave"
+              autocomplete="current-password"
+              required
+            />
+            <button
+              type="button"
+              class="icono-der"
+              (click)="verClave.set(!verClave())"
+              [attr.aria-label]="verClave() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+            >
+              <i class="pi" [class.pi-eye]="!verClave()" [class.pi-eye-slash]="verClave()"></i>
+            </button>
+          </div>
+        </div>
+
+        <button type="submit" class="btn-ingresar" [disabled]="cargando()">
+          @if (cargando()) {
+            <i class="pi pi-spin pi-spinner"></i>
+            <span>Ingresando…</span>
+          } @else {
+            <span>Ingresar</span>
+          }
+        </button>
+      </form>
+
+      <button type="button" class="enlace-olvido" (click)="olvidoClave()">
+        ¿Olvidaste tu contraseña?
+      </button>
+
+      <button type="button" class="btn-google" (click)="ingresarConGoogle()">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true">
+          <path
+            fill="#4285F4"
+            d="M23.49 12.27c0-.79-.07-1.54-.19-2.27H12v4.51h6.47c-.29 1.48-1.14 2.73-2.4 3.58v3h3.86c2.26-2.09 3.56-5.17 3.56-8.82z"
+          />
+          <path
+            fill="#34A853"
+            d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.86-3c-1.08.72-2.45 1.16-4.07 1.16-3.13 0-5.78-2.11-6.73-4.96H1.29v3.09C3.26 21.3 7.31 24 12 24z"
+          />
+          <path
+            fill="#FBBC05"
+            d="M5.27 14.29c-.25-.72-.38-1.49-.38-2.29s.14-1.57.38-2.29V6.62H1.29C.47 8.24 0 10.06 0 12s.47 3.76 1.29 5.38l3.98-3.09z"
+          />
+          <path
+            fill="#EA4335"
+            d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.31 0 3.26 2.7 1.29 6.62l3.98 3.09C6.22 6.86 8.87 4.75 12 4.75z"
+          />
+        </svg>
+        <span>Ingresar con Google</span>
+      </button>
+    </div>
+  </main>
+
+  <footer class="login-footer">
+    <div class="footer-izq">
+      <div class="footer-icono">
+        <i class="pi pi-graduation-cap"></i>
+      </div>
+      <div class="footer-texto">
+        <strong>Universidad Nacional Micaela Bastidas de Apurímac</strong>
+        <span>© 2026 Todos los Derechos Reservados | VRIN UNAMBA</span>
+      </div>
+    </div>
+    <div class="footer-der">
+      <a href="javascript:void(0)">Políticas de Privacidad</a>
+      <a href="javascript:void(0)">Contacto Soporte</a>
+    </div>
+  </footer>
+</div>

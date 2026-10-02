@@ -22,16 +22,8 @@ export interface ValidacionPayload {
 
 // Shape de POST /api/expedientes/{id}/validacion (ValidacionController@store).
 export interface RespuestaValidacion {
-  id: number;
-  codigo: string;
   estado: EstadoExpediente;
-  validacion_calidad: {
-    resultado: string;
-    checklist: Record<string, boolean>;
-    observacion: string | null;
-    validado_at: string | null;
-    validado_por: string | null;
-  };
+  validacion: unknown;
 }
 
 // Shape de PATCH /api/expedientes/{id}/documentos-completos.

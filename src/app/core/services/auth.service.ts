@@ -1,12 +1,19 @@
+import { HttpClient } from '@angular/common/http';
 import { Injectable, inject, signal } from '@angular/core';
-import { catchError, map, of, tap } from 'rxjs';
+import { Router } from '@angular/router';
+import { Observable, catchError, map, of, switchMap, tap } from 'rxjs';
 
+import { environment } from '../../../environments/environment';
 import { Usuario } from '../models/usuario.model';
 import { ApiService } from './api.service';
 
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly api = inject(ApiService);
+  private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
+
+  private readonly sanctumUrl = environment.apiUrl.replace(/\/api\/?$/, '');
 
   readonly usuarioActual = signal<Usuario | null>(null);
 
@@ -14,8 +21,26 @@ export class AuthService {
     return this.usuarioActual() !== null;
   }
 
+  login(email: string, password: string): Observable<Usuario> {
+    return this.http
+      .get(`${this.sanctumUrl}/sanctum/csrf-cookie`, { withCredentials: true })
+      .pipe(
+        switchMap(() => this.api.post<Usuario>('/login', { email, password })),
+        tap((usuario) => {
+          this.usuarioActual.set(usuario);
+          this.router.navigate(['/']);
+        }),
+      );
+  }
+
   salir(): void {
-    // Ideally call a logout endpoint, then clear state
+    this.api.post('/logout', {}).subscribe({
+      next: () => this.cerrarSesionLocal(),
+      error: () => this.cerrarSesionLocal(),
+    });
+  }
+
+  cerrarSesionLocal(): void {
     this.usuarioActual.set(null);
     window.location.href = '/login';
   }

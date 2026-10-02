@@ -1,0 +1,164 @@
+<p-toast />
+<p-confirmdialog />
+
+<div class="roles-page">
+  <div class="panel encabezado">
+    <div class="titulo">
+      <div class="titulo-icono">
+        <i class="pi pi-box"></i>
+      </div>
+      <div>
+        <h1>Gestión de Roles</h1>
+        <p class="subtitulo">Administra los permisos y accesos del sistema.</p>
+      </div>
+    </div>
+    <div class="encabezado-acciones">
+      <p-button
+        icon="pi pi-refresh"
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        (onClick)="cargar()"
+        aria-label="Recargar"
+      />
+      <p-button label="+ Nuevo" styleClass="btn-teal" (onClick)="abrirNuevo()" />
+    </div>
+  </div>
+
+  <div class="panel filtros">
+    <div class="filtro filtro-select">
+      <label>Registro</label>
+      <p-select
+        [options]="opcionesRegistro"
+        [(ngModel)]="registrosPorPagina"
+        optionLabel="label"
+        optionValue="value"
+        styleClass="select-filtro"
+      />
+    </div>
+    <div class="filtro">
+      <label>Nombre del Rol</label>
+      <input
+        pInputText
+        [(ngModel)]="filtroNombre"
+        (keyup.enter)="cargar()"
+        placeholder="Buscar por nombre"
+      />
+    </div>
+    <div class="filtro filtro-select">
+      <label>Estado</label>
+      <p-select
+        [options]="opcionesEstado"
+        [(ngModel)]="filtroEstado"
+        optionLabel="label"
+        optionValue="value"
+        styleClass="select-filtro"
+      />
+    </div>
+    <div class="filtro-acciones">
+      <p-button label="Filtrar" icon="pi pi-filter" styleClass="btn-filtrar" (onClick)="cargar()" />
+      <p-button
+        icon="pi pi-filter-slash"
+        [text]="true"
+        severity="secondary"
+        (onClick)="limpiarFiltros()"
+        aria-label="Limpiar filtros"
+      />
+    </div>
+  </div>
+
+  <div class="panel tabla-panel">
+    <p-table
+      [value]="roles()"
+      [loading]="cargando()"
+      [paginator]="true"
+      [rows]="registrosPorPagina"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Mostrando registros del {first} al {last} de un total de {totalRecords} registro(s)"
+      [tableStyle]="{ 'min-width': '50rem' }"
+    >
+      <ng-template #header>
+        <tr>
+          <th>ESTADO</th>
+          <th>NOMBRE</th>
+          <th>FECHA DE REGISTRO</th>
+          <th class="col-acciones">Acciones</th>
+        </tr>
+      </ng-template>
+      <ng-template #body let-r>
+        <tr>
+          <td>
+            <p-tag
+              [value]="r.activo ? 'Activo' : 'Inactivo'"
+              [severity]="r.activo ? 'success' : 'danger'"
+            />
+          </td>
+          <td class="celda-nombre">{{ r.nombre }}</td>
+          <td>{{ r.created_at ? (r.created_at | date: 'dd/MM/yyyy') : '—' }}</td>
+          <td class="col-acciones">
+            <button type="button" class="accion" (click)="abrirEdicion(r)" aria-label="Editar">
+              <i class="pi pi-pencil"></i>
+            </button>
+            <button type="button" class="accion" (click)="confirmarEliminar(r)" aria-label="Eliminar">
+              <i class="pi pi-trash"></i>
+            </button>
+          </td>
+        </tr>
+      </ng-template>
+      <ng-template #emptymessage>
+        <tr>
+          <td colspan="4" class="vacio">No se encontraron roles.</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>
+
+<p-dialog
+  [header]="rolEnEdicion() ? 'Editar rol' : 'Nuevo rol'"
+  [(visible)]="dialogoVisible"
+  [modal]="true"
+  [style]="{ width: '480px' }"
+>
+  <form class="formulario" [formGroup]="formulario" (ngSubmit)="guardar()">
+    <div class="campo">
+      <label for="r-nombre">Nombre <span class="req">*</span></label>
+      <input pInputText id="r-nombre" formControlName="nombre" />
+    </div>
+
+    <div class="campo">
+      <label for="r-descripcion">Descripción</label>
+      <textarea pTextarea id="r-descripcion" formControlName="descripcion" rows="4"></textarea>
+    </div>
+
+    <div class="campo">
+      <label for="r-activo">Estado</label>
+      <p-select
+        inputId="r-activo"
+        [options]="[{ label: 'Activo', value: true }, { label: 'Inactivo', value: false }]"
+        formControlName="activo"
+        optionLabel="label"
+        optionValue="value"
+        styleClass="select-ancho"
+      />
+    </div>
+  </form>
+
+  <ng-template #footer>
+    <div class="dialogo-footer">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        styleClass="btn-cancelar"
+        (onClick)="dialogoVisible.set(false)"
+      />
+      <p-button
+        label="Guardar"
+        icon="pi pi-save"
+        styleClass="btn-teal"
+        [loading]="guardando()"
+        (onClick)="guardar()"
+      />
+    </div>
+  </ng-template>
+</p-dialog>

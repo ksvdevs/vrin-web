@@ -22,7 +22,7 @@ export class LayoutComponent {
   }
 
   get esAdmin() {
-    return this.usuario?.rol === 'ADMINISTRADOR';
+    return this.usuario?.rol_codigo === 'ADMINISTRADOR_GENERAL';
   }
 
   cerrarSesion() {

@@ -30,7 +30,7 @@ import {
 import { Escuela } from '../../core/models/escuela.model';
 import { Facultad } from '../../core/models/facultad.model';
 import { CatalogoService } from '../../core/services/catalogo.service';
-import { DevAuthService } from '../../core/services/dev-auth.service';
+import { AuthService } from '../../core/services/auth.service';
 import { DocenteService } from '../../core/services/docente.service';
 import {
   OpcionAltaInline,
@@ -44,7 +44,7 @@ import {
   styleUrl: './docente-formulario.scss',
 })
 export class DocenteFormulario implements OnInit, OnDestroy {
-  private readonly auth = inject(DevAuthService);
+  private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly docenteService = inject(DocenteService);
   private readonly catalogoService = inject(CatalogoService);
@@ -54,7 +54,7 @@ export class DocenteFormulario implements OnInit, OnDestroy {
   readonly docente = input<Docente | null>(null);
   readonly guardado = output<Docente>();
 
-  protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol === 'ADMINISTRADOR');
+  protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol_codigo === 'ADMINISTRADOR_GENERAL');
 
   protected readonly facultades = signal<Facultad[]>([]);
   protected readonly guardando = signal(false);

@@ -28,7 +28,7 @@ import {
   type RespuestaDuplicidad,
   esRespuestaDuplicidad,
 } from '../../../core/models/expediente.model';
-import { DevAuthService } from '../../../core/services/dev-auth.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { DocenteService } from '../../../core/services/docente.service';
 import {
   ArchivoExpediente,
@@ -65,7 +65,7 @@ const TAMANO_MAXIMO = 25 * 1024 * 1024; // 25 MB (replica ck_arch_tamano)
   styleUrl: './registro-expediente.scss',
 })
 export class RegistroExpediente implements OnInit, OnDestroy {
-  private readonly auth = inject(DevAuthService);
+  private readonly auth = inject(AuthService);
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly docenteService = inject(DocenteService);
@@ -122,7 +122,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   });
 
   ngOnInit(): void {
-    this.auth.cargarUsuarioActual().subscribe();
+    this.auth.verificarSesion().subscribe();
 
     const idStr = this.route.snapshot.paramMap.get('id');
     if (idStr) {

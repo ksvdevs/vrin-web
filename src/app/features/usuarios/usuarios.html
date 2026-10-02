@@ -1,59 +1,257 @@
-<div class="p-6">
-  <div class="flex justify-between items-center mb-6">
-    <h1 class="text-2xl font-bold">Gestión de Usuarios</h1>
-    <p-button label="Nuevo Usuario" icon="pi pi-plus" (onClick)="abrirModal()" />
+<p-toast />
+<p-confirmdialog />
+
+<div class="usuarios-page">
+  <div class="panel encabezado">
+    <div class="titulo">
+      <div class="titulo-icono">
+        <i class="pi pi-users"></i>
+      </div>
+      <div>
+        <h1>Gestión de Usuarios</h1>
+        <p class="subtitulo">Administra las cuentas y perfiles del sistema.</p>
+      </div>
+    </div>
+    <div class="encabezado-acciones">
+      <p-button
+        icon="pi pi-refresh"
+        [text]="true"
+        [rounded]="true"
+        severity="secondary"
+        (onClick)="cargar()"
+        aria-label="Recargar"
+      />
+      <p-button label="+ Nuevo" styleClass="btn-teal" (onClick)="abrirNuevo()" />
+    </div>
   </div>
 
-  <div class="card bg-white p-4 rounded-xl shadow-sm border border-gray-200">
-    <p-table [value]="usuarios" [tableStyle]="{ 'min-width': '50rem' }">
-      <ng-template pTemplate="header">
+  <div class="panel filtros">
+    <div class="filtro filtro-select">
+      <label>Registro</label>
+      <p-select
+        [options]="opcionesRegistro"
+        [(ngModel)]="registrosPorPagina"
+        optionLabel="label"
+        optionValue="value"
+        styleClass="select-filtro"
+      />
+    </div>
+    <div class="filtro">
+      <label>Nombre</label>
+      <input
+        pInputText
+        [(ngModel)]="filtroNombre"
+        (keyup.enter)="cargar()"
+        placeholder="Buscar por nombre"
+      />
+    </div>
+    <div class="filtro">
+      <label>Email</label>
+      <input
+        pInputText
+        [(ngModel)]="filtroEmail"
+        (keyup.enter)="cargar()"
+        placeholder="Buscar por email"
+      />
+    </div>
+    <div class="filtro filtro-select">
+      <label>Estado</label>
+      <p-select
+        [options]="opcionesEstado"
+        [(ngModel)]="filtroEstado"
+        optionLabel="label"
+        optionValue="value"
+        styleClass="select-filtro"
+      />
+    </div>
+    <div class="filtro-acciones">
+      <p-button label="Filtrar" icon="pi pi-filter" styleClass="btn-filtrar" (onClick)="cargar()" />
+      <p-button
+        icon="pi pi-filter-slash"
+        [text]="true"
+        severity="secondary"
+        (onClick)="limpiarFiltros()"
+        aria-label="Limpiar filtros"
+      />
+    </div>
+  </div>
+
+  <div class="panel tabla-panel">
+    <p-table
+      [value]="usuarios()"
+      [loading]="cargando()"
+      [paginator]="true"
+      [rows]="registrosPorPagina"
+      [showCurrentPageReport]="true"
+      currentPageReportTemplate="Mostrando registros del {first} al {last} de un total de {totalRecords} registro(s)"
+      [tableStyle]="{ 'min-width': '60rem' }"
+    >
+      <ng-template #header>
         <tr>
-          <th>Nombre</th>
-          <th>Correo</th>
-          <th>Rol</th>
-          <th>Último Acceso</th>
-          <th>Estado</th>
+          <th>ESTADO</th>
+          <th>USUARIO</th>
+          <th>DNI</th>
+          <th>EMAIL</th>
+          <th>ROL</th>
+          <th>CREADO</th>
+          <th class="col-acciones">Acciones</th>
         </tr>
       </ng-template>
-      <ng-template pTemplate="body" let-u>
+      <ng-template #body let-u>
         <tr>
-          <td class="font-medium">{{ u.nombre }}</td>
+          <td>
+            <p-tag
+              [value]="u.activo ? 'Activo' : 'Inactivo'"
+              [severity]="u.activo ? 'success' : 'danger'"
+            />
+          </td>
+          <td class="celda-usuario">{{ u.nombre }}</td>
+          <td>{{ u.dni }}</td>
           <td>{{ u.email }}</td>
-          <td>
-            <p-tag [value]="u.rol" [severity]="getSeverity(u.rol)" />
-          </td>
-          <td>{{ u.ultimo_login_at ? (u.ultimo_login_at | date:'dd/MM/yyyy HH:mm') : 'Nunca' }}</td>
-          <td>
-            <p-inputSwitch [(ngModel)]="u.activo" (onChange)="toggleActivo(u)" />
+          <td>{{ nombreRol(u) }}</td>
+          <td>{{ u.created_at ? (u.created_at | date: 'dd/MM/yyyy') : '—' }}</td>
+          <td class="col-acciones">
+            <button type="button" class="accion" (click)="abrirEdicion(u)" aria-label="Editar">
+              <i class="pi pi-pencil"></i>
+            </button>
+            <button type="button" class="accion" (click)="abrirDetalle(u)" aria-label="Ver detalle">
+              <i class="pi pi-eye"></i>
+            </button>
+            <button type="button" class="accion" (click)="confirmarEliminar(u)" aria-label="Eliminar">
+              <i class="pi pi-trash"></i>
+            </button>
           </td>
         </tr>
       </ng-template>
-      <ng-template pTemplate="emptymessage">
+      <ng-template #emptymessage>
         <tr>
-          <td colspan="5" class="text-center p-4 text-gray-500">No se encontraron usuarios.</td>
+          <td colspan="7" class="vacio">No se encontraron usuarios.</td>
         </tr>
       </ng-template>
     </p-table>
   </div>
-
-  <p-dialog header="Nuevo Usuario" [(visible)]="modalVisible" [modal]="true" [style]="{width: '400px'}">
-    <div class="flex flex-col gap-4 py-2">
-      <div class="flex flex-col gap-2">
-        <label for="nombre">Nombre completo</label>
-        <input pInputText id="nombre" [(ngModel)]="nuevoUsuario.nombre" />
-      </div>
-      <div class="flex flex-col gap-2">
-        <label for="email">Correo (@unamba.edu.pe)</label>
-        <input pInputText id="email" [(ngModel)]="nuevoUsuario.email" />
-      </div>
-      <div class="flex flex-col gap-2">
-        <label for="rol">Rol</label>
-        <p-select [options]="roles" [(ngModel)]="nuevoUsuario.rol" appendTo="body" styleClass="w-full" />
-      </div>
-    </div>
-    <ng-template pTemplate="footer">
-      <p-button label="Cancelar" icon="pi pi-times" [text]="true" (onClick)="modalVisible = false" />
-      <p-button label="Guardar" icon="pi pi-check" (onClick)="guardarUsuario()" [loading]="guardando" />
-    </ng-template>
-  </p-dialog>
 </div>
+
+<p-dialog
+  [header]="usuarioEnEdicion() ? 'Editar usuario' : 'Nuevo usuario'"
+  [(visible)]="dialogoVisible"
+  [modal]="true"
+  [style]="{ width: '480px' }"
+>
+  <form class="formulario" [formGroup]="formulario" (ngSubmit)="guardar()">
+    <div class="campo">
+      <label for="u-dni">DNI <span class="req">*</span></label>
+      <div class="dni-grupo">
+        <input pInputText id="u-dni" formControlName="dni" placeholder="DNI" maxlength="8" />
+        <p-button
+          icon="pi pi-search"
+          styleClass="btn-buscar"
+          [loading]="validandoDni()"
+          (onClick)="validarDni()"
+          aria-label="Validar DNI"
+        />
+      </div>
+      @if (dniEstado() === 'disponible') {
+        <small class="dni-msg ok">DNI disponible</small>
+      } @else if (dniEstado() === 'ocupado') {
+        <small class="dni-msg error">DNI ya registrado</small>
+      }
+    </div>
+
+    <div class="campo">
+      <label for="u-nombres">Nombres <span class="req">*</span></label>
+      <input pInputText id="u-nombres" formControlName="nombres" />
+    </div>
+
+    <div class="campo">
+      <label for="u-apellidos">Apellidos <span class="req">*</span></label>
+      <input pInputText id="u-apellidos" formControlName="apellidos" />
+    </div>
+
+    <div class="campo">
+      <label for="u-email">Correo electronico <span class="req">*</span></label>
+      <input pInputText id="u-email" type="email" formControlName="email" />
+    </div>
+
+    <div class="campo">
+      <label for="u-password">
+        Contraseña @if (!usuarioEnEdicion()) { <span class="req">*</span> }
+      </label>
+      <input
+        pInputText
+        id="u-password"
+        type="password"
+        formControlName="password"
+        [placeholder]="usuarioEnEdicion() ? 'Dejar en blanco para no cambiar' : ''"
+      />
+    </div>
+
+    <div class="campo">
+      <label for="u-rol">Rol <span class="req">*</span></label>
+      <p-select
+        inputId="u-rol"
+        [options]="roles()"
+        formControlName="rol_id"
+        optionLabel="nombre"
+        optionValue="id"
+        placeholder="Selecciona un rol"
+        styleClass="select-ancho"
+      />
+    </div>
+
+    <div class="campo">
+      <label for="u-activo">Estado</label>
+      <p-select
+        inputId="u-activo"
+        [options]="[{ label: 'Activo', value: true }, { label: 'Inactivo', value: false }]"
+        formControlName="activo"
+        optionLabel="label"
+        optionValue="value"
+        styleClass="select-ancho"
+      />
+    </div>
+  </form>
+
+  <ng-template #footer>
+    <div class="dialogo-footer">
+      <p-button
+        label="Cancelar"
+        severity="secondary"
+        styleClass="btn-cancelar"
+        (onClick)="dialogoVisible.set(false)"
+      />
+      <p-button
+        label="Guardar"
+        icon="pi pi-save"
+        styleClass="btn-teal"
+        [loading]="guardando()"
+        (onClick)="guardar()"
+      />
+    </div>
+  </ng-template>
+</p-dialog>
+
+<p-dialog header="Detalle del usuario" [(visible)]="detalleVisible" [modal]="true" [style]="{ width: '420px' }">
+  @if (usuarioDetalle(); as u) {
+    <dl class="detalle">
+      <div><dt>Usuario</dt><dd>{{ u.nombre }}</dd></div>
+      <div><dt>DNI</dt><dd>{{ u.dni }}</dd></div>
+      <div><dt>Email</dt><dd>{{ u.email }}</dd></div>
+      <div><dt>Rol</dt><dd>{{ nombreRol(u) }}</dd></div>
+      <div>
+        <dt>Estado</dt>
+        <dd>
+          <p-tag [value]="u.activo ? 'Activo' : 'Inactivo'" [severity]="u.activo ? 'success' : 'danger'" />
+        </dd>
+      </div>
+      <div>
+        <dt>Último acceso</dt>
+        <dd>{{ u.ultimo_login_at ? (u.ultimo_login_at | date: 'dd/MM/yyyy HH:mm') : 'Nunca' }}</dd>
+      </div>
+      <div>
+        <dt>Creado</dt>
+        <dd>{{ u.created_at ? (u.created_at | date: 'dd/MM/yyyy') : '—' }}</dd>
+      </div>
+    </dl>
+  }
+</p-dialog>
