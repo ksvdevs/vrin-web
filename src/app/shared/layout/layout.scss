@@ -111,6 +111,25 @@
   letter-spacing: 0.05em;
 }
 
+.submenu-container {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding-left: 1rem;
+  margin-top: -0.25rem;
+  margin-bottom: 0.5rem;
+  
+  .submenu-item {
+    padding: 0.6rem 1rem;
+    font-size: 0.9rem;
+    
+    i {
+      font-size: 1.1rem;
+      margin-right: 0.75rem;
+    }
+  }
+}
+
 .main-content {
   flex: 1;
   overflow-x: hidden;

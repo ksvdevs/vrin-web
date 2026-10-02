@@ -12,6 +12,7 @@ import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
 import { Textarea } from 'primeng/textarea';
 import { Toast } from 'primeng/toast';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 
 import { Rol } from '../../core/models/rol.model';
 import { RolPayload, RolService } from '../../core/services/rol.service';
@@ -32,6 +33,7 @@ import { RolPayload, RolService } from '../../core/services/rol.service';
     Tag,
     Textarea,
     Toast,
+    ToggleSwitchModule,
   ],
   templateUrl: './roles.html',
   styleUrl: './roles.scss',
@@ -54,6 +56,7 @@ export class Roles implements OnInit {
   ];
   protected filtroNombre = '';
   protected filtroEstado: number | null = null;
+  protected readonly filtrosVisibles = signal(false);
 
   protected readonly dialogoVisible = signal(false);
   protected readonly rolEnEdicion = signal<Rol | null>(null);
@@ -147,6 +150,32 @@ export class Roles implements OnInit {
         this.mensajes.add({
           severity: 'error',
           summary: 'No se pudo guardar',
+          detail: this.detalleError(error),
+        });
+      },
+    });
+  }
+
+  protected cambiarEstado(rol: Rol): void {
+    const payload: RolPayload = {
+      nombre: rol.nombre,
+      descripcion: rol.descripcion,
+      activo: rol.activo,
+    };
+    
+    this.rolService.actualizar(rol.id, payload).subscribe({
+      next: () => {
+        this.mensajes.add({
+          severity: 'success',
+          summary: 'Estado actualizado',
+          detail: `El rol "${rol.nombre}" ahora está ${rol.activo ? 'activo' : 'inactivo'}.`,
+        });
+      },
+      error: (error) => {
+        rol.activo = !rol.activo; // Revertir visualmente si hay error
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'Error al cambiar estado',
           detail: this.detalleError(error),
         });
       },

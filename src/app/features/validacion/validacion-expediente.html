@@ -17,7 +17,7 @@
       </header>
 
       @if (expediente(); as e) {
-        <div class="cuerpo">
+        <form class="cuerpo" [formGroup]="formulario">
           <section class="resumen">
             <div class="fila-dato">
               <span class="etiqueta">Expediente</span>
@@ -43,7 +43,7 @@
           <section class="requisitos">
             <div class="requisitos-cabecera">
               <h2>Checklist de requisitos</h2>
-              <p-tag [value]="verificados() + '/3 Verificados'" [severity]="verificados() === 3 ? 'success' : 'secondary'" />
+              <p-tag [value]="verificados + '/3 Verificados'" [severity]="verificados === 3 ? 'success' : 'secondary'" />
             </div>
 
             @for (requisito of requisitos; track requisito.clave) {
@@ -58,7 +58,6 @@
                   optionLabel="label"
                   optionValue="value"
                   placeholder="Selecciona"
-                  appendTo="body"
                   styleClass="select-ancho"
                 />
               </div>
@@ -71,8 +70,8 @@
           <div class="resultado-previa">
             Resultado automático:
             <p-tag
-              [value]="resultado() === 'CUMPLE' ? 'CUMPLE — Pasar a validado' : 'NO CUMPLE'"
-              [severity]="resultado() === 'CUMPLE' ? 'success' : 'danger'"
+              [value]="resultado === 'CUMPLE' ? 'CUMPLE — Pasar a validado' : 'NO CUMPLE'"
+              [severity]="resultado === 'CUMPLE' ? 'success' : 'danger'"
             />
           </div>
 
@@ -87,7 +86,7 @@
               placeholder="Si el expediente No Cumple, registra aquí el motivo para el docente."
             ></textarea>
           </div>
-        </div>
+        </form>
 
         <footer class="pie">
           <p-button

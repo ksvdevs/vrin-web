@@ -17,23 +17,27 @@
       </a>
 
       @if (esAdmin) {
-        <div class="nav-item has-submenu">
+        <div class="nav-item has-submenu" (click)="togglePersonal()" [class.active]="isPersonalOpen">
           <div class="nav-item-content">
             <i class="pi pi-users"></i>
             <span>Personal</span>
           </div>
-          <i class="pi pi-chevron-down submenu-icon"></i>
+          <i class="pi submenu-icon" [class]="isPersonalOpen ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
         </div>
 
-        <a class="nav-item" routerLink="/roles" routerLinkActive="active">
-          <i class="pi pi-id-card"></i>
-          <span>Roles</span>
-        </a>
+        @if (isPersonalOpen) {
+          <div class="submenu-container">
+            <a class="nav-item submenu-item" routerLink="/roles" routerLinkActive="active">
+              <i class="pi pi-id-card"></i>
+              <span>Roles</span>
+            </a>
 
-        <a class="nav-item" routerLink="/usuarios" routerLinkActive="active">
-          <i class="pi pi-user"></i>
-          <span>Usuarios</span>
-        </a>
+            <a class="nav-item submenu-item" routerLink="/usuarios" routerLinkActive="active">
+              <i class="pi pi-user"></i>
+              <span>Usuarios</span>
+            </a>
+          </div>
+        }
 
         <a class="nav-item" routerLink="/catalogos/docentes" routerLinkActive="active">
           <i class="pi pi-id-card"></i>

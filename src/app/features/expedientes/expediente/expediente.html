@@ -42,14 +42,25 @@
           <p-button
             label="Validar Requisitos"
             icon="pi pi-check-square"
-            severity="success"
+            styleClass="bg-teal-500 border-none hover:bg-teal-600 text-white"
             (onClick)="drawerValidacion.set(true)"
           />
         }
       </div>
     </header>
 
-    <p-steps [model]="pasos" [activeIndex]="indiceActivoVisible()" (activeIndexChange)="cambiarPaso($event)" [readonly]="false" />
+    <p-steps 
+      [model]="pasos()" 
+      [activeIndex]="indiceActivoVisible()" 
+      (activeIndexChange)="cambiarPaso($event)" 
+      [readonly]="false" 
+      [ngClass]="{
+        'paso-0-ok': paso0Ok(),
+        'paso-1-ok': paso1Ok(),
+        'paso-2-ok': paso2Ok(),
+        'paso-3-ok': paso3Ok()
+      }"
+    />
 
     <div class="contenido">
       <div class="columna-izquierda">
@@ -214,7 +225,7 @@
                 <i class="pi pi-file-pdf text-blue-500 text-xl"></i>
                 <span class="font-medium">Carta Docente.pdf</span>
               </div>
-              <p-button icon="pi pi-eye" [text]="true" [rounded]="true" (onClick)="cambiarPaso(0)"></p-button>
+              <p-button icon="pi pi-eye" [text]="true" [rounded]="true" pTooltip="Ver carta del docente" (onClick)="modalCartaVisible.set(true)"></p-button>
             </div>
           </section>
 
@@ -945,6 +956,20 @@
       }
     </div>
   }
+
+  <p-dialog
+    [header]="'Carta Docente — ' + (carta()?.nombre_original ?? '')"
+    [(visible)]="modalCartaVisible"
+    [modal]="true"
+    [maximizable]="true"
+    [style]="{ width: '60rem' }"
+  >
+    @if (urlCarta(); as url) {
+      <iframe class="modal-carta-iframe" [src]="url" title="Vista previa de la carta del docente"></iframe>
+    } @else {
+      <p class="text-500">Vista previa no disponible. Usa «Descargar» desde la Etapa 1.</p>
+    }
+  </p-dialog>
 
   <p-dialog
     header="Registrar Desembolso"

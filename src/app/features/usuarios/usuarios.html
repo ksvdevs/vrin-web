@@ -21,51 +21,59 @@
         (onClick)="cargar()"
         aria-label="Recargar"
       />
+      <p-button 
+        label="Filtrar" 
+        icon="pi pi-filter" 
+        styleClass="btn-filtrar" 
+        (onClick)="filtrosVisibles.set(!filtrosVisibles())" 
+      />
       <p-button label="+ Nuevo" styleClass="btn-teal" (onClick)="abrirNuevo()" />
     </div>
   </div>
 
-  <div class="panel filtros">
-    <div class="filtro filtro-select">
-      <label>Registro</label>
-      <p-select
-        [options]="opcionesRegistro"
-        [(ngModel)]="registrosPorPagina"
-        optionLabel="label"
-        optionValue="value"
-        styleClass="select-filtro"
-      />
-    </div>
-    <div class="filtro">
-      <label>Nombre</label>
-      <input
-        pInputText
-        [(ngModel)]="filtroNombre"
-        (keyup.enter)="cargar()"
-        placeholder="Buscar por nombre"
-      />
-    </div>
-    <div class="filtro">
-      <label>Email</label>
-      <input
-        pInputText
-        [(ngModel)]="filtroEmail"
-        (keyup.enter)="cargar()"
-        placeholder="Buscar por email"
-      />
-    </div>
-    <div class="filtro filtro-select">
-      <label>Estado</label>
-      <p-select
-        [options]="opcionesEstado"
-        [(ngModel)]="filtroEstado"
-        optionLabel="label"
-        optionValue="value"
-        styleClass="select-filtro"
-      />
-    </div>
-    <div class="filtro-acciones">
-      <p-button label="Filtrar" icon="pi pi-filter" styleClass="btn-filtrar" (onClick)="cargar()" />
+  @if (filtrosVisibles()) {
+    <div class="panel filtros">
+      <div class="filtro filtro-select">
+        <label>Registro</label>
+        <p-select
+          [options]="opcionesRegistro"
+          [(ngModel)]="registrosPorPagina"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="select-filtro"
+        />
+      </div>
+      <div class="filtro">
+        <label>Nombre</label>
+        <input
+          pInputText
+          [(ngModel)]="filtroNombre"
+          (keyup.enter)="cargar()"
+          placeholder="Buscar por nombre"
+        />
+      </div>
+      <div class="filtro">
+        <label>Email</label>
+        <input
+          pInputText
+          [(ngModel)]="filtroEmail"
+          (keyup.enter)="cargar()"
+          placeholder="Buscar por email"
+        />
+      </div>
+      <div class="filtro filtro-select">
+        <label>Estado</label>
+        <p-select
+          [options]="opcionesEstado"
+          [(ngModel)]="filtroEstado"
+          (onChange)="cargar()"
+          optionLabel="label"
+          optionValue="value"
+          styleClass="select-filtro"
+        />
+      </div>
+      <div class="filtro-acciones">
+        <p-button label="Aplicar" icon="pi pi-check" styleClass="btn-teal" (onClick)="cargar()" />
       <p-button
         icon="pi pi-filter-slash"
         [text]="true"
@@ -75,6 +83,7 @@
       />
     </div>
   </div>
+  }
 
   <div class="panel tabla-panel">
     <p-table
@@ -196,19 +205,18 @@
         optionValue="id"
         placeholder="Selecciona un rol"
         styleClass="select-ancho"
+        appendTo="body"
       />
     </div>
 
-    <div class="campo">
-      <label for="u-activo">Estado</label>
-      <p-select
-        inputId="u-activo"
-        [options]="[{ label: 'Activo', value: true }, { label: 'Inactivo', value: false }]"
-        formControlName="activo"
-        optionLabel="label"
-        optionValue="value"
-        styleClass="select-ancho"
-      />
+    <div class="campo" style="flex-direction: row; align-items: center; justify-content: space-between; margin-top: 0.5rem; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 8px; background-color: #f8fafc;">
+      <label for="u-activo" style="margin: 0; font-size: 0.95rem;">Estado del Usuario</label>
+      <div style="display: flex; align-items: center; gap: 0.75rem">
+        <span [style.color]="formulario.get('activo')?.value ? '#0d9488' : '#64748b'" style="font-weight: 600; font-size: 0.9rem;">
+          {{ formulario.get('activo')?.value ? 'Activo' : 'Inactivo' }}
+        </span>
+        <p-toggleswitch formControlName="activo" inputId="u-activo" />
+      </div>
     </div>
   </form>
 

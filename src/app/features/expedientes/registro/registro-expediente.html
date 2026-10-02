@@ -11,7 +11,7 @@
     <header class="cabecera">
       <div class="titulo">
         <h1>{{ editandoId() ? 'Editar' : 'Registrar' }} Expediente de Artículo Financiado</h1>
-        <p class="subtitulo">{{ editandoId() ? 'Modificando datos de la' : '' }} Etapa 1: registro del expediente y la carta del docente</p>
+        <p class="subtitulo">{{ editandoId() ? 'Modificando datos de la Etapa 1: registro del expediente y la carta del docente' : 'Extracción inteligente de metadatos mediante IA para agilizar el registro del expediente VRIN' }}</p>
       </div>
       <p-button
         icon="pi pi-times"
@@ -80,6 +80,83 @@
       </footer>
     } @else {
       <form [formGroup]="formulario" (ngSubmit)="guardar()" class="cuerpo formulario">
+        <div class="bloque-ocr">
+          <h2 class="titulo-seccion">Carta escaneada del docente</h2>
+
+          @if (editandoId() && cartaSubida(); as carta) {
+            <div class="carta-actual">
+              <i class="pi pi-file-pdf"></i>
+              <span class="nombre">{{ carta.nombre_original }}</span>
+              <div class="acciones">
+                <p-button
+                  label="Ver"
+                  icon="pi pi-eye"
+                  severity="info"
+                  [text]="true"
+                  (onClick)="verCarta()"
+                />
+                <p-button
+                  label="Descargar"
+                  icon="pi pi-download"
+                  severity="secondary"
+                  [text]="true"
+                  (onClick)="descargarCarta()"
+                />
+              </div>
+            </div>
+            <p class="ayuda">
+              Para reemplazarla, elige un archivo (PDF, JPG o PNG, máximo 25 MB); la IA volverá a extraer los datos.
+            </p>
+          } @else {
+            <p class="ayuda">
+              Sube la carta (PDF, JPG o PNG, máximo 25 MB); la IA extraerá los datos y rellenará el formulario.
+            </p>
+          }
+
+          @if (resultadoOcr(); as ocr) {
+            <div class="banner-ocr">
+              <i class="pi pi-sparkles"></i>
+              <div class="banner-detalle">
+                <strong>IA OCR activa</strong>
+                <span>
+                  {{ ocr.campos_extraidos }} campos extraídos automáticamente de
+                  {{ ocr.nombre_archivo }}
+                </span>
+              </div>
+              <p-button
+                label="Modo manual"
+                severity="secondary"
+                [text]="true"
+                (onClick)="cerrarBannerOcr()"
+              />
+            </div>
+          }
+
+          <div class="selector-archivo">
+            <label class="boton-archivo">
+              Elegir archivo
+              <input
+                type="file"
+                class="input-archivo"
+                accept=".pdf,.jpg,.jpeg,.png"
+                (change)="seleccionarCartaOcr($event)"
+              />
+            </label>
+            <span class="nombre-archivo">
+              {{ analizando() ? 'Analizando con IA…' : (archivoSeleccionado()?.name ?? 'Sin archivos seleccionados') }}
+            </span>
+            <p-button
+              label="Reanalizar"
+              icon="pi pi-sparkles"
+              severity="info"
+              [outlined]="true"
+              [disabled]="!archivoSeleccionado()"
+              [loading]="analizando()"
+              (onClick)="analizarCarta()"
+            />
+          </div>
+        </div>
+
         <div class="fila">
           <div class="campo">
             <label for="carta_docente_numero">Número de Carta Docente *</label>

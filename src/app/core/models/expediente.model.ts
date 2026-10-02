@@ -137,3 +137,24 @@ export interface Paginado<T> {
     per_page: number;
   };
 }
+
+// Respuesta de POST /articulos/ocr (extracción IA de la carta escaneada).
+export interface OcrDatosCarta {
+  carta_docente_numero?: string | null;
+  carta_docente_fecha?: string | null;
+  titulo?: string | null;
+  revista?: string | null;
+  base_indexadora?: string | null;
+  cuartil?: string | null;
+  monto_solicitado?: number | null;
+  docente_dni?: string | null;
+  docente_nombre?: string | null;
+  doi?: string | null;
+}
+
+export interface ResultadoOcr {
+  datos: OcrDatosCarta;
+  confianza: Record<string, number>;
+  campos_extraidos: number;
+  nombre_archivo: string;
+}

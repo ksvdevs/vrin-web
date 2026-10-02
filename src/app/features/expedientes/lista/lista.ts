@@ -25,6 +25,7 @@ import {
 import { PlantillaService, SeleccionService } from '../../../core/services/plantilla.service';
 import { BadgeEtapa } from '../../../shared/badge-etapa/badge-etapa';
 import { ConfirmDialog } from 'primeng/confirmdialog';
+import { ValidacionExpediente } from '../../validacion/validacion-expediente';
 
 @Component({
   selector: 'app-lista-expedientes',
@@ -40,6 +41,7 @@ import { ConfirmDialog } from 'primeng/confirmdialog';
     Select,
     TableModule,
     Toast,
+    ValidacionExpediente,
   ],
   templateUrl: './lista.html',
   styleUrl: './lista.scss',
@@ -222,8 +224,9 @@ export class ListaExpedientes implements OnInit {
     });
   }
 
-  protected severidadAccion(clave: string): 'success' | 'danger' | 'secondary' {
+  protected severidadAccion(clave: string): 'success' | 'danger' | 'secondary' | 'info' {
     switch (clave) {
+      case 'validar':
       case 'generar_carta':
       case 'generar_resolucion':
         return 'success';
@@ -232,6 +235,39 @@ export class ListaExpedientes implements OnInit {
       default:
         return 'secondary';
     }
+  }
+
+  protected ejecutarAccion(fila: ExpedienteFila): void {
+    if (fila.accion_principal.clave === 'validar') {
+      this.abrirValidacion(fila);
+    } else if (fila.accion_principal.clave === 'generar_carta') {
+      this.router.navigate(['/expedientes', fila.id], { queryParams: { paso: 1 } });
+    } else {
+      this.navegar(fila);
+    }
+  }
+
+  protected readonly dialogoValidacion = signal(false);
+  protected readonly expedienteValidar = signal<any>(null); // We fetch the full detail
+
+  private abrirValidacion(fila: ExpedienteFila): void {
+    this.cargando.set(true);
+    this.expedienteService.obtener(fila.id).subscribe({
+      next: (detalle) => {
+        this.expedienteValidar.set(detalle);
+        this.cargando.set(false);
+        this.dialogoValidacion.set(true);
+      },
+      error: () => {
+        this.cargando.set(false);
+        this.mensajes.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el expediente para validación.' });
+      }
+    });
+  }
+
+  protected alValidado(): void {
+    this.dialogoValidacion.set(false);
+    this.cargar(Math.floor(this.primeraFila() / 5) + 1);
   }
 
   private cargar(pagina: number): void {

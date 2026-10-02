@@ -25,10 +25,13 @@ import {
   type EstadoExpediente,
   type Expediente,
   type ExpedientePayload,
+  type OcrDatosCarta,
   type RespuestaDuplicidad,
+  type ResultadoOcr,
   esRespuestaDuplicidad,
 } from '../../../core/models/expediente.model';
 import { AuthService } from '../../../core/services/auth.service';
+import { ArchivoService } from '../../../core/services/archivo.service';
 import { DocenteService } from '../../../core/services/docente.service';
 import {
   ArchivoExpediente,
@@ -42,6 +45,7 @@ interface SugerenciaDocente {
 }
 
 const EXTENSIONES_PERMITIDAS = ['pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png'];
+const EXTENSIONES_OCR = ['pdf', 'jpg', 'jpeg', 'png'];
 const TAMANO_MAXIMO = 25 * 1024 * 1024; // 25 MB (replica ck_arch_tamano)
 
 @Component({
@@ -69,6 +73,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly docenteService = inject(DocenteService);
+  private readonly archivoService = inject(ArchivoService);
   private readonly expedienteService = inject(ExpedienteService);
   private readonly mensajes = inject(MessageService);
   private readonly confirmacion = inject(ConfirmationService);
@@ -80,6 +85,8 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   protected readonly cartaSubida = signal<ArchivoExpediente | null>(null);
   protected readonly archivoSeleccionado = signal<File | null>(null);
   protected readonly subiendo = signal(false);
+  protected readonly analizando = signal(false);
+  protected readonly resultadoOcr = signal<ResultadoOcr | null>(null);
 
   protected readonly dialogoDocenteVisible = signal(false);
 
@@ -257,6 +264,121 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     this.archivoSeleccionado.set(archivo);
   }
 
+  protected seleccionarCartaOcr(event: Event): void {
+    const input = event.target as HTMLInputElement;
+    const archivo = input.files?.[0] ?? null;
+    input.value = '';
+    if (!archivo) {
+      return;
+    }
+    const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
+    if (!EXTENSIONES_OCR.includes(extension)) {
+      this.mensajes.add({
+        severity: 'error',
+        summary: 'Archivo no permitido',
+        detail: 'Para el análisis IA la carta debe ser PDF, JPG o PNG.',
+      });
+      return;
+    }
+    if (archivo.size > TAMANO_MAXIMO) {
+      this.mensajes.add({
+        severity: 'error',
+        summary: 'Archivo muy grande',
+        detail: 'La carta no puede superar los 25 MB.',
+      });
+      return;
+    }
+    this.archivoSeleccionado.set(archivo);
+    this.resultadoOcr.set(null);
+    this.analizarCarta();
+  }
+
+  protected analizarCarta(): void {
+    const archivo = this.archivoSeleccionado();
+    if (!archivo || this.analizando()) {
+      return;
+    }
+    this.analizando.set(true);
+    this.expedienteService.analizarCarta(archivo).subscribe({
+      next: (resultado) => {
+        this.analizando.set(false);
+        this.resultadoOcr.set(resultado);
+        this.aplicarOcr(resultado.datos);
+      },
+      error: (error) => {
+        this.analizando.set(false);
+        this.resultadoOcr.set(null);
+        this.mensajes.add({
+          severity: 'warn',
+          summary: 'Análisis IA no disponible',
+          detail: `${this.detalleError(error)} Puede completar el formulario manualmente.`,
+        });
+      },
+    });
+  }
+
+  protected cerrarBannerOcr(): void {
+    this.resultadoOcr.set(null);
+  }
+
+  private aplicarOcr(datos: OcrDatosCarta): void {
+    let fechaCarta: Date | null = null;
+    if (datos.carta_docente_fecha) {
+      const [anio, mes, dia] = datos.carta_docente_fecha.split('-').map(Number);
+      if (anio && mes && dia) {
+        fechaCarta = new Date(anio, mes - 1, dia);
+      }
+    }
+
+    this.formulario.patchValue({
+      carta_docente_numero: datos.carta_docente_numero || undefined,
+      carta_docente_fecha: fechaCarta ?? undefined,
+      titulo: datos.titulo || undefined,
+      revista: datos.revista || undefined,
+      base_indexadora: BASES_INDEXADORAS.includes(datos.base_indexadora as BaseIndexadora)
+        ? (datos.base_indexadora as BaseIndexadora)
+        : undefined,
+      cuartil: CUARTILES.includes(datos.cuartil as Cuartil)
+        ? (datos.cuartil as Cuartil)
+        : undefined,
+      monto_solicitado:
+        datos.monto_solicitado && datos.monto_solicitado > 0
+          ? Number(datos.monto_solicitado)
+          : undefined,
+      doi: datos.doi || undefined,
+    });
+
+    this.buscarDocentePorDni(datos.docente_dni);
+  }
+
+  private buscarDocentePorDni(dni?: string | null): void {
+    const limpio = dni?.trim();
+    if (!limpio) {
+      return;
+    }
+    this.docenteService.listar(limpio).subscribe({
+      next: (docentes) => {
+        const exacto =
+          docentes.find((d) => d.dni === limpio) ?? (docentes.length === 1 ? docentes[0] : null);
+        if (!exacto) {
+          this.mensajes.add({
+            severity: 'warn',
+            summary: 'Docente no encontrado',
+            detail: `La carta indica el DNI ${limpio}, pero no existe en el padrón. Regístrelo o selecciónelo manualmente.`,
+          });
+          return;
+        }
+        const sugerencia: SugerenciaDocente = {
+          label: this.etiquetaDocente(exacto),
+          valor: exacto,
+        };
+        this.sugerencias.set([sugerencia]);
+        this.formulario.controls.docente.setValue(sugerencia);
+      },
+      error: () => {},
+    });
+  }
+
   protected subirCarta(): void {
     const expediente = this.expedienteCreado();
     const archivo = this.archivoSeleccionado();
@@ -288,6 +410,53 @@ export class RegistroExpediente implements OnInit, OnDestroy {
 
   protected finalizar(): void {
     this.router.navigate(['/']);
+  }
+
+  protected verCarta(): void {
+    const id = this.editandoId();
+    const carta = this.cartaSubida();
+    if (!id || !carta) {
+      return;
+    }
+    this.archivoService.obtenerBlob(id, carta.id).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      },
+      error: () => {
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'No se pudo abrir la carta',
+          detail: 'Intenta nuevamente.',
+        });
+      },
+    });
+  }
+
+  protected descargarCarta(): void {
+    const id = this.editandoId();
+    const carta = this.cartaSubida();
+    if (!id || !carta) {
+      return;
+    }
+    this.archivoService.obtenerBlob(id, carta.id, true).subscribe({
+      next: (blob) => {
+        const url = URL.createObjectURL(blob);
+        const enlace = document.createElement('a');
+        enlace.href = url;
+        enlace.download = carta.nombre_original;
+        enlace.click();
+        URL.revokeObjectURL(url);
+      },
+      error: () => {
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'Descarga fallida',
+          detail: 'No se pudo descargar la carta del docente.',
+        });
+      },
+    });
   }
 
   protected mensajeError(control: AbstractControl): string {
@@ -372,14 +541,33 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     
     if (id) {
       this.expedienteService.actualizar(id, payload).subscribe({
-        next: (respuesta) => {
-          this.guardando.set(false);
-          this.mensajes.add({
-            severity: 'success',
-            summary: 'Expediente actualizado',
-            detail: `Expediente actualizado con éxito.`,
+        next: () => {
+          const archivoNuevo = this.archivoSeleccionado();
+          if (!archivoNuevo) {
+            this.guardando.set(false);
+            this.mensajes.add({
+              severity: 'success',
+              summary: 'Expediente actualizado',
+              detail: `Expediente actualizado con éxito.`,
+            });
+            this.router.navigate(['/expedientes']);
+            return;
+          }
+          // Se eligió una carta de reemplazo: se sube antes de volver al listado.
+          this.expedienteService.subirCarta(id, archivoNuevo).subscribe({
+            next: () => {
+              this.router.navigate(['/expedientes']);
+            },
+            error: (error) => {
+              this.guardando.set(false);
+              this.mensajes.add({
+                severity: 'warn',
+                summary: 'Expediente actualizado, pero no se pudo reemplazar la carta',
+                detail: this.detalleError(error),
+              });
+              this.router.navigate(['/expedientes']);
+            },
           });
-          this.router.navigate(['/expedientes']);
         },
         error: (error) => {
           this.guardando.set(false);
@@ -416,11 +604,33 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   }
 
   private alRegistrar(expediente: Expediente): void {
-    this.expedienteCreado.set(expediente);
     this.mensajes.add({
       severity: 'success',
       summary: `Expediente ${expediente.codigo} registrado`,
       detail: `Estado: ${this.etiquetaEstado(expediente.estado)}`,
+    });
+
+    const archivo = this.archivoSeleccionado();
+    if (!archivo) {
+      this.expedienteCreado.set(expediente);
+      return;
+    }
+
+    // La carta ya se eligió en el bloque OCR: se adjunta y se vuelve al listado.
+    this.guardando.set(true);
+    this.expedienteService.subirCarta(expediente.id, archivo).subscribe({
+      next: () => {
+        this.router.navigate(['/expedientes']);
+      },
+      error: (error) => {
+        this.guardando.set(false);
+        this.mensajes.add({
+          severity: 'warn',
+          summary: 'No se pudo adjuntar la carta',
+          detail: this.detalleError(error),
+        });
+        this.expedienteCreado.set(expediente);
+      },
     });
   }
 

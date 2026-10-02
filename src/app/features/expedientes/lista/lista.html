@@ -1,5 +1,11 @@
 <main class="lista-page">
   <p-toast />
+  
+  <app-validacion-expediente
+    [(visible)]="dialogoValidacion"
+    [expediente]="expedienteValidar()"
+    (guardado)="alValidado()"
+  />
 
   <header class="barra">
     <div class="titulo">
@@ -97,8 +103,9 @@
             [label]="fila.accion_principal.etiqueta"
             [severity]="severidadAccion(fila.accion_principal.clave)"
             [outlined]="fila.accion_principal.clave === 'revisar_rendicion'"
+            [styleClass]="fila.accion_principal.clave === 'validar' ? 'bg-teal-500 border-none hover:bg-teal-600 text-white' : ''"
             size="small"
-            (onClick)="$event.stopPropagation(); navegar(fila)"
+            (onClick)="$event.stopPropagation(); ejecutarAccion(fila)"
           />
         </td>
         <td>

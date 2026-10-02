@@ -11,6 +11,7 @@ import { Select } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
+import { ToggleSwitchModule } from 'primeng/toggleswitch';
 
 import { Rol } from '../../core/models/rol.model';
 import { Usuario } from '../../core/models/usuario.model';
@@ -32,6 +33,7 @@ import { UsuarioPayload, UsuarioService } from '../../core/services/usuario.serv
     TableModule,
     Tag,
     Toast,
+    ToggleSwitchModule,
   ],
   templateUrl: './usuarios.html',
   styleUrl: './usuarios.scss',
@@ -57,6 +59,7 @@ export class Usuarios implements OnInit {
   protected filtroNombre = '';
   protected filtroEmail = '';
   protected filtroEstado: number | null = null;
+  protected readonly filtrosVisibles = signal(false);
 
   protected readonly dialogoVisible = signal(false);
   protected readonly detalleVisible = signal(false);

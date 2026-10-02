@@ -7,6 +7,7 @@ import {
   ExpedienteFila,
   Paginado,
   RespuestaRegistroExpediente,
+  ResultadoOcr,
 } from '../models/expediente.model';
 import { ExpedienteDetalle, ValidacionPayload } from '../models/expediente-detalle.model';
 import { ApiService } from './api.service';
@@ -136,6 +137,12 @@ export class ExpedienteService {
     const datos = new FormData();
     datos.append('archivo', archivo);
     return this.api.post<ArchivoExpediente>(`/expedientes/${expedienteId}/archivos`, datos);
+  }
+
+  analizarCarta(archivo: File): Observable<ResultadoOcr> {
+    const datos = new FormData();
+    datos.append('archivo', archivo);
+    return this.api.post<ResultadoOcr>('/articulos/ocr', datos);
   }
 
   registrarDesembolso(id: number, payload: { fecha_desembolso: string }): Observable<unknown> {

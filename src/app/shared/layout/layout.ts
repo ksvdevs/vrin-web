@@ -1,5 +1,5 @@
-import { Component, inject } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive } from '@angular/router';
+import { Component, inject, OnInit } from '@angular/core';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
 import { AuthService } from '../../core/services/auth.service';
 import { MenuModule } from 'primeng/menu';
 
@@ -10,8 +10,20 @@ import { MenuModule } from 'primeng/menu';
   templateUrl: './layout.html',
   styleUrls: ['./layout.scss']
 })
-export class LayoutComponent {
+export class LayoutComponent implements OnInit {
   auth = inject(AuthService);
+  router = inject(Router);
+  isPersonalOpen = false;
+
+  ngOnInit() {
+    if (this.router.url.includes('/roles') || this.router.url.includes('/usuarios')) {
+      this.isPersonalOpen = true;
+    }
+  }
+
+  togglePersonal() {
+    this.isPersonalOpen = !this.isPersonalOpen;
+  }
 
   get usuario() {
     return this.auth.usuarioActual();

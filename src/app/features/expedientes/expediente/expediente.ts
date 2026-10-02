@@ -6,7 +6,7 @@ import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 
 import { Button } from 'primeng/button';
 import { ConfirmDialog } from 'primeng/confirmdialog';
-import { ConfirmationService, MessageService } from 'primeng/api';
+import { ConfirmationService, MessageService, type MenuItem } from 'primeng/api';
 import { DatePicker } from 'primeng/datepicker';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
@@ -14,6 +14,7 @@ import { Select } from 'primeng/select';
 import { Steps } from 'primeng/steps';
 import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
+import { Tooltip } from 'primeng/tooltip';
 
 import {
   ESTADO_INFO,
@@ -51,6 +52,7 @@ import { Dialog } from 'primeng/dialog';
     Steps,
     Tag,
     Toast,
+    Tooltip,
     ValidacionExpediente,
   ],
   templateUrl: './expediente.html',
@@ -83,6 +85,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected readonly adjuntandoAnexo = signal(false);
   protected readonly modalDesembolso = signal(false);
   protected readonly modalDoi = signal(false);
+  protected readonly modalCartaVisible = signal(false);
   protected readonly guardandoDesembolso = signal(false);
   protected readonly guardandoDoi = signal(false);
   protected readonly cerrandoRendicion = signal(false);
@@ -97,12 +100,19 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private pollingId?: ReturnType<typeof setInterval>;
   private intentosPolling = 0;
 
-  protected readonly pasos = [
-    { label: 'Carta Docente', command: () => this.cambiarPaso(0) },
-    { label: 'Carta VRIN / OPP', command: () => this.cambiarPaso(1) },
-    { label: 'Resolución', command: () => this.cambiarPaso(2) },
-    { label: 'Rendición', command: () => this.cambiarPaso(3) },
-  ];
+  protected readonly paso0Ok = computed(() => (this.detalle()?.etapa_actual ?? 1) > 1 || this.detalle()?.validacion_calidad?.resultado === 'CUMPLE');
+  protected readonly paso1Ok = computed(() => (this.detalle()?.etapa_actual ?? 1) > 2);
+  protected readonly paso2Ok = computed(() => (this.detalle()?.etapa_actual ?? 1) > 3);
+  protected readonly paso3Ok = computed(() => this.detalle()?.estado === 'RENDIDO');
+
+  protected readonly pasos = computed<MenuItem[]>(() => {
+    return [
+      { label: 'Carta Docente', command: () => this.cambiarPaso(0) },
+      { label: 'Carta VRIN / OPP', command: () => this.cambiarPaso(1) },
+      { label: 'Resolución', command: () => this.cambiarPaso(2) },
+      { label: 'Rendición', command: () => this.cambiarPaso(3) },
+    ];
+  });
 
   protected readonly indiceActivoVisible = signal<number>(0);
 
@@ -261,8 +271,13 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.expedienteService.obtener(id).subscribe({
       next: (detalle) => {
         this.detalle.set(detalle);
-        this.indiceActivoVisible.set(Math.max((detalle.etapa_actual ?? 1) - 1, 0));
         if (!silencioso) {
+          const pasoQuery = this.route.snapshot.queryParamMap.get('paso');
+          if (pasoQuery !== null && !isNaN(Number(pasoQuery))) {
+            this.indiceActivoVisible.set(Number(pasoQuery));
+          } else {
+            this.indiceActivoVisible.set(Math.max((detalle.etapa_actual ?? 1) - 1, 0));
+          }
           this.cargando.set(false);
         }
         this.prepararVistaCarta(detalle);
@@ -1061,7 +1076,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private prepararVistaCarta(detalle: ExpedienteDetalle): void {
     const carta: ArchivoDetalle | null =
       detalle.archivos.find((a) => a.tipo === 'CARTA_DOCENTE') ?? null;
-    if (!carta || !(carta.mime ?? '').toLowerCase().includes('pdf')) {
+    const mime = (carta?.mime ?? '').toLowerCase();
+    if (!carta || (!mime.includes('pdf') && !mime.startsWith('image'))) {
       return;
     }
     this.archivoService.obtenerBlob(detalle.id, carta.id).subscribe({

@@ -53,14 +53,13 @@ export class ValidacionExpediente {
 
   protected readonly requisitos = REQUISITOS;
 
-  protected readonly verificados = computed(
-    () =>
-      REQUISITOS.filter((r) => this.formulario.controls[r.clave].value !== null).length,
-  );
+  get verificados(): number {
+    return REQUISITOS.filter((r) => this.formulario.controls[r.clave].value !== null).length;
+  }
 
-  protected readonly resultado = computed<'CUMPLE' | 'NO_CUMPLE'>(() =>
-    REQUISITOS.every((r) => this.formulario.controls[r.clave].value === true) ? 'CUMPLE' : 'NO_CUMPLE',
-  );
+  get resultado(): 'CUMPLE' | 'NO_CUMPLE' {
+    return REQUISITOS.every((r) => this.formulario.controls[r.clave].value === true) ? 'CUMPLE' : 'NO_CUMPLE';
+  }
 
   protected fechaCorta(fecha: string | null | undefined): string {
     if (!fecha) {
@@ -82,7 +81,7 @@ export class ValidacionExpediente {
     this.guardando.set(true);
     this.expedienteService
       .validar(expediente.id, {
-        resultado: this.resultado(),
+        resultado: this.resultado,
         checklist: {
           carta_aceptacion: valores.carta_aceptacion === true,
           docente_ordinario_contratado: valores.docente_ordinario_contratado === true,
@@ -94,9 +93,9 @@ export class ValidacionExpediente {
         next: () => {
           this.guardando.set(false);
           this.mensajes.add({
-            severity: this.resultado() === 'CUMPLE' ? 'success' : 'warn',
+            severity: this.resultado === 'CUMPLE' ? 'success' : 'warn',
             summary:
-              this.resultado() === 'CUMPLE' ? 'Expediente validado' : 'Expediente marcado No Cumple',
+              this.resultado === 'CUMPLE' ? 'Expediente validado' : 'Expediente marcado No Cumple',
             detail: `${expediente.codigo} · ${REQUISITOS.filter((r) => this.formulario.controls[r.clave].value === true).length}/3 requisitos cumplen.`,
           });
           this.formulario.reset();
