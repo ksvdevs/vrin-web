@@ -14,7 +14,6 @@ import { Select } from 'primeng/select';
 import { Steps } from 'primeng/steps';
 import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
-import { Tooltip } from 'primeng/tooltip';
 
 import {
   ESTADO_INFO,
@@ -52,7 +51,6 @@ import { Dialog } from 'primeng/dialog';
     Steps,
     Tag,
     Toast,
-    Tooltip,
     ValidacionExpediente,
   ],
   templateUrl: './expediente.html',
@@ -99,9 +97,10 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private docResolucionCargadoId?: number;
   private pollingId?: ReturnType<typeof setInterval>;
   private intentosPolling = 0;
+  private pasoInicializado = false;
 
   protected readonly paso0Ok = computed(() => (this.detalle()?.etapa_actual ?? 1) > 1 || this.detalle()?.validacion_calidad?.resultado === 'CUMPLE');
-  protected readonly paso1Ok = computed(() => (this.detalle()?.etapa_actual ?? 1) > 2);
+  protected readonly paso1Ok = computed(() => this.detalle()?.carta_vrin?.estado === 'EMITIDA');
   protected readonly paso2Ok = computed(() => (this.detalle()?.etapa_actual ?? 1) > 3);
   protected readonly paso3Ok = computed(() => this.detalle()?.estado === 'RENDIDO');
 
@@ -117,7 +116,9 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected readonly indiceActivoVisible = signal<number>(0);
 
   protected cambiarPaso(index: number): void {
-    this.indiceActivoVisible.set(index);
+    if (Number.isInteger(index) && index >= 0 && index <= 3) {
+      this.indiceActivoVisible.set(index);
+    }
   }
 
   protected readonly carta = computed(() => {
@@ -146,7 +147,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
     ),
   );
 
-  // Fase 6 — Etapa 2: formularios gobernados por transiciones_disponibles.
+  // Los permisos de cada formulario siguen las transiciones del backend.
   protected readonly puedeGenerarCarta = computed(() =>
     (this.detalle()?.transiciones_disponibles ?? []).some(
       (t) => t.accion?.clave === 'generar_carta' && t.habilitada,
@@ -198,10 +199,10 @@ export class VistaExpediente implements OnInit, OnDestroy {
   ];
 
   protected readonly cartaForm = this.fb.group({
-    numero_completo: ['', Validators.required],
+    numero_completo: ['', [Validators.required, Validators.pattern(/^(?:CARTA\s+N[°º]?\s*)?0*[1-9]\d*-(?:20[2-9]\d|2100)(?:-VRIN-UNAMBA)?$/i)]],
     fecha: [new Date() as Date | null, Validators.required],
-    asunto: ['Solicito financiamiento para publicación en revista indexada para el docente '],
-    registro_mp_numero: ['', Validators.required],
+    asunto: ['', [Validators.required, Validators.maxLength(255)]],
+    registro_mp_numero: ['', [Validators.required, Validators.maxLength(30)]],
     fecha_aceptacion: [null as Date | null, Validators.required]
   });
 
@@ -272,11 +273,14 @@ export class VistaExpediente implements OnInit, OnDestroy {
       next: (detalle) => {
         this.detalle.set(detalle);
         if (!silencioso) {
-          const pasoQuery = this.route.snapshot.queryParamMap.get('paso');
-          if (pasoQuery !== null && !isNaN(Number(pasoQuery))) {
-            this.indiceActivoVisible.set(Number(pasoQuery));
-          } else {
-            this.indiceActivoVisible.set(Math.max((detalle.etapa_actual ?? 1) - 1, 0));
+          if (!this.pasoInicializado) {
+            const pasoQuery = this.route.snapshot.queryParamMap.get('paso');
+            const paso = pasoQuery === null ? NaN : Number(pasoQuery);
+            this.cambiarPaso(Number.isInteger(paso) && paso >= 0 && paso <= 3
+              ? paso
+              : this.pasoSugerido(detalle));
+            this.pasoInicializado = true;
+            this.restablecerDatosCarta(detalle);
           }
           this.cargando.set(false);
         }
@@ -302,6 +306,35 @@ export class VistaExpediente implements OnInit, OnDestroy {
         });
         this.router.navigate(['/expedientes']);
       },
+    });
+  }
+
+  private pasoSugerido(detalle: ExpedienteDetalle): number {
+    if (detalle.estado === 'VALIDADO_CALIDAD') {
+      return 1;
+    }
+    if (['EN_ESPERA_OPP', 'DISPONIBILIDAD_CONFIRMADA', 'SIN_DISPONIBILIDAD'].includes(detalle.estado)) {
+      return 2;
+    }
+    return Math.min(Math.max((detalle.etapa_actual ?? 1) - 1, 0), 3);
+  }
+
+  protected descartarCarta(): void {
+    const detalle = this.detalle();
+    if (detalle && !this.guardandoCarta()) {
+      this.restablecerDatosCarta(detalle);
+      this.sugerirNumeroSiCorresponde();
+    }
+  }
+
+  private restablecerDatosCarta(detalle: ExpedienteDetalle): void {
+    this.cartaForm.reset({
+      numero_completo: '',
+      fecha: new Date(),
+      asunto: `Solicito financiamiento para publicación en revista indexada para el docente ${detalle.docente?.nombre_completo ?? ''}`.trim(),
+      registro_mp_numero: detalle.registro_mp_numero ?? '',
+      fecha_aceptacion: detalle.articulo?.fecha_aceptacion
+        ? new Date(`${detalle.articulo.fecha_aceptacion}T00:00:00`) : null,
     });
   }
 
@@ -373,7 +406,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   }
 
   private prepararVistaDocGenerado(detalle: ExpedienteDetalle): void {
-    const doc = detalle.documentos_generados?.find((d) => d.tipo === 'CARTA_VRIN');
+    const doc = detalle.documentos_generados?.find((d) => d.tipo === 'CARTA_VRIN' && d.es_vigente);
     if (!doc || doc.pdf_path === null || doc.id === this.docGeneradoCargadoId) {
       return;
     }
@@ -446,6 +479,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
         fecha: this.iso(valores.fecha) ?? '',
         ciudad: 'Abancay',
         registro_mp_numero: valores.registro_mp_numero?.trim() || null,
+        asunto: valores.asunto?.trim() || null,
+        fecha_aceptacion: this.iso(valores.fecha_aceptacion),
       })
       .subscribe({
         next: (respuesta) => {
@@ -453,7 +488,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
           this.mensajes.add({
             severity: 'success',
             summary: `${valores.numero_completo} generada`,
-            detail: 'El expediente pasó a «En espera OPP».',
+            detail: 'Carta guardada. Puedes ver el documento aquí y registrar la respuesta OPP en el paso 3: Resolución.',
           });
           this.cargar(detalle.id);
         },
@@ -473,6 +508,10 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected guardarRespuestaOpp(): void {
     const detalle = this.detalle();
     if (!detalle || this.guardandoOpp()) {
+      return;
+    }
+    if (this.oppForm.invalid) {
+      this.oppForm.markAllAsTouched();
       return;
     }
     const valores = this.oppForm.getRawValue();

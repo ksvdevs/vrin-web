@@ -68,6 +68,7 @@ export interface ExpedienteDetalle {
     cuartil: string;
     monto_solicitado: number;
     doi: string | null;
+    fecha_aceptacion?: string | null;
   } | null;
   validacion_calidad: {
     resultado: string;
@@ -81,6 +82,7 @@ export interface ExpedienteDetalle {
     anio: number;
     fecha: string | null;
     ciudad: string | null;
+    asunto?: string | null;
     estado: string | null;
     emitida_por: string | null;
   } | null;

@@ -206,141 +206,91 @@
         </section>
         }
 
-        @if (indiceActivoVisible() === 1) {
-          <section class="tarjeta mb-3">
+        @if (indiceActivoVisible() === 1 || indiceActivoVisible() === 2) {
+          <section class="tarjeta resumen-expediente">
             <h2 class="tarjeta-titulo"><i class="pi pi-file"></i> Documento</h2>
-            <div class="fila">
-              <div class="campo">
-                <label>Número de Carta Docente <span class="text-red-500">*</span></label>
-                <input pInputText [value]="e.carta_docente_numero" readonly class="w-full" />
+            @if (carta(); as archivo) {
+              <div class="archivo-carta">
+                <i class="pi pi-file-pdf"></i>
+                <span class="nombre">{{ archivo.nombre_original }}</span>
+                <p-button icon="pi pi-eye" [text]="true" [rounded]="true"
+                  ariaLabel="Ver carta del docente" (onClick)="modalCartaVisible.set(true)" />
               </div>
-              <div class="campo">
-                <label>Fecha de Carta Docente <span class="text-red-500">*</span></label>
-                <input pInputText [value]="e.carta_docente_fecha" readonly class="w-full" />
-              </div>
+            } @else {
+              <p class="pendiente">Sin carta del docente adjunta.</p>
+            }
+            <div class="fila-datos">
+              <div class="dato"><span class="etiqueta">Número de carta docente</span><strong>{{ e.carta_docente_numero }}</strong></div>
+              <div class="dato"><span class="etiqueta">Fecha de carta docente</span><strong>{{ formatoFecha(e.carta_docente_fecha) }}</strong></div>
             </div>
-            
-              <div class="mt-3 p-3 border-round flex align-items-center justify-content-between surface-100">
-              <div class="flex align-items-center gap-2">
-                <i class="pi pi-file-pdf text-blue-500 text-xl"></i>
-                <span class="font-medium">Carta Docente.pdf</span>
-              </div>
-              <p-button icon="pi pi-eye" [text]="true" [rounded]="true" pTooltip="Ver carta del docente" (onClick)="modalCartaVisible.set(true)"></p-button>
-            </div>
-          </section>
-
-          <section class="tarjeta mb-3">
             <h2 class="tarjeta-titulo"><i class="pi pi-user"></i> Investigador Solicitante</h2>
-            
-            <div class="mb-3 p-3 surface-50 border-round">
-              <div class="font-bold text-lg mb-1">{{ e.docente?.nombre_completo }}</div>
-              <div class="text-500 text-sm mb-3">DNI: {{ e.docente?.dni }}</div>
-              
-              <div class="grid grid-nogutter">
-                <div class="col-12 md:col-6 mb-2">
-                  <span class="font-medium mr-1">Facultad:</span> {{ e.docente?.facultad?.nombre }}
-                </div>
-                <div class="col-12 md:col-6 mb-2">
-                  <span class="font-medium mr-1">Condición Laboral:</span> {{ e.docente?.tipo_contrato }}
-                </div>
-                <div class="col-12 md:col-6">
-                  <span class="font-medium mr-1">Escuela Profesional:</span> {{ e.docente?.escuela?.nombre }}
-                </div>
-              </div>
+            <div class="resumen-bloque">
+              <strong>{{ e.docente?.nombre_completo ?? '—' }}</strong>
+              <p class="dato-simple">DNI: {{ e.docente?.dni ?? '—' }}</p>
             </div>
-
-            <h3 class="text-base font-bold text-primary mb-2 mt-4"><i class="pi pi-book mr-2"></i> Artículo Indexado Elegible</h3>
-            
-            <div class="p-3 surface-50 border-round">
-              <div class="text-xs text-500 mb-1 font-bold">TÍTULO DEL MANUSCRITO APROBADO</div>
-              <div class="font-medium mb-4">{{ e.articulo?.titulo }}</div>
-              
-              <div class="grid grid-nogutter mb-3">
-                <div class="col-12 md:col-4 mb-3 md:mb-0">
-                  <div class="text-xs text-500 mb-1">Revista Científica</div>
-                  <div class="font-medium">{{ e.articulo?.revista }}</div>
-                </div>
-                <div class="col-12 md:col-4 mb-3 md:mb-0">
-                  <div class="text-xs text-500 mb-1">Indexación / Base de Datos</div>
-                  <div class="font-medium">{{ e.articulo?.base_indexadora }}</div>
-                </div>
-                <div class="col-12 md:col-4 p-2 bg-green-50 border-round">
-                  <div class="text-xs text-green-700 mb-1">Monto Solicitado</div>
-                  <div class="font-bold text-green-700">{{ formatoSoles(e.articulo?.monto_solicitado) }}</div>
-                </div>
-              </div>
-              
-              <div class="mb-3">
-                <div class="text-xs text-500 mb-1"><i class="pi pi-link mr-1"></i> DOI (Identificador Digital de Objeto):</div>
-                <div class="font-medium">{{ e.articulo?.doi || '—' }}</div>
-              </div>
-              
-              <div>
-                <p-tag [value]="'Cuartil: ' + e.articulo?.cuartil" severity="secondary"></p-tag>
-              </div>
+            <div class="fila-datos">
+              <div class="dato resumen-bloque"><span class="etiqueta">Facultad</span><strong>{{ e.docente?.facultad?.nombre ?? '—' }}</strong>
+                <span class="etiqueta">Escuela Profesional</span><strong>{{ e.docente?.escuela?.nombre ?? '—' }}</strong></div>
+              <div class="dato resumen-bloque"><span class="etiqueta">Condición Laboral</span><strong>{{ e.docente ? condicionLaboral(e.docente.tipo_contrato) : '—' }}</strong></div>
             </div>
+            <h2 class="tarjeta-titulo"><i class="pi pi-book"></i> Artículo Indexado Elegible</h2>
+            <div class="dato resumen-bloque"><span class="etiqueta">Título del manuscrito aprobado</span><strong>{{ e.articulo?.titulo ?? '—' }}</strong></div>
+            <div class="fila-datos">
+              <div class="dato resumen-bloque"><span class="etiqueta">Revista Científica</span><strong>{{ e.articulo?.revista ?? '—' }}</strong></div>
+              <div class="dato resumen-bloque"><span class="etiqueta">Indexación / Base de Datos</span><strong>{{ e.articulo?.base_indexadora ?? '—' }}</strong></div>
+              <div class="dato resumen-bloque resumen-monto"><span class="etiqueta">Monto Solicitado</span><strong>{{ formatoSoles(e.articulo?.monto_solicitado) }}</strong></div>
+            </div>
+            <div><p-tag [value]="'Cuartil: ' + (e.articulo?.cuartil ?? '—')" severity="secondary" /></div>
+            <div class="dato resumen-bloque"><span class="etiqueta">DOI (Identificador Digital de Objeto)</span><strong>{{ e.articulo?.doi ?? '—' }}</strong></div>
           </section>
+        }
 
+        @if (indiceActivoVisible() === 1) {
           <section class="tarjeta">
-            <div class="flex justify-content-between align-items-center mb-3">
-              <h2 class="tarjeta-titulo mb-0"><i class="pi pi-folder"></i> Datos Legales del Expediente</h2>
-              <span class="text-xs text-500">Edición autorizada</span>
+            <div class="tarjeta-cabecera">
+              <h2 class="tarjeta-titulo"><i class="pi pi-folder"></i> Datos Legales del Expediente</h2>
+              <span class="ayuda">{{ puedeGenerarCarta() ? 'Edición autorizada' : 'Carta VRIN / OPP' }}</span>
             </div>
-
             @if (puedeGenerarCarta()) {
-              <form [formGroup]="cartaForm" (ngSubmit)="confirmarGenerarCarta()">
-                <div class="fila mb-3">
+              <form [formGroup]="cartaForm" class="formulario" (ngSubmit)="confirmarGenerarCarta()">
+                <div class="fila">
                   <div class="campo">
-                    <label for="numero_completo">NUMERO DE CARTA VRIN <span class="text-red-500">*</span></label>
-                    <input pInputText id="numero_completo" formControlName="numero_completo" class="w-full text-uppercase font-medium" />
+                    <label for="numero_completo">Número de carta VRIN *</label>
+                    <input pInputText id="numero_completo" formControlName="numero_completo" placeholder="CARTA Nº 0067-2026-VRIN-UNAMBA" />
                     @if (cartaForm.controls.numero_completo.touched && cartaForm.controls.numero_completo.invalid) {
-                      <small class="error">Obligatorio.</small>
+                      <small class="error">Indica un número y año válidos, por ejemplo 0067-2026.</small>
                     }
                   </div>
                   <div class="campo">
-                    <label for="fecha_carta">FECHA DE CARTA VRIN <span class="text-red-500">*</span></label>
-                    <p-datepicker
-                      inputId="fecha_carta"
-                      formControlName="fecha"
-                      dateFormat="dd/mm/yy"
-                      [showIcon]="true"
-                      [showOnFocus]="false"
-                      appendTo="body"
-                      styleClass="w-full"
-                    />
-                    @if (cartaForm.controls.fecha.touched && cartaForm.controls.fecha.invalid) {
-                      <small class="error">Obligatorio.</small>
-                    }
+                    <label for="fecha_carta">Fecha de carta VRIN *</label>
+                    <p-datepicker inputId="fecha_carta" formControlName="fecha" dateFormat="dd/mm/yy"
+                      [showIcon]="true" [showOnFocus]="false" appendTo="body" styleClass="select-ancho" />
                   </div>
                 </div>
-
-                <div class="campo mb-3">
-                  <label for="asunto_carta">Asunto <span class="text-red-500">*</span></label>
-                  <input pInputText id="asunto_carta" formControlName="asunto" class="w-full" />
+                <div class="campo">
+                  <label for="asunto_carta">Asunto *</label>
+                  <textarea pInputText id="asunto_carta" formControlName="asunto" rows="3" maxlength="255"></textarea>
+                  @if (cartaForm.controls.asunto.touched && cartaForm.controls.asunto.invalid) {
+                    <small class="error">El asunto es obligatorio (máximo 255 caracteres).</small>
+                  }
                 </div>
-
-                <div class="fila mb-3">
+                <div class="fila">
                   <div class="campo">
-                    <label for="registro_mp">REGISTRO DE CARTA DOCENTE <span class="text-red-500">*</span></label>
-                    <input pInputText id="registro_mp" formControlName="registro_mp_numero" class="w-full" />
+                    <label for="registro_mp">Registro de carta docente *</label>
+                    <input pInputText id="registro_mp" formControlName="registro_mp_numero" maxlength="30" />
                   </div>
                   <div class="campo">
-                    <label for="fecha_acept">FECHA DE ACEPTACION <span class="text-red-500">*</span></label>
-                    <p-datepicker
-                      inputId="fecha_acept"
-                      formControlName="fecha_aceptacion"
-                      dateFormat="dd/mm/yy"
-                      [showIcon]="true"
-                      [showOnFocus]="false"
-                      appendTo="body"
-                      styleClass="w-full"
-                    />
+                    <label for="fecha_acept">Fecha de aceptación *</label>
+                    <p-datepicker inputId="fecha_acept" formControlName="fecha_aceptacion" dateFormat="dd/mm/yy"
+                      [showIcon]="true" [showOnFocus]="false" appendTo="body" styleClass="select-ancho" />
                   </div>
                 </div>
-
-                <div class="flex justify-content-end gap-2 mt-4">
-                  <p-button label="Descartar" severity="secondary" styleClass="w-8rem p-button-outlined bg-gray-800 text-white border-none hover:bg-gray-700"></p-button>
-                  <p-button label="Guardar Cambios" severity="success" type="submit" [disabled]="cartaForm.invalid" [loading]="guardandoCarta()" styleClass="w-12rem bg-teal-500 border-none hover:bg-teal-600"></p-button>
+                <p class="ayuda">Al generar la carta se guardan los datos y se prepara el documento para OPP.</p>
+                <div class="acciones-form">
+                  <p-button label="Descartar" type="button" severity="secondary" [outlined]="true"
+                    [disabled]="guardandoCarta()" (onClick)="descartarCarta()" />
+                  <p-button label="Generar Carta" icon="pi pi-file-pdf" type="submit"
+                    [loading]="guardandoCarta()" [disabled]="cartaForm.invalid || guardandoCarta()" />
                 </div>
               </form>
             }
@@ -362,6 +312,14 @@
               <div class="dato">
                 <span class="etiqueta">Registro de mesa de partes</span>
                 <strong>{{ e.registro_mp_numero ?? '—' }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Asunto</span>
+                <strong>{{ cv.asunto ?? '—' }}</strong>
+              </div>
+              <div class="dato">
+                <span class="etiqueta">Fecha de aceptación</span>
+                <strong>{{ formatoFecha(e.articulo?.fecha_aceptacion) }}</strong>
               </div>
             </div>
 
@@ -400,12 +358,24 @@
               }
             }
           } @else if (!puedeGenerarCarta()) {
-            <p class="pendiente">Pendiente.</p>
+            <p class="pendiente">La generación de la carta requiere la validación de Calidad y permisos de Secretaría o Administración.</p>
           }
 
+          @if (e.carta_vrin?.estado === 'EMITIDA') {
+            <div class="acciones-form">
+              <p-button label="Continuar a Resolución" icon="pi pi-arrow-right" iconPos="right"
+                [outlined]="true" (onClick)="cambiarPaso(2)" />
+            </div>
+          }
+        </section>
+        }
+
+        @if (indiceActivoVisible() === 2) {
+          <section class="tarjeta">
+            <h2 class="tarjeta-titulo"><i class="pi pi-folder"></i> Registrar Respuesta OPP</h2>
           @if (puedeRegistrarOpp()) {
             <form [formGroup]="oppForm" class="form-etapa" (ngSubmit)="guardarRespuestaOpp()">
-              <h3 class="subtitulo-seccion">Registrar Respuesta OPP</h3>
+              <p class="ayuda">Registra la respuesta de OPP para habilitar la generación de la resolución.</p>
               <div class="campo">
                 <label for="disponibilidad">Disponibilidad presupuestal *</label>
                 <p-select
@@ -559,7 +529,8 @@
                   icon="pi pi-check"
                   severity="success"
                   [loading]="guardandoOpp()"
-                  (onClick)="guardarRespuestaOpp()"
+                  type="submit"
+                  [disabled]="oppForm.invalid || guardandoOpp() || adjuntandoOpp()"
                 />
               </div>
             </form>
@@ -584,12 +555,16 @@
                 <span class="etiqueta">Registro VRIN</span>
                 <strong>{{ opp.registro_vrin_numero ?? '—' }}</strong>
               </div>
+              <div class="dato"><span class="etiqueta">Fecha de recepción VRIN</span><strong>{{ formatoFecha(opp.registro_vrin_fecha) }}</strong></div>
+              <div class="dato"><span class="etiqueta">Fecha de carta OPP</span><strong>{{ formatoFecha(opp.carta_fecha) }}</strong></div>
+              <div class="dato"><span class="etiqueta">Meta presupuestal</span><strong>{{ opp.meta_presupuestal ?? '—' }}</strong></div>
+              <div class="dato"><span class="etiqueta">Específica de gasto</span><strong>{{ opp.especifica_gasto ?? '—' }}</strong></div>
+              <div class="dato"><span class="etiqueta">Fuente de financiamiento</span><strong>{{ opp.fuente_financiamiento ?? '—' }}</strong></div>
             </div>
+          } @else {
+            <p class="pendiente">{{ e.estado === 'EN_ESPERA_OPP' ? 'Pendiente de registro por Secretaría.' : 'Genera primero la carta VRIN / OPP en el paso 2.' }}</p>
           }
-        </section>
-        }
-
-        @if (indiceActivoVisible() === 2) {
+          </section>
         <section class="tarjeta">
           <h2 class="tarjeta-titulo"><i class="pi pi-file-edit"></i> Resolución</h2>
           @if (puedeGenerarResolucion()) {
@@ -682,7 +657,7 @@
               }
             }
           } @else {
-            <p class="pendiente">Pendiente.</p>
+            <p class="pendiente">{{ e.respuesta_opp?.disponibilidad === 'NO' ? 'No se puede emitir una resolución sin disponibilidad presupuestal.' : 'La generación de la resolución se habilitará al registrar la respuesta OPP con disponibilidad confirmada.' }}</p>
           }
           
           @if (e.etapa_actual >= 3) {
@@ -910,7 +885,14 @@
           } @else {
             <div class="visor visor-vacio">
               <i class="pi pi-file-pdf visor-icono"></i>
-              <p>La carta VRIN aún no ha sido generada</p>
+              @if (docCartaGenerada()) {
+                <p role="status"><i class="pi pi-spin pi-spinner"></i> Preparando la vista previa PDF…</p>
+                <p-button label="Descargar Word" icon="pi pi-file-word" [outlined]="true"
+                  (onClick)="descargarDocGenerado('docx')" />
+              } @else {
+                <p>Completa los datos y pulsa «Generar Carta».</p>
+                <p class="ayuda">La vista previa aparecerá aquí.</p>
+              }
             </div>
           }
         }

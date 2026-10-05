@@ -81,6 +81,8 @@ export class ExpedienteService {
       fecha: string;
       ciudad?: string | null;
       registro_mp_numero?: string | null;
+      asunto?: string | null;
+      fecha_aceptacion?: string | null;
     },
   ): Observable<{
     estado: EstadoExpediente;
