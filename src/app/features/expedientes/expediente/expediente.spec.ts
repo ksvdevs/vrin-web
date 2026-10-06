@@ -1,7 +1,7 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
-import { of } from 'rxjs';
+import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { ExpedienteDetalle } from '../../../core/models/expediente-detalle.model';
@@ -16,6 +16,7 @@ describe('Etapas de carta VRIN y resolución', () => {
   let fixture: ComponentFixture<VistaExpediente>;
   let detalle: ExpedienteDetalle;
   let pasoQuery: string | null;
+  const documentos = { obtenerBlob: vi.fn() };
   const api = {
     obtener: vi.fn(),
     generarCarta: vi.fn(),
@@ -24,6 +25,9 @@ describe('Etapas de carta VRIN y resolución', () => {
 
   beforeEach(async () => {
     vi.resetAllMocks();
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:carta-vrin');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    documentos.obtenerBlob.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
     pasoQuery = null;
     detalle = {
       id: 1, codigo: 'ART-2026-000001', modulo: 'ARTICULOS', estado: 'VALIDADO_CALIDAD',
@@ -66,7 +70,7 @@ describe('Etapas de carta VRIN y resolución', () => {
         { provide: CartaVrinService, useValue: { sugerencia: () => of({ siguiente_numero: 67 }) } },
         { provide: ResolucionService, useValue: { sugerencia: () => of({ siguiente_numero: 13 }) } },
         { provide: ArchivoService, useValue: {} },
-        { provide: DocumentoService, useValue: {} },
+        { provide: DocumentoService, useValue: documentos },
       ],
     }).compileComponents();
   });
@@ -149,6 +153,37 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(api.registrarRespuestaOpp).toHaveBeenCalledTimes(1);
     expect(fixture.componentInstance['indiceActivoVisible']()).toBe(2);
     expect(boton('Generar Resolución Final')).toBeDefined();
+  });
+
+  it('muestra la carta en el panel lateral cuando termina la conversión a PDF', async () => {
+    esperarOpp();
+    pasoQuery = '1';
+    detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
+      pdf_path: null, es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
+    await abrir();
+    expect(fixture.nativeElement.textContent).toContain('Preparando la vista previa PDF');
+    expect(documentos.obtenerBlob).not.toHaveBeenCalled();
+    detalle = { ...detalle, documentos_generados: [{ ...detalle.documentos_generados[0], pdf_path: 'carta.pdf' }] };
+    fixture.componentInstance['cargar'](1, true);
+    fixture.detectChanges();
+    const visor = fixture.nativeElement.querySelector('.columna-derecha iframe');
+    expect(visor?.getAttribute('src')).toBe('blob:carta-vrin');
+    expect(fixture.componentInstance['indiceActivoVisible']()).toBe(1);
+    expect(documentos.obtenerBlob).toHaveBeenCalledWith(1, 9, 'pdf');
+  });
+
+  it('permite reintentar la vista previa si falla la descarga del PDF', async () => {
+    esperarOpp();
+    pasoQuery = '1';
+    detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
+      pdf_path: 'carta.pdf', es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
+    documentos.obtenerBlob.mockReturnValueOnce(throwError(() => new Error('Error de red')));
+    await abrir();
+    expect(fixture.nativeElement.textContent).toContain('No se pudo cargar la vista previa.');
+    boton('Reintentar vista previa').click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.columna-derecha iframe')?.getAttribute('src')).toBe('blob:carta-vrin');
+    expect(documentos.obtenerBlob).toHaveBeenCalledTimes(2);
   });
 
   it('mantiene la respuesta OPP en consulta para usuarios sin permiso de registro', async () => {

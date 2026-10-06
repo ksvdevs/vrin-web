@@ -1,416 +1,104 @@
-<main class="registro-overlay">
+<div class="registro-overlay">
   <p-toast />
   <p-confirmdialog />
-
-  <app-docente-formulario
-    [(visible)]="dialogoDocenteVisible"
-    (guardado)="alGuardarDocenteNuevo($event)"
-  />
-
-  <section class="panel" aria-label="Registro de expediente">
+  <app-docente-formulario [(visible)]="dialogoDocenteVisible" (guardado)="alGuardarDocenteNuevo($event)" />
+  <section class="panel" role="dialog" aria-modal="true" aria-labelledby="titulo-registro">
     <header class="cabecera">
+      <span class="icono-cabecera"><i class="pi pi-file" aria-hidden="true"></i></span>
       <div class="titulo">
-        <h1>{{ editandoId() ? 'Editar' : 'Registrar' }} Expediente de Artículo Financiado</h1>
-        <p class="subtitulo">{{ editandoId() ? 'Modificando datos de la Etapa 1: registro del expediente y la carta del docente' : 'Extracción inteligente de metadatos mediante IA para agilizar el registro del expediente VRIN' }}</p>
+        <h1 id="titulo-registro">{{ editandoId() ? 'Editar' : 'Registrar' }} Expediente de Artículo Financiado</h1>
+        <p>Crea el expediente a partir de la carta del docente y valida la información antes de guardar.</p>
       </div>
-      <p-button
-        icon="pi pi-times"
-        severity="secondary"
-        [text]="true"
-        [rounded]="true"
-        ariaLabel="Cerrar"
-        (onClick)="cancelar()"
-      />
+      <button type="button" class="cerrar" aria-label="Cerrar" (click)="cancelar()"><i class="pi pi-times" aria-hidden="true"></i></button>
     </header>
 
+    @if (!expedienteCreado()) {
+      <nav class="pasos" aria-label="Pasos de registro">
+        <div class="paso" [class.activo]="pasoActual() === 1" [class.completo]="pasoActual() === 2">
+          <span class="numero-paso">@if (pasoActual() === 2) {<i class="pi pi-check" aria-hidden="true"></i>} @else {1}</span>
+          <span><strong>Modalidad y docente</strong><small>IA, carta y solicitante</small></span>
+        </div>
+        <span class="linea-paso" aria-hidden="true"></span>
+        <div class="paso" [class.activo]="pasoActual() === 2">
+          <span class="numero-paso">2</span><span><strong>Artículo</strong><small>Publicación y monto</small></span>
+        </div>
+      </nav>
+    }
+
     @if (expedienteCreado(); as expediente) {
-      <div class="cuerpo adjuntar">
-        <div class="resumen-expediente">
-          <p-tag [value]="expediente.codigo" severity="success" icon="pi pi-check" />
-          <p>
-            Estado: <strong>{{ etiquetaEstado(expediente.estado) }}</strong>
-          </p>
-        </div>
-
-        <h2 class="titulo-seccion">Adjuntar carta del docente</h2>
-        <p class="ayuda">
-          Formatos permitidos: PDF, DOC, DOCX, JPG o PNG (máximo 25 MB).
-        </p>
-
-        @if (cartaSubida(); as carta) {
-          <div class="carta-guardada">
-            <i class="pi pi-paperclip"></i>
-            <span>{{ carta.nombre_original }}</span>
-            <small>sha256: {{ carta.sha256 }}</small>
-          </div>
-        }
-
+      <div class="cuerpo"><section class="tarjeta">
+        <div class="encabezado-tarjeta"><span class="icono-tarjeta"><i class="pi pi-check" aria-hidden="true"></i></span><div><h2>Expediente registrado</h2><p>{{ expediente.codigo }} · {{ etiquetaEstado(expediente.estado) }}</p></div></div>
+        <p class="ayuda">La carta no se pudo adjuntar. Puedes volver a subirla ahora.</p>
         <div class="selector-archivo">
-          <label class="boton-archivo">
-            Elegir archivo
-            <input
-              type="file"
-              class="input-archivo"
-              accept=".pdf,.doc,.docx,.jpg,.jpeg,.png"
-              (change)="seleccionarArchivo($event)"
-            />
-          </label>
-          <span class="nombre-archivo">
-            {{ archivoSeleccionado()?.name ?? 'Sin archivos seleccionados' }}
-          </span>
-          <p-button
-            label="Subir"
-            icon="pi pi-upload"
-            severity="success"
-            [disabled]="!archivoSeleccionado() || !!cartaSubida()"
-            [loading]="subiendo()"
-            (onClick)="subirCarta()"
-          />
+          <label class="boton-archivo">Elegir archivo<input type="file" class="input-archivo" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="seleccionarArchivo($event)" /></label>
+          <span class="nombre-archivo">{{ archivoSeleccionado()?.name ?? 'Ningún archivo seleccionado' }}</span>
+          <p-button label="Subir" icon="pi pi-upload" [disabled]="!archivoSeleccionado() || !!cartaSubida()" [loading]="subiendo()" (onClick)="subirCarta()" />
         </div>
-      </div>
-
-      <footer class="pie">
-        <p-button
-          label="Omitir por ahora"
-          severity="secondary"
-          [text]="true"
-          (onClick)="finalizar()"
-        />
-        <p-button label="Finalizar" icon="pi pi-check" (onClick)="finalizar()" />
-      </footer>
+      </section></div>
+      <footer class="pie"><button type="button" class="boton-secundario" (click)="finalizar()">Cerrar</button><button type="button" class="boton-primario" (click)="finalizar()">Finalizar <i class="pi pi-check" aria-hidden="true"></i></button></footer>
     } @else {
-      <form [formGroup]="formulario" (ngSubmit)="guardar()" class="cuerpo formulario">
-        <div class="bloque-ocr">
-          <h2 class="titulo-seccion">Carta escaneada del docente</h2>
-
-          @if (editandoId() && cartaSubida(); as carta) {
-            <div class="carta-actual">
-              <i class="pi pi-file-pdf"></i>
-              <span class="nombre">{{ carta.nombre_original }}</span>
-              <div class="acciones">
-                <p-button
-                  label="Ver"
-                  icon="pi pi-eye"
-                  severity="info"
-                  [text]="true"
-                  (onClick)="verCarta()"
-                />
-                <p-button
-                  label="Descargar"
-                  icon="pi pi-download"
-                  severity="secondary"
-                  [text]="true"
-                  (onClick)="descargarCarta()"
-                />
+      <form [formGroup]="formulario" class="formulario-registro" (ngSubmit)="pasoActual() === 1 ? continuar() : guardar()">
+        <div class="cuerpo">
+          @if (pasoActual() === 1) {
+            <section class="tarjeta">
+              <div class="modalidad">
+                <span>Modalidad de registro</span>
+                <small>Selecciona cómo deseas completar la información del expediente.</small>
+                <div class="opciones-modalidad">
+                  <button type="button" class="opcion-modalidad" [class.seleccionada]="modoRegistro() === 'ia'" [attr.aria-pressed]="modoRegistro() === 'ia'" (click)="modoRegistro.set('ia')"><span class="radio"></span><span><strong>Autocompletar con IA</strong><small>Extrae los datos de la carta para que solo tengas que revisarlos.</small></span><em>Recomendado</em></button>
+                  <button type="button" class="opcion-modalidad" [class.seleccionada]="modoRegistro() === 'manual'" [attr.aria-pressed]="modoRegistro() === 'manual'" (click)="modoRegistro.set('manual')"><span class="radio"></span><span><strong>Registro manual</strong><small>Completa directamente todos los campos del expediente.</small></span></button>
+                </div>
               </div>
-            </div>
-            <p class="ayuda">
-              Para reemplazarla, elige un archivo (PDF, JPG o PNG, máximo 25 MB); la IA volverá a extraer los datos.
-            </p>
+              <div class="seccion-carta">
+                <div class="encabezado-carta">
+                  <div><h2>Carta escaneada del docente</h2><p>{{ modoRegistro() === 'ia' ? 'Obligatoria para autocompletar el formulario con IA.' : 'Adjunta como documento de sustento para continuar.' }}</p></div>
+                  @if (archivoSeleccionado() || cartaSubida()) {<span class="archivo-listo">Archivo listo</span>}
+                </div>
+              @if (editandoId() && cartaSubida(); as carta) {
+                <div class="carta-actual"><i class="pi pi-file-pdf" aria-hidden="true"></i><span>{{ carta.nombre_original }}</span><p-button label="Ver" icon="pi pi-eye" [text]="true" (onClick)="verCarta()" /><p-button label="Descargar" icon="pi pi-download" [text]="true" (onClick)="descargarCarta()" /></div>
+              }
+              <div class="selector-archivo con-boton-externo">
+                <div class="archivo-campo">
+                <label class="boton-archivo">Elegir archivo<input type="file" class="input-archivo" accept=".pdf,.jpg,.jpeg,.png" (change)="seleccionarCartaOcr($event)" /></label>
+                @if (archivoSeleccionado()) {<span class="etiqueta-pdf">{{ archivoSeleccionado()!.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'IMG' }}</span>}
+                <span class="nombre-archivo">{{ archivoSeleccionado()?.name ?? 'Ningún archivo seleccionado' }}</span>
+                </div>
+                <button type="button" class="boton-subir" [disabled]="!archivoSeleccionado() || analizando()" (click)="subirCartaInicial()"><i class="pi pi-upload" aria-hidden="true"></i>{{ analizando() ? 'Analizando…' : 'Subir' }}</button>
+              </div>
+              @if (resultadoOcr() && modoRegistro() === 'ia') {
+                <div class="estado-ocr"><i class="pi pi-check" aria-hidden="true"></i><span><strong>Extracción completada</strong><small>Revisa los campos autocompletados antes de registrar el expediente.</small></span></div>
+              }
+              </div>
+            </section>
+            <section class="tarjeta">
+              <div class="encabezado-tarjeta"><span class="icono-tarjeta"><i class="pi pi-user" aria-hidden="true"></i></span><div><h2>Datos del docente solicitante</h2><p>{{ resultadoOcr() && modoRegistro() === 'ia' ? 'Información autocompletada por IA y disponible para edición.' : 'Completa los datos personales, académicos y contractuales.' }}</p></div>@if (resultadoOcr() && modoRegistro() === 'ia') {<span class="badge-ia">IA completado</span>}</div>
+              <div class="campos">
+                <div class="campo ancho"><label for="carta_docente_numero">Número de carta docente <b>*</b></label><input pInputText id="carta_docente_numero" formControlName="carta_docente_numero" maxlength="80" placeholder="Ingresa el número de carta" />@if (formulario.controls.carta_docente_numero.touched && formulario.controls.carta_docente_numero.invalid) {<small class="error">{{ mensajeError(formulario.controls.carta_docente_numero) }}</small>}</div>
+                <div class="campo"><label for="carta_docente_fecha">Fecha de carta docente <b>*</b></label><p-datepicker inputId="carta_docente_fecha" formControlName="carta_docente_fecha" dateFormat="dd/mm/yy" [showIcon]="false" appendTo="body" placeholder="dd/mm/aaaa" styleClass="select-ancho" />@if (formulario.controls.carta_docente_fecha.touched && formulario.controls.carta_docente_fecha.invalid) {<small class="error">{{ mensajeError(formulario.controls.carta_docente_fecha) }}</small>}</div>
+                <div class="campo"><label for="docente">Docente solicitante <b>*</b></label><div class="campo-horizontal"><p-autocomplete inputId="docente" formControlName="docente" [suggestions]="sugerencias()" optionLabel="label" [dropdown]="true" [minQueryLength]="2" placeholder="Buscar por nombre o DNI" appendTo="body" (completeMethod)="alBuscarDocente($event)" styleClass="autocomplete-ancho" /><button type="button" class="nuevo-docente" aria-label="Registrar nuevo docente" title="Registrar nuevo docente" (click)="abrirNuevoDocente()"><i class="pi pi-plus" aria-hidden="true"></i></button></div>@if (formulario.controls.docente.touched && formulario.controls.docente.invalid) {<small class="error">{{ mensajeError(formulario.controls.docente) }}</small>}</div>
+                <div class="campo"><label for="grado">Grado académico <b>*</b></label><input pInputText id="grado" [value]="gradoDocente() ?? ''" placeholder="Seleccionar" readonly /></div>
+                <div class="campo"><label for="tipo_contrato">Tipo de contrato <b>*</b></label><input pInputText id="tipo_contrato" [value]="tipoContratoDocente() ?? ''" placeholder="Seleccionar" readonly /></div>
+                <div class="campo"><label for="facultad">Facultad <b>*</b></label><input pInputText id="facultad" [value]="facultadDocente() ?? ''" placeholder="Selecciona la facultad" readonly /></div>
+                <div class="campo"><label for="escuela">Escuela profesional <b>*</b></label><input pInputText id="escuela" [value]="escuelaDocente() ?? ''" placeholder="Selecciona la escuela" readonly /></div>
+              </div>
+            </section>
           } @else {
-            <p class="ayuda">
-              Sube la carta (PDF, JPG o PNG, máximo 25 MB); la IA extraerá los datos y rellenará el formulario.
-            </p>
-          }
-
-          @if (resultadoOcr(); as ocr) {
-            <div class="banner-ocr">
-              <i class="pi pi-sparkles"></i>
-              <div class="banner-detalle">
-                <strong>IA OCR activa</strong>
-                <span>
-                  {{ ocr.campos_extraidos }} campos extraídos automáticamente de
-                  {{ ocr.nombre_archivo }}
-                </span>
+            <section class="tarjeta">
+              <div class="encabezado-tarjeta"><span class="icono-tarjeta"><i class="pi pi-book" aria-hidden="true"></i></span><div><h2>Datos del artículo y financiamiento</h2><p>Información extraída de la carta. Revisa los datos antes de registrar.</p></div></div>
+              <div class="campos">
+                <div class="campo ancho"><label for="titulo">Título del artículo <b>*</b></label><input pInputText id="titulo" formControlName="titulo" placeholder="Ingresa el título del artículo" />@if (formulario.controls.titulo.touched && formulario.controls.titulo.invalid) {<small class="error">{{ mensajeError(formulario.controls.titulo) }}</small>}</div>
+                <div class="campo"><label for="revista">Revista <b>*</b></label><input pInputText id="revista" formControlName="revista" maxlength="255" placeholder="Nombre de la revista" />@if (formulario.controls.revista.touched && formulario.controls.revista.invalid) {<small class="error">{{ mensajeError(formulario.controls.revista) }}</small>}</div>
+                <div class="campo"><label for="base_indexadora">Base de datos indexadora <b>*</b></label><p-select inputId="base_indexadora" formControlName="base_indexadora" [options]="opcionesBase" optionLabel="label" optionValue="value" placeholder="Seleccionar" appendTo="body" styleClass="select-ancho" />@if (formulario.controls.base_indexadora.touched && formulario.controls.base_indexadora.invalid) {<small class="error">{{ mensajeError(formulario.controls.base_indexadora) }}</small>}</div>
+                <div class="campo"><label for="cuartil">Cuartil <b>*</b></label><p-select inputId="cuartil" formControlName="cuartil" [options]="opcionesCuartil" optionLabel="label" optionValue="value" placeholder="Seleccionar" appendTo="body" styleClass="select-ancho" />@if (formulario.controls.cuartil.touched && formulario.controls.cuartil.invalid) {<small class="error">{{ mensajeError(formulario.controls.cuartil) }}</small>}</div>
+                <div class="campo"><label for="monto_solicitado">Monto solicitado <b>*</b></label><p-inputnumber inputId="monto_solicitado" formControlName="monto_solicitado" mode="currency" currency="PEN" locale="es-PE" [min]="0.01" [minFractionDigits]="2" [maxFractionDigits]="2" placeholder="S/ 0.00" styleClass="numero-ancho" />@if (formulario.controls.monto_solicitado.touched && formulario.controls.monto_solicitado.invalid) {<small class="error">{{ mensajeError(formulario.controls.monto_solicitado) }}</small>}</div>
+                <div class="campo"><label for="doi">DOI</label><input pInputText id="doi" formControlName="doi" maxlength="255" />@if (formulario.controls.doi.touched && formulario.controls.doi.invalid) {<small class="error">{{ mensajeError(formulario.controls.doi) }}</small>}</div>
+                <div class="campo"><label for="documentos_completos">Documentos completos <b>*</b></label><p-select inputId="documentos_completos" formControlName="documentos_completos" [options]="opcionesDocumentos" optionLabel="label" optionValue="value" placeholder="Seleccionar" appendTo="body" styleClass="select-ancho" />@if (formulario.controls.documentos_completos.touched && formulario.controls.documentos_completos.invalid) {<small class="error">{{ mensajeError(formulario.controls.documentos_completos) }}</small>}</div>
               </div>
-              <p-button
-                label="Modo manual"
-                severity="secondary"
-                [text]="true"
-                (onClick)="cerrarBannerOcr()"
-              />
-            </div>
-          }
-
-          <div class="selector-archivo">
-            <label class="boton-archivo">
-              Elegir archivo
-              <input
-                type="file"
-                class="input-archivo"
-                accept=".pdf,.jpg,.jpeg,.png"
-                (change)="seleccionarCartaOcr($event)"
-              />
-            </label>
-            <span class="nombre-archivo">
-              {{ analizando() ? 'Analizando con IA…' : (archivoSeleccionado()?.name ?? 'Sin archivos seleccionados') }}
-            </span>
-            <p-button
-              label="Reanalizar"
-              icon="pi pi-sparkles"
-              severity="info"
-              [outlined]="true"
-              [disabled]="!archivoSeleccionado()"
-              [loading]="analizando()"
-              (onClick)="analizarCarta()"
-            />
-          </div>
-        </div>
-
-        <div class="fila">
-          <div class="campo">
-            <label for="carta_docente_numero">Número de Carta Docente *</label>
-            <input
-              pInputText
-              id="carta_docente_numero"
-              formControlName="carta_docente_numero"
-              maxlength="80"
-              placeholder="p. ej. 017-2026-CP-MVZ-UNAMBA-ABANCAY/DZG"
-              autocomplete="off"
-            />
-            @if (
-              formulario.controls.carta_docente_numero.touched &&
-              formulario.controls.carta_docente_numero.invalid
-            ) {
-              <small class="error">{{ mensajeError(formulario.controls.carta_docente_numero) }}</small>
-            }
-          </div>
-          <div class="campo">
-            <label for="carta_docente_fecha">Fecha de Carta Docente *</label>
-            <p-datepicker
-              inputId="carta_docente_fecha"
-              formControlName="carta_docente_fecha"
-              dateFormat="dd/mm/yy"
-              [showIcon]="true"
-              [showOnFocus]="false"
-              appendTo="body"
-              placeholder="dd/mm/aaaa"
-              styleClass="select-ancho"
-            />
-            @if (
-              formulario.controls.carta_docente_fecha.touched &&
-              formulario.controls.carta_docente_fecha.invalid
-            ) {
-              <small class="error">{{ mensajeError(formulario.controls.carta_docente_fecha) }}</small>
-            }
-          </div>
-        </div>
-
-        <div class="fila">
-          <div class="campo">
-            <label for="grado">Grado *</label>
-            <input
-              pInputText
-              id="grado"
-              [value]="gradoDocente() ?? ''"
-              placeholder="Se completa al elegir el docente"
-              readonly
-              tabindex="-1"
-            />
-          </div>
-          <div class="campo">
-            <label for="docente">Docente *</label>
-            <div class="campo-horizontal">
-              <p-autocomplete
-                inputId="docente"
-                formControlName="docente"
-                [suggestions]="sugerencias()"
-                optionLabel="label"
-                [dropdown]="true"
-                [minQueryLength]="2"
-                placeholder="Buscar por nombre o DNI"
-                appendTo="body"
-                (completeMethod)="alBuscarDocente($event)"
-                styleClass="autocomplete-ancho"
-              />
-              <p-button
-                icon="pi pi-plus"
-                severity="success"
-                ariaLabel="Nuevo docente"
-                pTooltip="Nuevo docente"
-                tooltipPosition="top"
-                (onClick)="abrirNuevoDocente()"
-              />
-            </div>
-            @if (formulario.controls.docente.touched && formulario.controls.docente.invalid) {
-              <small class="error">{{ mensajeError(formulario.controls.docente) }}</small>
-            }
-          </div>
-        </div>
-
-        <div class="campo">
-          <label for="tipo_contrato">Tipo de contrato *</label>
-          <input
-            pInputText
-            id="tipo_contrato"
-            [value]="tipoContratoDocente() ?? ''"
-            placeholder="Se completa al elegir el docente"
-            readonly
-            tabindex="-1"
-          />
-        </div>
-
-        <div class="campo">
-          <label for="facultad">Facultad *</label>
-          <input
-            pInputText
-            id="facultad"
-            [value]="facultadDocente() ?? ''"
-            placeholder="Se completa al elegir el docente"
-            readonly
-            tabindex="-1"
-          />
-        </div>
-
-        <div class="campo">
-          <label for="escuela">Escuela Profesional *</label>
-          <input
-            pInputText
-            id="escuela"
-            [value]="escuelaDocente() ?? ''"
-            placeholder="Se completa al elegir el docente"
-            readonly
-            tabindex="-1"
-          />
-        </div>
-
-        <div class="campo">
-          <label for="revista">Revista *</label>
-          <input
-            pInputText
-            id="revista"
-            formControlName="revista"
-            maxlength="255"
-            placeholder="Buscar por nombre"
-            autocomplete="off"
-          />
-          @if (formulario.controls.revista.touched && formulario.controls.revista.invalid) {
-            <small class="error">{{ mensajeError(formulario.controls.revista) }}</small>
+            </section>
           }
         </div>
-
-        <div class="fila">
-          <div class="campo">
-            <label for="base_indexadora">Base de datos indexadora *</label>
-            <p-select
-              inputId="base_indexadora"
-              formControlName="base_indexadora"
-              [options]="opcionesBase"
-              optionLabel="label"
-              optionValue="value"
-              placeholder="Selecciona la base"
-              appendTo="body"
-              styleClass="select-ancho"
-            />
-            @if (
-              formulario.controls.base_indexadora.touched &&
-              formulario.controls.base_indexadora.invalid
-            ) {
-              <small class="error">{{ mensajeError(formulario.controls.base_indexadora) }}</small>
-            }
-          </div>
-          <div class="campo">
-            <label for="cuartil">Cuartil *</label>
-            <p-select
-              inputId="cuartil"
-              formControlName="cuartil"
-              [options]="opcionesCuartil"
-              optionLabel="label"
-              optionValue="value"
-              placeholder="Selecciona el cuartil"
-              appendTo="body"
-              styleClass="select-ancho"
-            />
-            @if (formulario.controls.cuartil.touched && formulario.controls.cuartil.invalid) {
-              <small class="error">{{ mensajeError(formulario.controls.cuartil) }}</small>
-            }
-          </div>
-        </div>
-
-        <div class="campo">
-          <label for="titulo">Título de Artículo *</label>
-          <textarea
-            pTextarea
-            id="titulo"
-            formControlName="titulo"
-            [rows]="3"
-            [autoResize]="true"
-            placeholder="Ingresa el título del artículo"
-          ></textarea>
-          @if (formulario.controls.titulo.touched && formulario.controls.titulo.invalid) {
-            <small class="error">{{ mensajeError(formulario.controls.titulo) }}</small>
-          }
-        </div>
-
-        <div class="fila">
-          <div class="campo">
-            <label for="monto_solicitado">Monto en soles *</label>
-            <p-inputnumber
-              inputId="monto_solicitado"
-              formControlName="monto_solicitado"
-              mode="currency"
-              currency="PEN"
-              locale="es-PE"
-              [min]="0.01"
-              [minFractionDigits]="2"
-              [maxFractionDigits]="2"
-              placeholder="0,00"
-              styleClass="numero-ancho"
-            />
-            @if (
-              formulario.controls.monto_solicitado.touched &&
-              formulario.controls.monto_solicitado.invalid
-            ) {
-              <small class="error">{{ mensajeError(formulario.controls.monto_solicitado) }}</small>
-            }
-          </div>
-          <div class="campo">
-            <label for="doi">Doi</label>
-            <input
-              pInputText
-              id="doi"
-              formControlName="doi"
-              maxlength="255"
-              placeholder="https://doi.org/… (no es obligatorio)"
-              autocomplete="off"
-            />
-            @if (formulario.controls.doi.touched && formulario.controls.doi.invalid) {
-              <small class="error">{{ mensajeError(formulario.controls.doi) }}</small>
-            }
-          </div>
-        </div>
-
-        <div class="campo">
-          <label for="documentos_completos">Documentos Completos *</label>
-          <p-select
-            inputId="documentos_completos"
-            formControlName="documentos_completos"
-            [options]="opcionesDocumentos"
-            optionLabel="label"
-            optionValue="value"
-            placeholder="Sí / No"
-            appendTo="body"
-            styleClass="select-ancho"
-          />
-          @if (
-            formulario.controls.documentos_completos.touched &&
-            formulario.controls.documentos_completos.invalid
-          ) {
-            <small class="error">{{ mensajeError(formulario.controls.documentos_completos) }}</small>
-          }
-        </div>
+        <footer class="pie"><button type="button" class="boton-secundario" (click)="cancelar()">Cancelar</button><div class="acciones-pie">@if (pasoActual() === 2) {<button type="button" class="boton-secundario" (click)="pasoActual.set(1)">Anterior</button>}<button type="submit" class="boton-primario" [disabled]="guardando()">{{ pasoActual() === 1 ? 'Continuar' : editandoId() ? 'Guardar cambios' : 'Registrar expediente' }} <i class="pi" [class.pi-angle-right]="pasoActual() === 1" [class.pi-check]="pasoActual() === 2" aria-hidden="true"></i></button></div></footer>
       </form>
-
-      <footer class="pie">
-        <p-button label="Cancelar" severity="secondary" [text]="true" (onClick)="cancelar()" />
-        <p-button
-          label="Guardar"
-          icon="pi pi-save"
-          severity="success"
-          [loading]="guardando()"
-          (onClick)="guardar()"
-        />
-      </footer>
     }
   </section>
-</main>
+</div>

@@ -11,10 +11,7 @@ import { DatePicker } from 'primeng/datepicker';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
-import { Tag } from 'primeng/tag';
-import { Textarea } from 'primeng/textarea';
 import { Toast } from 'primeng/toast';
-import { Tooltip } from 'primeng/tooltip';
 
 import { Docente } from '../../../core/models/docente.model';
 import {
@@ -60,10 +57,7 @@ const TAMANO_MAXIMO = 25 * 1024 * 1024; // 25 MB (replica ck_arch_tamano)
     InputText,
     ReactiveFormsModule,
     Select,
-    Tag,
-    Textarea,
     Toast,
-    Tooltip,
   ],
   templateUrl: './registro-expediente.html',
   styleUrl: './registro-expediente.scss',
@@ -87,6 +81,8 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   protected readonly subiendo = signal(false);
   protected readonly analizando = signal(false);
   protected readonly resultadoOcr = signal<ResultadoOcr | null>(null);
+  protected readonly pasoActual = signal<1 | 2>(1);
+  protected readonly modoRegistro = signal<'ia' | 'manual'>('ia');
 
   protected readonly dialogoDocenteVisible = signal(false);
 
@@ -237,6 +233,15 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     this.enviar(payload);
   }
 
+  protected continuar(): void {
+    const controles = this.formulario.controls;
+    controles.carta_docente_numero.markAsTouched();
+    controles.carta_docente_fecha.markAsTouched();
+    controles.docente.markAsTouched();
+    if (controles.carta_docente_numero.invalid || controles.carta_docente_fecha.invalid || controles.docente.invalid) return;
+    this.pasoActual.set(2);
+  }
+
   protected seleccionarArchivo(event: Event): void {
     const input = event.target as HTMLInputElement;
     const archivo = input.files?.[0] ?? null;
@@ -290,7 +295,6 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     }
     this.archivoSeleccionado.set(archivo);
     this.resultadoOcr.set(null);
-    this.analizarCarta();
   }
 
   protected analizarCarta(): void {
@@ -303,6 +307,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
       next: (resultado) => {
         this.analizando.set(false);
         this.resultadoOcr.set(resultado);
+        this.modoRegistro.set('ia');
         this.aplicarOcr(resultado.datos);
       },
       error: (error) => {
@@ -315,6 +320,19 @@ export class RegistroExpediente implements OnInit, OnDestroy {
         });
       },
     });
+  }
+
+  protected subirCartaInicial(): void {
+    if (!this.archivoSeleccionado()) return;
+    if (this.modoRegistro() === 'ia') {
+      this.analizarCarta();
+    } else {
+      this.mensajes.add({
+        severity: 'info',
+        summary: 'Carta preparada',
+        detail: 'La carta se adjuntará al registrar el expediente.',
+      });
+    }
   }
 
   protected cerrarBannerOcr(): void {

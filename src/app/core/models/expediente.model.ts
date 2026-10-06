@@ -26,7 +26,12 @@ export type EstadoExpediente = (typeof ESTADOS_EXPEDIENTE)[number];
 // Presentación por estado (espéjo del mapa del backend, app/Support/EstadoExpediente.php).
 export const ESTADO_INFO: Record<
   EstadoExpediente,
-  { etapa: number | null; label: string; severity: 'success' | 'warn' | 'danger'; terminal: boolean }
+  {
+    etapa: number | null;
+    label: string;
+    severity: 'success' | 'warn' | 'danger';
+    terminal: boolean;
+  }
 > = {
   OBSERVADO: { etapa: 1, label: 'Observado', severity: 'danger', terminal: false },
   EN_REVISION_CALIDAD: { etapa: 1, label: 'En revisión', severity: 'warn', terminal: false },
@@ -34,7 +39,12 @@ export const ESTADO_INFO: Record<
   NO_CUMPLE: { etapa: 1, label: 'No cumple', severity: 'danger', terminal: true },
   EN_ESPERA_OPP: { etapa: 2, label: 'En espera OPP', severity: 'warn', terminal: false },
   SIN_DISPONIBILIDAD: { etapa: 2, label: 'Sin disponibilidad', severity: 'danger', terminal: true },
-  DISPONIBILIDAD_CONFIRMADA: { etapa: 2, label: 'Disponibilidad OK', severity: 'success', terminal: false },
+  DISPONIBILIDAD_CONFIRMADA: {
+    etapa: 2,
+    label: 'Disponibilidad OK',
+    severity: 'success',
+    terminal: false,
+  },
   RESOLUCION_EMITIDA: { etapa: 3, label: 'Emitida', severity: 'success', terminal: false },
   POR_RENDIR: { etapa: 4, label: 'Por rendir', severity: 'danger', terminal: false },
   RENDICION_VENCIDA: { etapa: 4, label: 'Vencida', severity: 'danger', terminal: false },
@@ -116,6 +126,8 @@ export interface ExpedienteFila {
     dni: string;
   };
   titulo: string | null;
+  base_indexadora?: BaseIndexadora | null;
+  cuartil?: Cuartil | null;
   estado: EstadoExpediente;
   etapa: number | null;
   badge: {

@@ -2,7 +2,48 @@
 
 body {
   margin: 0;
-  font-family: var(--p-font-family);
+  font-family: 'Segoe UI', Arial, sans-serif;
   background: var(--p-content-background);
   color: var(--p-content-color);
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+:focus-visible {
+  outline: 2px solid #2765fa;
+  outline-offset: 3px;
+}
+
+.expediente-opciones.p-menu {
+  min-width: 144px;
+  border: 1px solid #e4ebf4;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 12px 20px #17365b14;
+  .p-menu-list {
+    padding: 5px;
+    gap: 0;
+  }
+  .p-menu-item-link {
+    padding: 9px 12px;
+    gap: 10px;
+    font-size: 10px;
+    color: #29466c;
+  }
+  .p-menu-item-icon {
+    color: #29466c;
+    font-size: 11px;
+  }
+  .p-menu-item-label {
+    font-size: 10px;
+  }
 }

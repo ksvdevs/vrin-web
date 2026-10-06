@@ -24,6 +24,8 @@ export interface ArchivoExpediente {
 }
 
 export interface FiltrosExpediente {
+  busqueda?: string;
+  periodo?: number;
   estado?: string;
   desde?: string;
   hasta?: string;
@@ -47,6 +49,8 @@ export class ExpedienteService {
 
   listar(filtros: FiltrosExpediente, pagina: number): Observable<Paginado<ExpedienteFila>> {
     const params: Record<string, string | number> = { page: pagina };
+    if (filtros.busqueda) params['busqueda'] = filtros.busqueda;
+    if (filtros.periodo) params['periodo'] = filtros.periodo;
     if (filtros.estado) {
       params['estado'] = filtros.estado;
     }
@@ -63,7 +67,10 @@ export class ExpedienteService {
     return this.api.get<ExpedienteDetalle>(`/expedientes/${id}`);
   }
 
-  validar(id: number, payload: ValidacionPayload): Observable<{ estado: EstadoExpediente; validacion: unknown }> {
+  validar(
+    id: number,
+    payload: ValidacionPayload,
+  ): Observable<{ estado: EstadoExpediente; validacion: unknown }> {
     return this.api.post(`/expedientes/${id}/validacion`, payload);
   }
 
@@ -88,44 +95,59 @@ export class ExpedienteService {
     estado: EstadoExpediente;
     etapa_actual: number;
     carta_vrin: unknown;
-    documento_generado: { id: number; version: number; docx_path: string; pdf_path: string | null } | null;
+    documento_generado: {
+      id: number;
+      version: number;
+      docx_path: string;
+      pdf_path: string | null;
+    } | null;
   }> {
     return this.api.post(`/expedientes/${id}/carta-vrin`, payload);
   }
 
-    registrarRespuestaOpp(
-      id: number,
-      payload: Record<string, string | number | null>,
-    ): Observable<{
-      estado: EstadoExpediente;
-      etapa_actual: number;
-      cerrado_at: string | null;
-      respuesta_opp: unknown;
-    }> {
-      return this.api.post(`/expedientes/${id}/respuesta-opp`, payload);
-    }
-  
-    generarResolucion(
-      id: number,
-      payload: {
-        numero: number;
-        anio: number;
-        fecha_emision: string;
-      },
-    ): Observable<{
-      estado: EstadoExpediente;
-      etapa_actual: number;
-      resolucion: unknown;
-      documento_generado: { id: number; version: number; docx_path: string; pdf_path: string | null } | null;
-    }> {
-      return this.api.post(`/expedientes/${id}/resolucion/generar`, payload);
-    }
-  
-    anularDocumento(expedienteId: number, documentoId: number): Observable<{ mensaje: string }> {
-      return this.api.post(`/expedientes/${expedienteId}/documentos/${documentoId}/anular`, {});
-    }
+  registrarRespuestaOpp(
+    id: number,
+    payload: Record<string, string | number | null>,
+  ): Observable<{
+    estado: EstadoExpediente;
+    etapa_actual: number;
+    cerrado_at: string | null;
+    respuesta_opp: unknown;
+  }> {
+    return this.api.post(`/expedientes/${id}/respuesta-opp`, payload);
+  }
 
-  subirArchivo(id: number, archivo: File, tipo: string, etapa?: number): Observable<ArchivoExpediente> {
+  generarResolucion(
+    id: number,
+    payload: {
+      numero: number;
+      anio: number;
+      fecha_emision: string;
+    },
+  ): Observable<{
+    estado: EstadoExpediente;
+    etapa_actual: number;
+    resolucion: unknown;
+    documento_generado: {
+      id: number;
+      version: number;
+      docx_path: string;
+      pdf_path: string | null;
+    } | null;
+  }> {
+    return this.api.post(`/expedientes/${id}/resolucion/generar`, payload);
+  }
+
+  anularDocumento(expedienteId: number, documentoId: number): Observable<{ mensaje: string }> {
+    return this.api.post(`/expedientes/${expedienteId}/documentos/${documentoId}/anular`, {});
+  }
+
+  subirArchivo(
+    id: number,
+    archivo: File,
+    tipo: string,
+    etapa?: number,
+  ): Observable<ArchivoExpediente> {
     const datos = new FormData();
     datos.append('archivo', archivo);
     datos.append('tipo', tipo);

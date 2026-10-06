@@ -86,3 +86,72 @@ $gris: #cbd5e1;
     background: $verde;
   }
 }
+
+:host.compacto {
+  display: block;
+  .badge-etapa {
+    display: flex;
+    height: 42px;
+    padding: 7px 6px;
+    gap: 0;
+    background: #f7f9fa;
+    border: 1px solid #e6edf2;
+    border-radius: 10px;
+  }
+  .paso {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+  .indicador {
+    width: 17px;
+    height: 17px;
+    background: #e7ecef;
+    color: #99a9b5;
+    font-size: 7px;
+    i {
+      font-size: 8px;
+    }
+  }
+  .etiqueta {
+    font-size: 8px;
+    font-weight: 500;
+    color: #99a8b6;
+  }
+  .conector {
+    flex: 1;
+    min-width: 3px;
+    height: 1px;
+    background: #dce4e9;
+  }
+  .conector.hecho {
+    background: #92b5fb;
+  }
+  .completado {
+    .indicador {
+      background: #2765f5;
+      color: #fff;
+    }
+    .etiqueta {
+      color: #009e8d;
+    }
+  }
+  .actual,
+  .marcado {
+    .indicador {
+      background: #e9a124;
+      color: #fff;
+    }
+    .etiqueta {
+      color: #976000;
+    }
+  }
+  .fallido {
+    .indicador {
+      background: #d45252;
+      color: #fff;
+    }
+    .etiqueta {
+      color: #b54141;
+    }
+  }
+}

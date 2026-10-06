@@ -324,7 +324,7 @@
             </div>
 
             @if (docCartaGenerada(); as doc) {
-              @if (urlDocGenerado(); as url) {
+              @if (doc.pdf_path) {
                 <div class="acciones-archivo">
                   <p-button
                     label="Descargar PDF"
@@ -351,7 +351,7 @@
                     (onClick)="anularDocumento(doc.id)"
                   />
                 </div>
-              } @else {
+              } @else if (!esperaVistaCartaAgotada()) {
                 <p class="pendiente">
                   <i class="pi pi-spin pi-spinner"></i> Convirtiendo a PDF…
                 </p>
@@ -886,7 +886,13 @@
             <div class="visor visor-vacio">
               <i class="pi pi-file-pdf visor-icono"></i>
               @if (docCartaGenerada()) {
-                <p role="status"><i class="pi pi-spin pi-spinner"></i> Preparando la vista previa PDF…</p>
+                @if (errorVistaCarta() || esperaVistaCartaAgotada()) {
+                  <p role="status">{{ errorVistaCarta() ? 'No se pudo cargar la vista previa.' : 'El PDF aún no está disponible.' }}</p>
+                  <p-button label="Reintentar vista previa" icon="pi pi-refresh" [outlined]="true"
+                    (onClick)="reintentarVistaCarta()" />
+                } @else {
+                  <p role="status"><i class="pi pi-spin pi-spinner"></i> Preparando la vista previa PDF…</p>
+                }
                 <p-button label="Descargar Word" icon="pi pi-file-word" [outlined]="true"
                   (onClick)="descargarDocGenerado('docx')" />
               } @else {

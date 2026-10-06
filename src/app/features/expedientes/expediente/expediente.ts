@@ -73,6 +73,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected readonly cargando = signal(true);
   protected readonly urlCarta = signal<SafeResourceUrl | null>(null);
   protected readonly urlDocGenerado = signal<SafeResourceUrl | null>(null);
+  protected readonly errorVistaCarta = signal(false);
+  protected readonly esperaVistaCartaAgotada = signal(false);
   protected readonly urlDocResolucion = signal<SafeResourceUrl | null>(null);
   protected readonly drawerValidacion = signal(false);
   protected readonly subsanando = signal(false);
@@ -293,6 +295,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
       },
       error: (error) => {
         if (silencioso) {
+          this.esperaVistaCartaAgotada.set(true);
           this.detenerPolling();
           return;
         }
@@ -360,6 +363,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.pollingId = setInterval(() => {
       this.intentosPolling += 1;
       if (this.intentosPolling > 30 || this.expedienteId === undefined) {
+        this.esperaVistaCartaAgotada.set(true);
         this.detenerPolling();
         return;
       }
@@ -407,20 +411,44 @@ export class VistaExpediente implements OnInit, OnDestroy {
 
   private prepararVistaDocGenerado(detalle: ExpedienteDetalle): void {
     const doc = detalle.documentos_generados?.find((d) => d.tipo === 'CARTA_VRIN' && d.es_vigente);
+    if (!doc || doc.id !== this.docGeneradoCargadoId) {
+      this.urlDocGenerado.set(null);
+      this.errorVistaCarta.set(false);
+      if (this.blobUrlDocGenerado) {
+        URL.revokeObjectURL(this.blobUrlDocGenerado);
+        this.blobUrlDocGenerado = undefined;
+      }
+      this.docGeneradoCargadoId = undefined;
+    }
     if (!doc || doc.pdf_path === null || doc.id === this.docGeneradoCargadoId) {
       return;
     }
     this.docGeneradoCargadoId = doc.id;
     this.documentoService.obtenerBlob(detalle.id, doc.id, 'pdf').subscribe({
       next: (blob) => {
+        if (this.docCartaGenerada()?.id !== doc.id) return;
         if (this.blobUrlDocGenerado) {
           URL.revokeObjectURL(this.blobUrlDocGenerado);
         }
         this.blobUrlDocGenerado = URL.createObjectURL(blob);
         this.urlDocGenerado.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlDocGenerado));
+        this.esperaVistaCartaAgotada.set(false);
       },
-      error: () => {},
+      error: () => {
+        if (this.docCartaGenerada()?.id === doc.id) {
+          this.errorVistaCarta.set(true);
+        }
+      },
     });
+  }
+
+  protected reintentarVistaCarta(): void {
+    if (this.expedienteId === undefined) return;
+    this.docGeneradoCargadoId = undefined;
+    this.errorVistaCarta.set(false);
+    this.esperaVistaCartaAgotada.set(false);
+    this.detenerPolling();
+    this.cargar(this.expedienteId, true);
   }
 
   private prepararVistaDocResolucion(detalle: ExpedienteDetalle): void {

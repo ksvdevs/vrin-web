@@ -1,17 +1,23 @@
-<div class="badge-etapa" [title]="'Estado: ' + titulo()">
+<div
+  class="badge-etapa"
+  [title]="'Estado: ' + titulo()"
+  role="img"
+  [attr.aria-label]="'Estado: ' + titulo()"
+>
   @for (paso of pasos(); track paso.indice) {
     <span
       class="paso"
       [class.completado]="paso.completado"
       [class.fallido]="paso.fallido"
       [class.actual]="paso.actual"
+      [class.marcado]="paso.marcado"
     >
       <span class="indicador">
-        @if (paso.completado) {
+        @if (paso.completado || paso.marcado) {
           <i class="pi pi-check"></i>
         } @else if (paso.fallido) {
           <i class="pi pi-times"></i>
-        } @else if (paso.actual) {
+        } @else if (paso.actual && !compacto()) {
           <i class="pi pi-clock"></i>
         } @else {
           <span class="numero">{{ paso.indice }}</span>

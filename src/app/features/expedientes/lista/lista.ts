@@ -1,13 +1,12 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { debounceTime, distinctUntilChanged, Subscription } from 'rxjs';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
-import { Button } from 'primeng/button';
 import { DatePicker } from 'primeng/datepicker';
-import { Dialog } from 'primeng/dialog';
-import { ConfirmationService, MessageService } from 'primeng/api';
-import { Select } from 'primeng/select';
-import { TableModule, type TableLazyLoadEvent } from 'primeng/table';
+import { ConfirmationService, MessageService, type MenuItem } from 'primeng/api';
+import { Menu } from 'primeng/menu';
 import { Toast } from 'primeng/toast';
 
 import {
@@ -31,15 +30,12 @@ import { ValidacionExpediente } from '../../validacion/validacion-expediente';
   selector: 'app-lista-expedientes',
   imports: [
     BadgeEtapa,
-    Button,
     ConfirmDialog,
     DatePicker,
-    Dialog,
     FormsModule,
     ReactiveFormsModule,
     RouterLink,
-    Select,
-    TableModule,
+    Menu,
     Toast,
     ValidacionExpediente,
   ],
@@ -54,12 +50,21 @@ export class ListaExpedientes implements OnInit {
   private readonly plantillaService = inject(PlantillaService);
   private readonly seleccionService = inject(SeleccionService);
   private readonly mensajes = inject(MessageService);
+  private readonly destroyRef = inject(DestroyRef);
+  private cargaActual?: Subscription;
 
   protected readonly filas = signal<ExpedienteFila[]>([]);
   protected readonly cargando = signal(false);
   protected readonly total = signal(0);
   protected readonly primeraFila = signal(0);
-  protected readonly dialogoFiltros = signal(false);
+  protected readonly errorCarga = signal(false);
+  protected readonly opcionesFila = signal<MenuItem[]>([]);
+  protected readonly paginaActual = computed(() => Math.floor(this.primeraFila() / 5) + 1);
+  protected readonly ultimaPagina = computed(() => Math.max(1, Math.ceil(this.total() / 5)));
+  protected readonly paginas = computed(() => {
+    const inicio = Math.max(1, Math.min(this.paginaActual() - 1, this.ultimaPagina() - 2));
+    return Array.from({ length: Math.min(3, this.ultimaPagina()) }, (_, i) => inicio + i);
+  });
 
   // HU-41 — selección vigente de plantillas (solo administrador).
   protected readonly plantillasCarta = signal<Plantilla[]>([]);
@@ -81,6 +86,7 @@ export class ListaExpedientes implements OnInit {
   }));
 
   protected readonly filtroForm = this.fb.group({
+    busqueda: [''],
     estado: [null as EstadoExpediente | null],
     desde: [null as Date | null],
     hasta: [null as Date | null],
@@ -89,14 +95,23 @@ export class ListaExpedientes implements OnInit {
   private filtrosAplicados: FiltrosExpediente = {};
 
   ngOnInit(): void {
-    this.auth.verificarSesion().subscribe();
-    this.cargarSeleccionPlantillas();
+    this.auth.verificarSesion().subscribe({
+      next: () => {
+        if (this.esAdmin()) this.cargarSeleccionPlantillas();
+      },
+    });
+    this.filtroForm.controls.busqueda.valueChanges
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.aplicarFiltros());
+    this.destroyRef.onDestroy(() => this.cargaActual?.unsubscribe());
+    this.cargar(1);
   }
 
   // HU-41 — plantillas activas por tipo + selección vigente (solo admin).
   private cargarSeleccionPlantillas(): void {
     this.plantillaService.listar(1).subscribe({
-      next: (plantillas) => this.plantillasCarta.set(plantillas.filter((p) => p.estado === 'ACTIVO')),
+      next: (plantillas) =>
+        this.plantillasCarta.set(plantillas.filter((p) => p.estado === 'ACTIVO')),
       error: () => {},
     });
     this.plantillaService.listar(2).subscribe({
@@ -125,9 +140,15 @@ export class ListaExpedientes implements OnInit {
       return;
     }
     this.seleccionService
-      .seleccionar({ modulo: 'ARTICULOS', tipo_documento_id: tipoDocumentoId, plantilla_id: plantillaId })
+      .seleccionar({
+        modulo: 'ARTICULOS',
+        tipo_documento_id: tipoDocumentoId,
+        plantilla_id: plantillaId,
+      })
       .subscribe({
         next: () => {
+          if (tipoDocumentoId === 1) this.seleccionCartaId.set(plantillaId);
+          else this.seleccionResolucionId.set(plantillaId);
           this.mensajes.add({
             severity: 'success',
             summary: 'Plantilla seleccionada',
@@ -146,31 +167,71 @@ export class ListaExpedientes implements OnInit {
       });
   }
 
-  protected alCargarLazy(event: TableLazyLoadEvent): void {
-    const filasPorPagina = Number(event.rows) || 5;
-    const pagina = Math.floor((event.first ?? 0) / filasPorPagina) + 1;
-    this.primeraFila.set(event.first ?? 0);
+  protected cambiarPagina(pagina: number): void {
+    if (pagina < 1 || pagina > this.ultimaPagina() || this.cargando()) return;
+    this.primeraFila.set((pagina - 1) * 5);
     this.cargar(pagina);
   }
 
-  protected abrirFiltros(): void {
-    this.dialogoFiltros.set(true);
+  protected abrirOpciones(event: Event, fila: ExpedienteFila, menu: Menu): void {
+    event.stopPropagation();
+    this.opcionesFila.set([
+      { label: 'Modificar', icon: 'pi pi-pencil', command: () => this.editarFila(fila) },
+      { label: 'Eliminar', icon: 'pi pi-times', command: () => this.confirmarEliminar(fila) },
+    ]);
+    menu.toggle(event);
+  }
+
+  protected iniciales(nombre: string | null): string {
+    return (
+      (nombre ?? '')
+        .replace(/^(dr\.?|dra\.?|mg\.?|lic\.?)\s+/i, '')
+        .trim()
+        .split(/\s+/)
+        .slice(0, 2)
+        .map((p) => p[0])
+        .join('')
+        .toUpperCase() || '—'
+    );
+  }
+
+  protected fechaCorta(fecha: string): string {
+    const partes = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(fecha);
+    if (!partes) return fecha;
+    const meses = [
+      'ene.',
+      'feb.',
+      'mar.',
+      'abr.',
+      'may.',
+      'jun.',
+      'jul.',
+      'ago.',
+      'sep.',
+      'oct.',
+      'nov.',
+      'dic.',
+    ];
+    return `${partes[1]} ${meses[Number(partes[2]) - 1]} ${partes[3]}`;
   }
 
   protected aplicarFiltros(): void {
     const valores = this.filtroForm.getRawValue();
     this.filtrosAplicados = {
+      busqueda: valores.busqueda?.trim() || undefined,
       estado: valores.estado ?? undefined,
       desde: this.fechaIso(valores.desde),
       hasta: this.fechaIso(valores.hasta),
     };
     this.primeraFila.set(0);
-    this.dialogoFiltros.set(false);
     this.cargar(1);
   }
 
   protected limpiarFiltros(): void {
-    this.filtroForm.reset({ estado: null, desde: null, hasta: null });
+    this.filtroForm.reset(
+      { busqueda: '', estado: null, desde: null, hasta: null },
+      { emitEvent: false },
+    );
     this.filtrosAplicados = {};
     this.primeraFila.set(0);
     this.cargar(1);
@@ -178,7 +239,10 @@ export class ListaExpedientes implements OnInit {
 
   protected hayFiltros(): boolean {
     return Boolean(
-      this.filtrosAplicados.estado || this.filtrosAplicados.desde || this.filtrosAplicados.hasta,
+      this.filtrosAplicados.busqueda ||
+      this.filtrosAplicados.estado ||
+      this.filtrosAplicados.desde ||
+      this.filtrosAplicados.hasta,
     );
   }
 
@@ -209,7 +273,12 @@ export class ListaExpedientes implements OnInit {
               summary: 'Expediente eliminado',
               detail: `El expediente ${fila.codigo} fue eliminado.`,
             });
-            this.cargar(Math.floor(this.primeraFila() / 5) + 1);
+            const pagina = Math.min(
+              this.paginaActual(),
+              Math.max(1, Math.ceil((this.total() - 1) / 5)),
+            );
+            this.primeraFila.set((pagina - 1) * 5);
+            this.cargar(pagina);
           },
           error: (error) => {
             this.cargando.set(false);
@@ -222,19 +291,6 @@ export class ListaExpedientes implements OnInit {
         });
       },
     });
-  }
-
-  protected severidadAccion(clave: string): 'success' | 'danger' | 'secondary' | 'info' {
-    switch (clave) {
-      case 'validar':
-      case 'generar_carta':
-      case 'generar_resolucion':
-        return 'success';
-      case 'revisar_rendicion':
-        return 'danger';
-      default:
-        return 'secondary';
-    }
   }
 
   protected ejecutarAccion(fila: ExpedienteFila): void {
@@ -260,8 +316,12 @@ export class ListaExpedientes implements OnInit {
       },
       error: () => {
         this.cargando.set(false);
-        this.mensajes.add({ severity: 'error', summary: 'Error', detail: 'No se pudo cargar el expediente para validación.' });
-      }
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'Error',
+          detail: 'No se pudo cargar el expediente para validación.',
+        });
+      },
     });
   }
 
@@ -270,9 +330,11 @@ export class ListaExpedientes implements OnInit {
     this.cargar(Math.floor(this.primeraFila() / 5) + 1);
   }
 
-  private cargar(pagina: number): void {
+  protected cargar(pagina: number): void {
+    this.cargaActual?.unsubscribe();
     this.cargando.set(true);
-    this.expedienteService.listar(this.filtrosAplicados, pagina).subscribe({
+    this.errorCarga.set(false);
+    this.cargaActual = this.expedienteService.listar(this.filtrosAplicados, pagina).subscribe({
       next: (respuesta) => {
         this.filas.set(respuesta.data);
         this.total.set(respuesta.meta.total);
@@ -280,6 +342,7 @@ export class ListaExpedientes implements OnInit {
       },
       error: (error) => {
         this.cargando.set(false);
+        this.errorCarga.set(true);
         this.mensajes.add({
           severity: 'error',
           summary: 'Sin conexión',

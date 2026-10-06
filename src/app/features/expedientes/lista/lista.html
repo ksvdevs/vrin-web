@@ -1,205 +1,264 @@
-<main class="lista-page">
+﻿<section class="lista-page" aria-labelledby="titulo-expedientes">
   <p-toast />
-  
   <app-validacion-expediente
     [(visible)]="dialogoValidacion"
     [expediente]="expedienteValidar()"
     (guardado)="alValidado()"
   />
-
   <header class="barra">
     <div class="titulo">
-      <div class="icono-titulo">
-        <i class="pi pi-book"></i>
-      </div>
+      <span class="icono-titulo"><i class="pi pi-file" aria-hidden="true"></i></span>
       <div>
-        <h1>Expedientes de Artículos Financiados</h1>
-        <p class="subtitulo">
-          Administra, audita y consulta las solicitudes, resoluciones y rendiciones de artículos
-          científicos VRIN
-        </p>
+        <h1 id="titulo-expedientes">Expedientes de Artículos Financiados</h1>
+        <p>Gestiona las solicitudes, resoluciones y rendiciones en un solo lugar.</p>
       </div>
     </div>
-    <div class="acciones">
+    <div class="acciones-cabecera">
       @if (esAdmin()) {
-        <div class="selector-plantillas">
-          <p-select
-            [options]="plantillasCarta()"
-            optionLabel="codigo"
-            optionValue="id"
+        <label class="selector-plantilla">
+          <span class="sr-only">Plantilla de carta vigente</span>
+          <select
             [ngModel]="seleccionCartaId()"
-            (ngModelChange)="seleccionCartaId.set($event); alCambiarPlantilla(1, $event)"
-            placeholder="Plantilla Carta"
-            appendTo="body"
-            styleClass="select-plantilla"
-          />
-          <p-select
-            [options]="plantillasResolucion()"
-            optionLabel="codigo"
-            optionValue="id"
+            (ngModelChange)="alCambiarPlantilla(1, $event)"
+            aria-label="Plantilla de carta vigente"
+          >
+            <option [ngValue]="null" disabled>Plantilla Carta</option>
+            @for (plantilla of plantillasCarta(); track plantilla.id) {
+              <option [ngValue]="plantilla.id">{{ plantilla.codigo }}</option>
+            }
+          </select>
+          <i class="pi pi-chevron-down" aria-hidden="true"></i>
+        </label>
+        <label class="selector-plantilla selector-resolucion">
+          <span class="sr-only">Plantilla de resolución vigente</span>
+          <select
             [ngModel]="seleccionResolucionId()"
-            (ngModelChange)="seleccionResolucionId.set($event); alCambiarPlantilla(2, $event)"
-            placeholder="Plantilla Resolución"
-            appendTo="body"
-            styleClass="select-plantilla"
-          />
-        </div>
+            (ngModelChange)="alCambiarPlantilla(2, $event)"
+            aria-label="Plantilla de resolución vigente"
+          >
+            <option [ngValue]="null" disabled>Plantilla Resolución</option>
+            @for (plantilla of plantillasResolucion(); track plantilla.id) {
+              <option [ngValue]="plantilla.id">{{ plantilla.codigo }}</option>
+            }
+          </select>
+          <i class="pi pi-chevron-down" aria-hidden="true"></i>
+        </label>
       }
-      <p-button
-        label="Filtros"
-        icon="pi pi-filter"
-        severity="secondary"
-        [outlined]="true"
-        [badge]="hayFiltros() ? '•' : undefined"
-        badgeSeverity="warn"
-        (onClick)="abrirFiltros()"
-      />
       @if (esSecretariaOAdmin()) {
-        <p-button label="+ Nuevo" icon="pi pi-plus" routerLink="/expedientes/nuevo" />
+        <a class="nuevo-expediente" routerLink="/expedientes/nuevo"
+          ><i class="pi pi-plus" aria-hidden="true"></i>Nuevo expediente</a
+        >
       }
     </div>
   </header>
 
-  <p-table
-    [value]="filas()"
-    [lazy]="true"
-    [loading]="cargando()"
-    [rows]="5"
-    [first]="primeraFila()"
-    [totalRecords]="total()"
-    [paginator]="true"
-    [showCurrentPageReport]="true"
-    currentPageReportTemplate="Mostrando registros del {first} al {last} de un total de {totalRecords} registro(s)"
-    [tableStyle]="{ 'min-width': '60rem' }"
-    (onLazyLoad)="alCargarLazy($event)"
-  >
-    <ng-template #header>
-      <tr>
-        <th>CÓDIGO</th>
-        <th>FECHA DE REGISTRO</th>
-        <th>INVESTIGADOR / DOCENTE</th>
-        <th>ARTÍCULO</th>
-        <th>PROGRESO DEL EXPEDIENTE (ETAPAS 1 A 4)</th>
-        <th>ACCIÓN PRINCIPAL</th>
-        <th>OPCIONES</th>
-      </tr>
-    </ng-template>
-    <ng-template #body let-fila>
-      <tr class="fila-clic" (click)="navegar(fila)">
-        <td class="codigo">{{ fila.codigo }}</td>
-        <td>{{ fila.fecha_registro }}</td>
-        <td>
-          <div class="docente">
-            <strong>{{ fila.docente.nombre_completo }}</strong>
-            <small>DNI: {{ fila.docente.dni }}</small>
-          </div>
-        </td>
-        <td class="articulo">{{ fila.titulo ?? '—' }}</td>
-        <td>
-          <app-badge-etapa [estado]="fila.estado" [etapa]="fila.etapa" />
-        </td>
-        <td>
-          <p-button
-            [label]="fila.accion_principal.etiqueta"
-            [severity]="severidadAccion(fila.accion_principal.clave)"
-            [outlined]="fila.accion_principal.clave === 'revisar_rendicion'"
-            [styleClass]="fila.accion_principal.clave === 'validar' ? 'bg-teal-500 border-none hover:bg-teal-600 text-white' : ''"
-            size="small"
-            (onClick)="$event.stopPropagation(); ejecutarAccion(fila)"
-          />
-        </td>
-        <td>
-          <div class="flex gap-2">
-            @if (esSecretariaOAdmin()) {
-              <p-button
-                icon="pi pi-pencil"
-                severity="secondary"
-                [text]="true"
-                [rounded]="true"
-                (onClick)="$event.stopPropagation(); editarFila(fila)"
-                pTooltip="Editar"
-              />
-              <p-button
-                icon="pi pi-trash"
-                severity="danger"
-                [text]="true"
-                [rounded]="true"
-                (onClick)="$event.stopPropagation(); confirmarEliminar(fila)"
-                pTooltip="Eliminar"
-              />
-            }
-          </div>
-        </td>
-      </tr>
-    </ng-template>
-    <ng-template #emptymessage>
-      <tr>
-        <td colspan="6" class="vacio">
-          @if (!cargando()) {
-            No hay expedientes.
-          }
-        </td>
-      </tr>
-    </ng-template>
-  </p-table>
-
-  <p-dialog
-    header="Filtros de expedientes"
-    [(visible)]="dialogoFiltros"
-    [modal]="true"
-    [style]="{ width: '26rem' }"
-  >
-    <form [formGroup]="filtroForm" class="formulario" (ngSubmit)="aplicarFiltros()">
-      <div class="campo">
-        <label for="estado">Estado</label>
-        <p-select
-          inputId="estado"
-          formControlName="estado"
-          [options]="opcionesEstado"
-          optionLabel="label"
-          optionValue="value"
-          placeholder="Todos los estados"
-          appendTo="body"
-          styleClass="select-ancho"
+  <div class="panel-expedientes">
+    <form
+      class="barra-filtros"
+      [formGroup]="filtroForm"
+      (ngSubmit)="aplicarFiltros()"
+      aria-label="Buscar y filtrar expedientes"
+    >
+      <label class="buscador">
+        <i class="pi pi-search" aria-hidden="true"></i>
+        <input
+          type="search"
+          formControlName="busqueda"
+          maxlength="200"
+          aria-label="Buscar por código, docente o artículo"
+          placeholder="Buscar por código, docente o artículo..."
         />
-      </div>
-      <div class="fila">
-        <div class="campo">
-          <label for="desde">Registrado desde</label>
-          <p-datepicker
-            inputId="desde"
-            formControlName="desde"
-            dateFormat="dd/mm/yy"
-            [showIcon]="true"
-            [showOnFocus]="false"
-            appendTo="body"
-            styleClass="select-ancho"
-          />
-        </div>
-        <div class="campo">
-          <label for="hasta">Registrado hasta</label>
-          <p-datepicker
-            inputId="hasta"
-            formControlName="hasta"
-            dateFormat="dd/mm/yy"
-            [showIcon]="true"
-            [showOnFocus]="false"
-            appendTo="body"
-            styleClass="select-ancho"
-          />
-        </div>
-      </div>
+      </label>
+      <label class="filtro-rapido"
+        ><span>Estado</span>
+        <select formControlName="estado" (change)="aplicarFiltros()" aria-label="Estado">
+          <option [ngValue]="null">Todos</option>
+          @for (estado of opcionesEstado; track estado.value) {
+            <option [ngValue]="estado.value">{{ estado.label }}</option>
+          }</select
+        ><i class="pi pi-chevron-down" aria-hidden="true"></i>
+      </label>
+      <label class="filtro-fecha">
+        <span>Registrado desde</span>
+        <p-datepicker
+          formControlName="desde"
+          dateFormat="dd/mm/yy"
+          [showIcon]="false"
+          [showOnFocus]="true"
+          appendTo="body"
+          placeholder="dd/mm/aaaa"
+          (onSelect)="aplicarFiltros()"
+          (onClearClick)="aplicarFiltros()"
+          aria-label="Registrado desde"
+        />
+        <i class="pi pi-chevron-down" aria-hidden="true"></i>
+      </label>
+      <label class="filtro-fecha">
+        <span>Registrado hasta</span>
+        <p-datepicker
+          formControlName="hasta"
+          dateFormat="dd/mm/yy"
+          [showIcon]="false"
+          [showOnFocus]="true"
+          appendTo="body"
+          placeholder="dd/mm/aaaa"
+          (onSelect)="aplicarFiltros()"
+          (onClearClick)="aplicarFiltros()"
+          aria-label="Registrado hasta"
+        />
+        <i class="pi pi-chevron-down" aria-hidden="true"></i>
+      </label>
+      @if (hayFiltros()) {
+        <button type="button" class="limpiar-filtros" (click)="limpiarFiltros()" aria-label="Limpiar filtros">
+          <i class="pi pi-times" aria-hidden="true"></i>
+        </button>
+      }
     </form>
-    <ng-template #footer>
-      <p-button label="Limpiar" severity="secondary" [text]="true" (onClick)="limpiarFiltros()" />
-      <p-button
-        label="Aplicar"
-        icon="pi pi-check"
-        severity="success"
-        (onClick)="aplicarFiltros()"
-      />
-    </ng-template>
-  </p-dialog>
 
-  <p-confirmdialog [style]="{ width: '450px' }" />
-</main>
+    <div
+      class="tabla-scroll"
+      tabindex="0"
+      role="region"
+      aria-label="Lista de expedientes"
+      [attr.aria-busy]="cargando()"
+    >
+      <table>
+        <colgroup>
+          <col class="col-expediente" />
+          <col class="col-docente" />
+          <col class="col-articulo" />
+          <col class="col-progreso" />
+          <col class="col-accion" />
+        </colgroup>
+        <thead>
+          <tr>
+            <th scope="col">Expediente</th>
+            <th scope="col">Docente solicitante</th>
+            <th scope="col">Artículo científico</th>
+            <th scope="col">Progreso</th>
+            <th scope="col">Acción</th>
+          </tr>
+        </thead>
+        <tbody>
+          @if (cargando()) {
+            <tr>
+              <td colspan="5" class="estado-lista">
+                <i class="pi pi-spin pi-spinner" aria-hidden="true"></i> Cargando expedientes…
+              </td>
+            </tr>
+          } @else if (errorCarga()) {
+            <tr>
+              <td colspan="5" class="estado-lista">
+                No se pudieron cargar los expedientes.
+                <button type="button" class="boton-filtros" (click)="cargar(paginaActual())">
+                  Reintentar
+                </button>
+              </td>
+            </tr>
+          } @else {
+            @for (fila of filas(); track fila.id) {
+              <tr>
+                <td>
+                  <a class="codigo" [routerLink]="['/expedientes', fila.id]">{{ fila.codigo }}</a
+                  ><small class="fecha">{{ fechaCorta(fila.fecha_registro) }}</small>
+                </td>
+                <td>
+                  <div class="docente">
+                    <span class="avatar-docente" aria-hidden="true">{{
+                      iniciales(fila.docente.nombre_completo)
+                    }}</span>
+                    <div>
+                      <strong>{{ fila.docente.nombre_completo }}</strong
+                      ><small>DNI {{ fila.docente.dni }}</small>
+                    </div>
+                  </div>
+                </td>
+                <td>
+                  <span class="articulo" [title]="fila.titulo ?? ''">{{ fila.titulo ?? '—' }}</span
+                  ><small class="indexacion"
+                    >{{ fila.base_indexadora ?? 'Sin indexación' }}
+                    @if (fila.cuartil) {
+                      · {{ fila.cuartil }}
+                    }
+                  </small>
+                </td>
+                <td>
+                  <app-badge-etapa [estado]="fila.estado" [etapa]="fila.etapa" [compacto]="true" />
+                </td>
+                <td>
+                  <div class="acciones-fila">
+                    <button type="button" class="accion-principal" (click)="ejecutarAccion(fila)">
+                      {{ fila.accion_principal.etiqueta
+                      }}<i class="pi pi-angle-right" aria-hidden="true"></i>
+                    </button>
+                    @if (esSecretariaOAdmin()) {
+                      <button
+                        type="button"
+                        class="mas-opciones"
+                        (click)="abrirOpciones($event, fila, menuOpciones)"
+                        [attr.aria-label]="'Opciones de ' + fila.codigo"
+                        aria-haspopup="menu"
+                      >
+                        <i class="pi pi-ellipsis-h" aria-hidden="true"></i>
+                      </button>
+                    }
+                  </div>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="5" class="estado-lista">
+                  No hay expedientes{{ hayFiltros() ? ' que coincidan con los filtros' : '' }}.
+                </td>
+              </tr>
+            }
+          }
+        </tbody>
+      </table>
+    </div>
+    <footer class="pie-tabla">
+      <span role="status"
+        >Mostrando {{ errorCarga() ? 0 : filas().length }} de {{ total() }} expedientes</span
+      >
+      <nav class="paginacion" aria-label="Páginas de expedientes">
+        <button
+          type="button"
+          aria-label="Página anterior"
+          [disabled]="paginaActual() === 1 || cargando()"
+          (click)="cambiarPagina(paginaActual() - 1)"
+        >
+          <i class="pi pi-angle-left" aria-hidden="true"></i>
+        </button>
+        @for (pagina of paginas(); track pagina) {
+          <button
+            type="button"
+            [class.actual]="pagina === paginaActual()"
+            [attr.aria-current]="pagina === paginaActual() ? 'page' : null"
+            [attr.aria-label]="'Página ' + pagina"
+            [disabled]="cargando()"
+            (click)="cambiarPagina(pagina)"
+          >
+            {{ pagina }}
+          </button>
+        }
+        <button
+          type="button"
+          aria-label="Página siguiente"
+          [disabled]="paginaActual() === ultimaPagina() || cargando()"
+          (click)="cambiarPagina(paginaActual() + 1)"
+        >
+          <i class="pi pi-angle-right" aria-hidden="true"></i>
+        </button>
+      </nav>
+    </footer>
+  </div>
+  <p-menu
+    #menuOpciones
+    [model]="opcionesFila()"
+    [popup]="true"
+    appendTo="body"
+    styleClass="expediente-opciones"
+  />
+
+  <p-confirmdialog [style]="{ width: '450px', maxWidth: '95vw' }" />
+</section>

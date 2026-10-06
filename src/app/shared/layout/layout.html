@@ -1,78 +1,114 @@
-<div class="layout-wrapper">
-  <aside class="sidebar">
-    <div class="logo-container">
-      <div class="logo-icon">
-        <i class="pi pi-play" style="color: white; font-size: 0.8rem"></i>
-      </div>
-      <div class="logo-text">
-        <span class="font-bold text-gray-900">SGR</span>-<span class="font-bold text-teal-600">VRIN</span>
-        <span class="version text-500 text-sm">1.0</span>
-      </div>
-    </div>
-
+﻿<div class="layout-wrapper" [class.menu-contraido]="menuContraido">
+  <aside class="sidebar" aria-label="Menú principal">
+    <a class="logo-container" routerLink="/" aria-label="SGR VRIN, inicio">
+      <span class="logo-icon"><i class="pi pi-circle" aria-hidden="true"></i></span>
+      <span class="logo-text"
+        ><strong>SGR–VRIN</strong><small>Gestión de investigación</small></span
+      >
+    </a>
     <nav class="sidebar-nav">
-      <a class="nav-item" routerLink="/" routerLinkActive="active" [routerLinkActiveOptions]="{exact: true}">
-        <i class="pi pi-th-large"></i>
-        <span>Panel de control</span>
+      <div class="nav-section-title">General</div>
+      <a
+        class="nav-item"
+        routerLink="/"
+        routerLinkActive="active"
+        [routerLinkActiveOptions]="{ exact: true }"
+        title="Panel de control"
+      >
+        <i class="pi pi-th-large" aria-hidden="true"></i><span>Panel de control</span>
       </a>
-
       @if (esAdmin) {
-        <div class="nav-item has-submenu" (click)="togglePersonal()" [class.active]="isPersonalOpen">
-          <div class="nav-item-content">
-            <i class="pi pi-users"></i>
-            <span>Personal</span>
-          </div>
-          <i class="pi submenu-icon" [class]="isPersonalOpen ? 'pi-chevron-up' : 'pi-chevron-down'"></i>
-        </div>
-
-        @if (isPersonalOpen) {
-          <div class="submenu-container">
-            <a class="nav-item submenu-item" routerLink="/roles" routerLinkActive="active">
-              <i class="pi pi-id-card"></i>
-              <span>Roles</span>
-            </a>
-
-            <a class="nav-item submenu-item" routerLink="/usuarios" routerLinkActive="active">
-              <i class="pi pi-user"></i>
-              <span>Usuarios</span>
-            </a>
+        <button
+          type="button"
+          class="nav-item"
+          (click)="togglePersonal()"
+          [attr.aria-expanded]="isPersonalOpen"
+          aria-controls="submenu-personal"
+          title="Personal"
+        >
+          <i class="pi pi-users" aria-hidden="true"></i><span>Personal</span>
+          <i class="pi pi-angle-right submenu-icon" aria-hidden="true"></i>
+        </button>
+        @if (isPersonalOpen && !menuContraido) {
+          <div class="submenu-container" id="submenu-personal">
+            <a routerLink="/roles" routerLinkActive="active">Roles</a>
+            <a routerLink="/usuarios" routerLinkActive="active">Usuarios</a>
           </div>
         }
-
-        <a class="nav-item" routerLink="/catalogos/docentes" routerLinkActive="active">
-          <i class="pi pi-id-card"></i>
-          <span>Docentes</span>
+        <a
+          class="nav-item"
+          routerLink="/catalogos/docentes"
+          routerLinkActive="active"
+          title="Docentes"
+        >
+          <i class="pi pi-user" aria-hidden="true"></i><span>Docentes</span>
         </a>
-
-        <a class="nav-item" routerLink="/plantillas" routerLinkActive="active">
-          <i class="pi pi-file-edit"></i>
-          <span>Gestor de Plantillas</span>
+        <a
+          class="nav-item"
+          routerLink="/plantillas"
+          routerLinkActive="active"
+          title="Gestor de plantillas"
+        >
+          <i class="pi pi-objects-column" aria-hidden="true"></i><span>Gestor de plantillas</span>
         </a>
       }
-
-      <div class="nav-section-title">INVESTIGACIÓN</div>
-
-      <a class="nav-item highlighted" routerLink="/expedientes" routerLinkActive="active">
-        <i class="pi pi-book"></i>
-        <span>Artículos Financiados</span>
+      <div class="nav-section-title investigacion">Investigación</div>
+      <a
+        class="nav-item"
+        routerLink="/expedientes"
+        routerLinkActive="active"
+        title="Artículos financiados"
+      >
+        <i class="pi pi-file" aria-hidden="true"></i><span>Artículos financiados</span>
       </a>
     </nav>
+    <button
+      type="button"
+      class="contraer-menu"
+      (click)="menuContraido = !menuContraido"
+      [attr.aria-label]="menuContraido ? 'Expandir menú' : 'Contraer menú'"
+      [attr.aria-expanded]="!menuContraido"
+    >
+      <i
+        class="pi"
+        [class.pi-angle-right]="!menuContraido"
+        [class.pi-angle-left]="menuContraido"
+        aria-hidden="true"
+      ></i
+      ><span>Contraer menú</span>
+    </button>
   </aside>
-
   <main class="main-content">
     <header class="topbar">
-      <div class="topbar-spacer"></div>
-      <div class="user-profile relative">
-        <div class="avatar">{{ inicial }}</div>
-        <div class="flex flex-col ml-2 cursor-pointer" (click)="menu.toggle($event)">
-          <span class="user-name">{{ usuario?.nombre }}</span>
-          <span class="text-xs text-gray-500">{{ usuario?.rol }}</span>
-        </div>
-        <p-menu #menu [model]="[{label: 'Cerrar Sesión', icon: 'pi pi-sign-out', command: cerrarSesion.bind(this)}]" [popup]="true"></p-menu>
-      </div>
+      <nav class="breadcrumb" aria-label="Ubicación actual">
+        <span>{{ seccionActual }}</span
+        ><i class="pi pi-angle-right" aria-hidden="true"></i><strong>{{ paginaActual }}</strong>
+      </nav>
+      <button
+        type="button"
+        class="user-profile"
+        (click)="menu.toggle($event)"
+        aria-label="Menú de usuario"
+        aria-haspopup="menu"
+      >
+        <span class="avatar">{{ inicial }}</span>
+        <span class="user-info"
+          ><span class="user-name">{{ usuario?.nombre }}</span
+          ><span class="user-role">{{
+            esAdmin ? 'Administrador general' : usuario?.rol
+          }}</span></span
+        >
+        <i class="pi pi-angle-right" aria-hidden="true"></i>
+      </button>
+      <p-menu
+        #menu
+        [model]="[
+          { label: 'Cerrar sesión', icon: 'pi pi-sign-out', command: cerrarSesion.bind(this) },
+        ]"
+        [popup]="true"
+        appendTo="body"
+      />
     </header>
-    <div class="content-area">
-      <router-outlet></router-outlet>
-    </div>
+    <div class="content-area"><router-outlet /></div>
   </main>
 </div>
