@@ -117,6 +117,16 @@ export class ExpedienteService {
     return this.api.post(`/expedientes/${id}/respuesta-opp`, payload);
   }
 
+  actualizarRespuestaOpp(id: number, payload: Record<string, string | number | null>): Observable<{ estado: EstadoExpediente; etapa_actual: number }> {
+    return this.api.put(`/expedientes/${id}/respuesta-opp`, payload);
+  }
+
+  analizarCartaOpp(id: number, archivo: File): Observable<{ datos: Record<string, string | number | null>; nombre_archivo: string }> {
+    const datos = new FormData();
+    datos.append('archivo', archivo);
+    return this.api.post(`/expedientes/${id}/respuesta-opp/ocr`, datos);
+  }
+
   generarResolucion(
     id: number,
     payload: {
@@ -136,6 +146,10 @@ export class ExpedienteService {
     } | null;
   }> {
     return this.api.post(`/expedientes/${id}/resolucion/generar`, payload);
+  }
+
+  actualizarResolucion(id: number, payload: { numero: number; anio: number; fecha_emision: string }): Observable<unknown> {
+    return this.api.put(`/expedientes/${id}/resolucion`, payload);
   }
 
   anularDocumento(expedienteId: number, documentoId: number): Observable<{ mensaje: string }> {
@@ -169,8 +183,12 @@ export class ExpedienteService {
     return this.api.post<ResultadoOcr>('/articulos/ocr', datos);
   }
 
-  registrarDesembolso(id: number, payload: { fecha_desembolso: string }): Observable<unknown> {
+  registrarDesembolso(id: number, payload: { fecha_desembolso: string; monto_desembolsado: number }): Observable<unknown> {
     return this.api.post(`/expedientes/${id}/rendicion/desembolso`, payload);
+  }
+
+  retirarComprobante(expedienteId: number, archivoId: number): Observable<void> {
+    return this.api.delete<void>(`/expedientes/${expedienteId}/archivos/${archivoId}`);
   }
 
   actualizarFechaLimite(id: number, payload: { fecha_limite: string }): Observable<unknown> {

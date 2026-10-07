@@ -1,0 +1,71 @@
+.paso-resolucion {
+  min-width: 0;
+  .cabecera-acciones { display: none; }
+  .contenido, .columna-izquierda, .resolucion-principal, .resumen-solicitud { min-width: 0; }
+  .resolucion-principal { gap: 1.25rem; }
+  .registro-cabecera > div { min-width: 0; flex: 1; }
+  .formulario { margin-top: .2rem; gap: 1rem; }
+  .documento-generado ~ .formulario, .aviso-carta ~ .formulario { margin-top: 1.25rem; }
+  .campo {
+    label { font-size: .7rem; color: #58738f; font-weight: 500; }
+    input, textarea, .p-datepicker-input, .p-inputnumber-input { min-width: 0; font-size: .75rem; border-color: #dbe5ef; border-radius: 8px; padding: .85rem; color: #38536c; background: white; }
+    p-datepicker, .p-datepicker { display: flex; width: 100%; min-width: 0; }
+    p-inputnumber, .p-inputnumber { display: block; width: 100%; min-width: 0; }
+    .p-datepicker-input { flex: 1 1 auto; width: 1%; min-width: 0; }
+    .p-inputnumber-input { width: 100%; }
+  }
+  .valor-carta { border: 1px solid #dbe5ef; border-radius: 8px; padding: .85rem; font-size: .75rem; min-height: 44px; color: #58738f; overflow-wrap: anywhere; }
+  .resolucion-lectura { padding-top: .3rem; }
+  .seccion-resolucion { margin: .5rem 0 0; padding-bottom: .6rem; border-bottom: 1px solid #e5edf4; color: #38536c; font-size: .78rem; font-weight: 600; }
+  .opciones-resolucion {
+    display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem 1.25rem; border: 0; padding: 0; margin: 0; min-width: 0;
+    legend { padding: 0 0 .6rem; color: #245693; font-size: .75rem; font-weight: 600; }
+    label { display: flex; align-items: center; gap: .6rem; min-width: 0; padding: .85rem; border: 1px solid #dbe5ef; border-radius: 9px; color: #38536c; font-size: .72rem; cursor: pointer; background: white; }
+    label:has(input:checked) { border-color: #527cf4; background: #edf3ff; box-shadow: 0 0 0 1px #527cf4; }
+    input { margin: 0; accent-color: #2765fa; flex-shrink: 0; }
+  }
+  .carga-opp {
+    display: flex; align-items: stretch; gap: .6rem; min-width: 0;
+    > p-button { flex: 0 0 auto; }
+    .p-button { height: 48px; border-radius: 8px; background: #2765f5; border-color: #2765f5; font-size: .75rem; }
+  }
+  .archivo-campo-opp { display: flex; align-items: center; flex: 1; min-width: 0; min-height: 48px; border: 1px solid #dce7ef; border-radius: 8px; overflow: hidden; }
+  .boton-archivo-opp { display: flex; align-items: center; align-self: stretch; flex: 0 0 auto; padding: 0 16px; border-right: 1px solid #dce7ef; background: #f8fafc; color: #254262; font-size: .75rem; cursor: pointer; }
+  .input-archivo-opp { position: absolute; width: 1px !important; height: 1px; padding: 0 !important; opacity: 0; }
+  .etiqueta-archivo-opp { display: grid; place-items: center; flex: 0 0 auto; min-width: 29px; height: 29px; margin-left: 12px; padding: 0 4px; border-radius: 7px; background: #fff0f0; color: #cd5b5b; font-size: .55rem; font-weight: 700; }
+  .nombre-archivo-opp { flex: 1; min-width: 0; padding: 0 13px; overflow: hidden; color: #627890; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
+  .documentos-cabecera { display: flex; justify-content: space-between; align-items: center; gap: .75rem; font-size: .75rem; small { display: block; margin-top: .4rem; font-size: .6rem; color: #96a7b8; } }
+  .vigente { color: #00856c; background: #ecfcf5; padding: .4rem .7rem; border-radius: 20px; font-size: .55rem; }
+  .documento-generado { background: #f7f9fc; padding: .85rem; gap: .75rem; .archivo-info { min-width: 0; } .p-button { font-size: .7rem; padding: .55rem .7rem; background: white; border-color: #dbe5ef; color: #58738f; } }
+  .documento-acciones { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; min-width: 0; flex-shrink: 0; }
+  .word-insignia { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; padding: .2rem; border-radius: 8px; background: #e8f0fd; color: #245693; font-size: .55rem; font-weight: 700; }
+  .historial-cartas { border: 1px solid #dfe7ef; border-radius: 9px; padding: .8rem; margin-top: -.7rem; summary { cursor: pointer; font-size: .65rem; color: #58738f; } .archivo-solicitud { margin-top: .75rem; border: 0; border-top: 1px solid #edf1f5; border-radius: 0; background: white; flex-wrap: wrap; } }
+  .resumen-articulo p, .docente-cabecera strong { overflow-wrap: anywhere; }
+  .resumen-titulo { position: relative; padding-right: 40px; p-button { position: absolute; top: 0; right: 0; } .p-button { padding: .5rem; border-color: #dbe5ef; } }
+}
+@media (max-width: 1250px) {
+  .paso-resolucion .documento-generado { flex-wrap: wrap; .documento-acciones { width: 100%; justify-content: flex-end; } }
+}
+@media (max-width: 1000px) {
+  .paso-resolucion .pasos-solicitud { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem .5rem; padding: 1.25rem .75rem; button { min-width: 0; padding: 0 .2rem; &::after { display: none; } strong, small { overflow-wrap: anywhere; } } }
+}
+@media (max-width: 700px) {
+  .paso-resolucion {
+    .registro-cabecera { flex-wrap: wrap; }
+    .resolucion-principal, .resumen-solicitud { padding: 1rem; }
+    .opciones-resolucion { grid-template-columns: 1fr; }
+    .carga-opp { flex-wrap: wrap; .archivo-campo-opp, > p-button { width: 100%; } .p-button { width: 100%; justify-content: center; } }
+    .documentos-cabecera > div { min-width: 0; }
+    .documento-generado .archivo-info, .historial-cartas .archivo-info { flex-basis: calc(100% - 60px); }
+    .documento-acciones { justify-content: flex-start; }
+    .acciones-resolucion { flex-wrap: wrap; }
+  }
+}
+@media (max-width: 480px) {
+  .paso-resolucion {
+    .titulo { min-width: 0; .linea-principal { min-width: 0; flex-wrap: wrap; } h1 { overflow-wrap: anywhere; } }
+    .registro-cabecera .estado-registro { margin-left: 0; }
+    .acciones-resolucion { align-items: stretch; flex-direction: column; > p-button, .acciones-carta-secundarias, .acciones-carta-secundarias p-button { width: 100%; } .acciones-carta-secundarias { flex-direction: column; } .p-button { width: 100%; justify-content: center; } }
+    .documento-acciones { width: 100%; p-button:first-child { flex: 1; } p-button:first-child .p-button { width: 100%; justify-content: center; } }
+  }
+}

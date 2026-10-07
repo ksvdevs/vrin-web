@@ -1,5 +1,7 @@
 
 .paso-carta-vrin {
+  min-width: 0;
+  .contenido, .columna-izquierda, .carta-opp, .resumen-solicitud { min-width: 0; }
   .cabecera-acciones { display: none; }
   .carta-opp { gap: 1.25rem; }
   .formulario { margin-top: .2rem; gap: 1rem; }
@@ -10,7 +12,13 @@
   .documentos-cabecera { display: flex; justify-content: space-between; align-items: center; font-size: .75rem; small { display: block; margin-top: .4rem; font-size: .6rem; color: #96a7b8; } }
   .vigente { color: #00856c; background: #ecfcf5; padding: .4rem .7rem; border-radius: 20px; font-size: .55rem; }
   .documento-generado { background: #f7f9fc; padding: .85rem; gap: .75rem; .p-button { font-size: .7rem; padding: .55rem .7rem; background: white; border-color: #dbe5ef; color: #58738f; } }
-  .historial-cartas { border: 1px solid #dfe7ef; border-radius: 9px; padding: .8rem; margin-top: -.7rem; summary { cursor: pointer; font-size: .65rem; color: #58738f; } .archivo-solicitud { margin-top: .75rem; border: 0; border-top: 1px solid #edf1f5; border-radius: 0; background: white; } }
+  .documento-acciones { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .5rem; min-width: 0; flex-shrink: 0; }
+  .resumen-articulo p, .docente-cabecera strong { overflow-wrap: anywhere; }
+  .registro-cabecera > div { min-width: 0; flex: 1; }
+  .campo p-datepicker, .campo .p-datepicker { display: flex; width: 100%; min-width: 0; }
+  .campo .p-datepicker-input { flex: 1 1 auto; width: 1%; min-width: 0; }
+  .word-insignia { display: inline-flex; align-items: center; justify-content: center; min-width: 36px; min-height: 36px; padding: .2rem; border-radius: 8px; background: #e8f0fd; color: #245693; font-size: .55rem; font-weight: 700; }
+  .historial-cartas { border: 1px solid #dfe7ef; border-radius: 9px; padding: .8rem; margin-top: -.7rem; summary { cursor: pointer; font-size: .65rem; color: #58738f; } .archivo-solicitud { margin-top: .75rem; border: 0; border-top: 1px solid #edf1f5; border-radius: 0; background: white; flex-wrap: wrap; } }
   .menu-documento { position: relative; summary { list-style: none; cursor: pointer; padding: .45rem .6rem; background: white; border: 1px solid #dbe5ef; border-radius: 8px; } > div { position: absolute; z-index: 2; right: 0; top: 36px; min-width: 140px; background: white; border: 1px solid #dbe5ef; border-radius: 8px; padding: .5rem; box-shadow: 0 4px 16px #18365315; } button { border: 0; background: none; font: inherit; font-size: .75rem; padding: .5rem; cursor: pointer; color: #38536c; } }
 }
 .aviso-carta { display: flex; align-items: flex-start; gap: .65rem; background: #ecfcf5; color: #22836d; padding: 1rem; border-radius: 8px; font-size: .65rem; line-height: 1.5; i { font-size: .8rem; margin-top: .15rem; } p { margin: .2rem 0 0; } }
@@ -18,6 +26,7 @@
 .acciones-carta-opp { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: .7rem; .p-button { font-size: .8rem; border-radius: 9px; } .p-button-primary { background: #245693; border-color: #245693; box-shadow: 0 6px 12px #24569320; } }
 .acciones-carta-secundarias { display: flex; flex-wrap: wrap; gap: .65rem; }
 .pasos-solicitud .terminado { .paso-circulo { color: white; background: #5177b5; border-color: #5177b5; i { font-size: .75rem; } } &::after { background: #7897c7 !important; } }
+.pasos-solicitud .activo-completado { color: #245693; strong { font-weight: 600; } .paso-circulo { color: #245693; background: #fff; border-color: #245693; box-shadow: 0 0 0 5px #e8eff8; } }
 .vista-carta-opp {
   overflow: hidden; border-radius: 16px; color: #38536c;
   .p-dialog-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #dfe7ef; }
@@ -26,9 +35,9 @@
   .p-button { font-size: .75rem; border-radius: 8px; }
   .p-button-primary { background: #245693; border-color: #245693; }
 }
-.vista-cabecera { display: flex; gap: .8rem; align-items: flex-start; .registro-icono { display: grid; place-items: center; background: #e8f0fd; border-radius: 10px; color: #245693; width: 40px; height: 40px; flex-shrink: 0; } h2 { font-size: 1rem; font-weight: 400; margin: .45rem 0; } p { font-size: .65rem; color: #879bb0; margin: 0; } }
+.vista-cabecera { display: flex; gap: .8rem; align-items: flex-start; > div { min-width: 0; } .registro-icono { display: grid; place-items: center; background: #e8f0fd; border-radius: 10px; color: #245693; width: 40px; height: 40px; flex-shrink: 0; } h2 { font-size: 1rem; font-weight: 400; margin: .45rem 0; } p { font-size: .65rem; color: #879bb0; margin: 0; } }
 .vista-kicker { color: #527cf4; text-transform: uppercase; letter-spacing: .1em; font-size: .6rem; font-weight: 600; }
-.vista-cuerpo { display: grid; grid-template-columns: 245px minmax(0, 1fr); }
+.vista-cuerpo { display: grid; grid-template-columns: 245px minmax(0, 1fr); min-width: 0; }
 .vista-datos { padding: 1.5rem 1.1rem; border-right: 1px solid #dfe7ef; h3 { font-size: .85rem; font-weight: 400; margin: .7rem 0 1rem; } .aviso-carta { margin-top: 1.25rem; background: #edf3ff; color: #5177b5; border: 1px solid #d9e5fc; } }
 .vista-dato { display: flex; flex-direction: column; gap: .45rem; padding: .85rem 0; border-bottom: 1px solid #edf1f5; span { color: #96a7b8; font-size: .55rem; text-transform: uppercase; } strong { font-size: .65rem; overflow-wrap: anywhere; } }
 .vista-papel { padding: 1.5rem; background: #e9eef2; min-width: 0; max-height: 70vh; overflow: auto; }
@@ -42,17 +51,43 @@
 }
 .pdf-carta-opp { width: 100%; height: 65vh; border: 0; }
 .pdf-pendiente { min-height: 50vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: .75rem; }
-.vista-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; small { font-size: .6rem; color: #879bb0; } > div { display: flex; gap: .5rem; } }
+.vista-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; small { font-size: .6rem; color: #879bb0; min-width: 0; } > div { display: flex; flex-wrap: wrap; gap: .5rem; } }
+@media (max-width: 1250px) {
+  .paso-carta-vrin .documento-generado { flex-wrap: wrap; .documento-acciones { width: 100%; justify-content: flex-end; } }
+}
+@media (max-width: 1000px) {
+  .paso-carta-vrin .pasos-solicitud { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem .5rem; padding: 1.25rem .75rem; button { min-width: 0; padding: 0 .2rem; &::after { display: none; } strong, small { overflow-wrap: anywhere; } } }
+}
 @media (max-width: 700px) {
-  .paso-carta-vrin .documento-generado { flex-wrap: wrap; .archivo-info { flex-basis: calc(100% - 60px); } }
+  .paso-carta-vrin {
+    .registro-cabecera { flex-wrap: wrap; }
+    .documento-generado .archivo-info { flex-basis: calc(100% - 60px); }
+    .documento-acciones { justify-content: flex-start; }
+    .documentos-cabecera { gap: .75rem; > div { min-width: 0; } }
+    .historial-cartas .archivo-info { flex-basis: calc(100% - 60px); }
+    .resumen-solicitud { padding: 1rem; }
+  }
   .acciones-carta-opp, .vista-footer { flex-wrap: wrap; }
+  .vista-carta-opp { max-height: 96dvh; .p-dialog-content { overflow-y: auto; min-height: 0; } }
   .vista-cuerpo { grid-template-columns: 1fr; }
-  .vista-datos { display: none; }
+  .vista-datos { padding: 1rem; border-right: 0; border-bottom: 1px solid #dfe7ef; h3 { margin: .4rem 0; } .vista-dato { padding: .55rem 0; } }
   .vista-papel { padding: .75rem; }
   .carta-borrador { padding: 1.5rem; min-height: 650px; }
 }
+@media (max-width: 480px) {
+  .paso-carta-vrin {
+    .titulo { min-width: 0; .linea-principal { min-width: 0; flex-wrap: wrap; } h1 { overflow-wrap: anywhere; } }
+    .registro-cabecera { .estado-registro { margin-left: 0; } }
+    .acciones-carta-opp { align-items: stretch; flex-direction: column; > p-button, .acciones-carta-secundarias, .acciones-carta-secundarias p-button { width: 100%; } .acciones-carta-secundarias { flex-direction: column; } .p-button { width: 100%; justify-content: center; } }
+    .documento-acciones { width: 100%; p-button:first-child { flex: 1; } p-button:first-child .p-button { width: 100%; justify-content: center; } }
+  }
+  .vista-carta-opp { .p-dialog-header { padding: .8rem; } .p-dialog-footer { padding: .8rem; } }
+  .vista-cabecera { h2 { overflow-wrap: anywhere; } }
+  .vista-papel { max-height: 55vh; }
+  .pdf-carta-opp { height: 55vh; }
+  .vista-footer { align-items: stretch; flex-direction: column; > div { flex-direction: column; } .p-button { width: 100%; justify-content: center; } }
+}
 
 .paso-carta-vrin {
-  .expediente-kicker { display: block; color: #527cf4; text-transform: uppercase; letter-spacing: .12em; font-size: .6rem; font-weight: 600; margin-bottom: .8rem; }
   .resumen-titulo { position: relative; padding-right: 40px; p-button { position: absolute; top: 0; right: 0; } .p-button { padding: .5rem; border-color: #dbe5ef; } }
 }

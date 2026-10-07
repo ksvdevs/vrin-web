@@ -1,9 +1,9 @@
 .paso-solicitud {
   max-width: 1300px; margin: 0 auto; padding: 2.75rem 1.75rem; gap: 1.5rem; color: #183653;
-  .titulo h1 { font-size: 1.75rem; font-weight: 400; }
-  .subtitulo { margin-top: .5rem; color: #879bb0; }
+  .titulo h1 { font-size: 1.5rem; font-weight: 400; }
+  .subtitulo { margin-top: .25rem; color: #627890; }
   .cabecera-acciones app-badge-etapa { display: none; }
-  .contenido { grid-template-columns: minmax(0, 2.3fr) minmax(300px, 1fr); gap: 1.5rem; }
+  .contenido { grid-template-columns: minmax(0, 1fr) minmax(240px, 280px); gap: 1.5rem; }
   .tarjeta { border: 1px solid #dfe7ef; border-radius: 15px; background: #fff; box-shadow: 0 5px 20px #18365303; }
   .registro-solicitud { padding: 1.75rem; gap: 1.4rem; }
   .registro-cabecera { display: flex; align-items: center; gap: .85rem; padding-bottom: 1.5rem; border-bottom: 1px solid #edf1f5;
@@ -14,8 +14,9 @@
   .estado-registro { margin-left: auto; border-radius: 20px; padding: .5rem .65rem; font-size: .7rem; background: #fff4db; color: #916818; }
   .completo { background: #e6f5ee; color: #00805a; }
   .datos-carta { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem;
-    .dato { padding: .8rem; border: 1px solid #dfe7ef; border-radius: 9px; background: #fbfcfe; gap: .5rem; }
-    strong { font-size: .75rem; font-weight: 500; overflow-wrap: anywhere; }
+    .campo { gap: .4rem; }
+    .etiqueta-carta { color: #58738f; font-size: .7rem; font-weight: 500; }
+    .valor-carta { display: flex; align-items: center; min-height: 44px; padding: .85rem; border: 1px solid #dbe5ef; border-radius: 10px; background: #fff; color: #38536c; font-size: .75rem; overflow-wrap: anywhere; }
   }
   .etiqueta { font-size: .6rem; color: #8197ac; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
   .documento-solicitud > p { margin: 0 0 .8rem; font-size: .8rem; }
@@ -29,8 +30,8 @@
   }
   .requisito-icono { display: grid; place-items: center; width: 21px; height: 21px; border-radius: 6px; background: #ddf5ed; color: #245693; i { font-size: .65rem; } }
   .siguiente-solicitud { margin-top: .7rem; }
-  .resumen-solicitud { padding: 1.4rem; gap: 1.2rem; min-height: 480px; }
-  .resumen-titulo { span { font-size: .55rem; text-transform: uppercase; letter-spacing: .08em; color: #879bb0; } h2 { font-weight: 400; font-size: .9rem; margin: .65rem 0 0; } }
+  .resumen-solicitud { padding: 1.4rem; gap: 1.2rem; min-height: 480px; overflow-wrap: anywhere; }
+  .resumen-titulo { position: relative; padding-right: 40px; span { font-size: .55rem; text-transform: uppercase; letter-spacing: .08em; color: #879bb0; } h2 { font-weight: 400; font-size: .9rem; margin: .65rem 0 0; } p-button { position: absolute; top: 0; right: 0; } .p-button { padding: .5rem; border-color: #dbe5ef; } }
   .docente-cabecera { padding: .75rem; background: #f5f8fa; border-radius: 12px; strong { font-size: .65rem; } .dato-simple { font-size: .6rem; margin-top: .4rem; } .avatar { flex-shrink: 0; width: 36px; height: 36px; font-size: .7rem; background: #e4edfa; color: #245693; } }
   .datos-docente { font-size: .6rem; color: #879bb0; p { margin: 0 0 .5rem; } strong { font-weight: 500; color: #183653; } }
   .resumen-articulo { border-block: 1px solid #edf1f5; padding: 1.25rem 0; p { font-size: .75rem; line-height: 1.6; font-weight: 500; margin: .65rem 0; } }
@@ -45,7 +46,7 @@
   .p-steps-item::before { border-color: #dfe7ef !important; background: transparent !important; }
   .siguiente-solicitud .p-button { background: #245693; border-color: #245693; border-radius: 9px; font-size: .8rem; }
 }
-@media (max-width: 1000px) { .paso-solicitud .contenido { grid-template-columns: 1fr; } .paso-solicitud .resumen-solicitud { min-height: auto; } }
+@media (max-width: 800px) { .paso-solicitud .contenido { grid-template-columns: minmax(0, 1fr); } .paso-solicitud .resumen-solicitud { min-height: auto; } }
 @media (max-width: 600px) { .paso-solicitud { padding: 1.25rem .75rem; .registro-solicitud { padding: 1rem; } .datos-carta { grid-template-columns: 1fr; } .registro-cabecera { flex-wrap: wrap; } } }.pasos-solicitud { display: flex; background: #fff; border: 1px solid #dfe7ef; border-radius: 15px; padding: 1.25rem 2rem 1.75rem;
   button { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: .45rem; background: none; border: 0; color: #58738f; cursor: pointer; font-family: inherit; padding: 0 .25rem;
     &:not(:last-child)::after { content: ''; position: absolute; height: 3px; background: #dfe7ef; left: calc(50% + 25px); right: calc(-50% + 25px); top: 18px; }

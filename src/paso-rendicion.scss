@@ -1,0 +1,68 @@
+.paso-rendicion {
+  min-width: 0;
+  .contenido, .columna-izquierda, .rendicion-principal, .resumen-solicitud { min-width: 0; }
+  .cabecera-acciones { display: none; }
+  .rendicion-principal { gap: 1.2rem; }
+  .rendicion-icono { background: #fff2d8; color: #be7700; }
+  .rendicion-principal .registro-cabecera > div { min-width: 0; flex: 1; }
+  .rendicion-etapa { min-width: 0; padding: 1.1rem; border: 1px solid #dfe7ef; border-radius: 12px; background: #f8fafc;
+    h3 { margin: .45rem 0 .25rem; color: #183653; font-size: .85rem; font-weight: 600; }
+    > p { margin: .25rem 0 1rem; color: #879bb0; font-size: .7rem; line-height: 1.5; }
+  }
+  .rendicion-paso { color: #2765f5; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
+  .rendicion-desembolso-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) auto; align-items: end; gap: .75rem; margin-top: 1rem; }
+  .rendicion-desembolso-lectura { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin-top: 1rem; }
+  .rendicion-etiqueta, .rendicion-etapa .campo label { font-size: .7rem; color: #58738f; font-weight: 500; }
+  .rendicion-etapa .campo { min-width: 0;
+    input, .p-datepicker-input, .p-inputnumber-input { min-width: 0; padding: .85rem; border: 1px solid #dbe5ef; border-radius: 9px; background: #fff; color: #38536c; font-size: .75rem; }
+    p-datepicker, .p-datepicker { display: flex; width: 100%; min-width: 0; }
+    .p-datepicker-input { flex: 1 1 auto; width: 1%; min-width: 0; }
+    p-inputnumber, .p-inputnumber { display: block; width: 100%; min-width: 0; }
+    .p-inputnumber-input { width: 100%; }
+  }
+  .rendicion-etapa .valor-carta { display: flex; align-items: center; min-height: 44px; padding: .85rem; border: 1px solid #dbe5ef; border-radius: 9px; background: #fff; color: #38536c; font-size: .75rem; overflow-wrap: anywhere; }
+  .rendicion-desembolso-form .p-button, .rendicion-cierre .p-button { min-height: 43px; border-radius: 9px; background: #245693; border-color: #245693; font-size: .75rem; }
+  .rendicion-informe-form { margin: .65rem 0 1rem; max-width: 320px; }
+  .rendicion-adjuntos-cabecera { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; margin: .8rem 0 .6rem;
+    strong { color: #38536c; font-size: .7rem; font-weight: 600; }
+    small { color: #879bb0; font-size: .62rem; }
+  }
+  .rendicion-carga { display: flex; align-items: stretch; gap: .6rem; min-width: 0;
+    > p-button { flex: 0 0 auto; }
+    .p-button { height: 42px; padding-inline: 1.2rem; border-radius: 8px; background: #2765f5; border-color: #2765f5; font-size: .75rem; }
+  }
+  .archivo-campo-opp { display: flex; align-items: center; flex: 1; min-width: 0; min-height: 42px; border: 1px solid #dbe5ef; border-radius: 8px; background: #fff; overflow: hidden; }
+  .boton-archivo-opp { display: flex; align-items: center; align-self: stretch; flex: 0 0 auto; padding: 0 1rem; border-right: 1px solid #dbe5ef; background: #f8fafc; color: #254262; font-size: .75rem; cursor: pointer; }
+  .input-archivo-opp { position: absolute; width: 1px !important; height: 1px; padding: 0 !important; opacity: 0; }
+  .nombre-archivo-opp { min-width: 0; padding: 0 .8rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #627890; font-size: .7rem; }
+  .rendicion-lista { display: grid; gap: .55rem; list-style: none; margin: .7rem 0 0; padding: 0;
+    li { display: flex; align-items: center; min-width: 0; gap: .55rem; padding: .55rem; border: 1px solid #dfe7ef; border-radius: 9px; background: #fff; }
+    .pdf-insignia { display: grid; place-items: center; width: 35px; height: 35px; padding: 0; flex: 0 0 auto; }
+    p-button { flex: 0 0 auto; }
+    .p-button { padding: .45rem; }
+  }
+  .rendicion-archivo-nombre { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #38536c; font-size: .7rem; font-weight: 500; }
+  .rendicion-vacio, .rendicion-aviso { padding: .85rem; border-radius: 8px; background: #edf3ff; color: #58738f !important; font-size: .72rem !important; }
+  .rendicion-cierre { display: flex; justify-content: flex-end; margin-top: 1rem; padding-top: .9rem; border-top: 1px solid #e5edf4; }
+  .resumen-articulo p, .docente-cabecera strong { overflow-wrap: anywhere; }
+}
+
+@media (max-width: 1150px) {
+  .paso-rendicion .rendicion-desembolso-form { grid-template-columns: repeat(2, minmax(0, 1fr));
+    > p-button { grid-column: 1 / -1; justify-self: end; }
+  }
+}
+@media (max-width: 1000px) {
+  .paso-rendicion .pasos-solicitud { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem .5rem; padding: 1.25rem .75rem;
+    button { min-width: 0; padding: 0 .2rem; &::after { display: none; } strong, small { overflow-wrap: anywhere; } }
+  }
+}
+@media (max-width: 650px) {
+  .paso-rendicion {
+    .rendicion-principal { padding: 1rem; }
+    .rendicion-etapa { padding: .9rem; }
+    .rendicion-desembolso-form, .rendicion-desembolso-lectura { grid-template-columns: 1fr; > p-button { grid-column: auto; width: 100%; } }
+    .rendicion-carga { flex-wrap: wrap; .archivo-campo-opp, > p-button { width: 100%; } .p-button { width: 100%; justify-content: center; } }
+    .rendicion-cierre p-button, .rendicion-cierre .p-button { width: 100%; }
+  }
+}

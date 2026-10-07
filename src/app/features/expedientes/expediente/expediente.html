@@ -1,4 +1,4 @@
-<main class="detalle-page" [class.paso-solicitud]="indiceActivoVisible() <= 1" [class.paso-carta-vrin]="indiceActivoVisible() === 1">
+<main class="detalle-page" [class.paso-solicitud]="indiceActivoVisible() <= 3" [class.paso-carta-vrin]="indiceActivoVisible() === 1" [class.paso-resolucion]="indiceActivoVisible() === 2" [class.paso-rendicion]="indiceActivoVisible() === 3">
   <p-toast />
   <p-confirmdialog />
 
@@ -20,10 +20,8 @@
           ariaLabel="Volver a la bandeja"
         />
         <div>
-          @if (indiceActivoVisible() === 1) { <span class="expediente-kicker">Expediente de financiamiento</span> }
           <div class="linea-principal">
-            <h1>{{ indiceActivoVisible() <= 1 ? 'Artículo científico' : 'Expediente ' + e.codigo }}</h1>
-            @if (indiceActivoVisible() > 1) { <p-tag [value]="e.badge.label" [severity]="severidadBadge()" /> }
+            <h1>Artículo científico</h1>
           </div>
           <p class="subtitulo">{{ e.codigo }} · Ingresado el {{ e.fecha_registro }}</p>
         </div>
@@ -50,30 +48,14 @@
       </div>
     </header>
 
-    @if (indiceActivoVisible() <= 1) {
       <nav class="pasos-solicitud" aria-label="Etapas del expediente">
         @for (paso of pasos(); track $index) {
-          <button type="button" [class.activo]="$index === indiceActivoVisible()" [class.terminado]="$index < indiceActivoVisible()" [disabled]="guardandoCarta()" (click)="cambiarPaso($index)" [attr.aria-current]="$index === indiceActivoVisible() ? 'step' : null">
-            <span class="paso-circulo">@if ($index < indiceActivoVisible()) { <i class="pi pi-check"></i> }</span><strong>Paso {{ $index + 1 }}. {{ paso.label }}</strong>
-            <small>{{ $index === 0 ? 'Solicitud registrada' : $index === 3 ? 'Pendiente' : 'En elaboración' }}</small>
+          <button type="button" [class.activo]="$index === indiceActivoVisible() && !pasoCompletado($index)" [class.activo-completado]="$index === indiceActivoVisible() && pasoCompletado($index)" [class.terminado]="pasoCompletado($index)" [disabled]="guardandoCarta() || guardandoOpp() || guardandoResolucion()" (click)="cambiarPaso($index)" [attr.aria-current]="$index === indiceActivoVisible() ? 'step' : null">
+            <span class="paso-circulo">@if (pasoCompletado($index)) { <i class="pi pi-check"></i> }</span><strong>Paso {{ $index + 1 }}. {{ paso.label }}</strong>
+            <small>{{ $index === 0 ? 'Solicitud registrada' : $index === 1 && pasoCompletado(1) ? 'Generada' : $index === 2 && pasoCompletado(2) ? 'Generada' : $index === 3 ? paso3Ok() ? 'Rendida' : e.estado === 'RENDICION_VENCIDA' ? 'Vencida' : e.rendicion ? 'Por rendir' : 'Pendiente' : 'En elaboración' }}</small>
           </button>
         }
       </nav>
-    } @else {
-    <p-steps 
-      [model]="pasos()" 
-      [activeIndex]="indiceActivoVisible()" 
-      (activeIndexChange)="cambiarPaso($event)" 
-      [readonly]="false" 
-      [ngClass]="{
-        'paso-0-ok': paso0Ok(),
-        'paso-1-ok': paso1Ok(),
-        'paso-2-ok': paso2Ok(),
-        'paso-3-ok': paso3Ok()
-      }"
-    />
-
-    }
     <div class="contenido">
       <div class="columna-izquierda">
         @if (indiceActivoVisible() === 0) {
@@ -84,8 +66,8 @@
               <span class="estado-registro" [class.completo]="paso0Ok()">{{ paso0Ok() ? 'Completo' : 'Pendiente' }}</span>
             </div>
             <div class="fila-datos datos-carta">
-              <div class="dato"><span class="etiqueta">N.º de carta</span><strong>{{ e.carta_docente_numero }}</strong></div>
-              <div class="dato"><span class="etiqueta">Fecha de carta</span><strong>{{ formatoFecha(e.carta_docente_fecha) }}</strong></div>
+              <div class="campo"><span class="etiqueta-carta">N.º de carta</span><output class="valor-carta">{{ e.carta_docente_numero }}</output></div>
+              <div class="campo"><span class="etiqueta-carta">Fecha de carta</span><output class="valor-carta">{{ formatoFecha(e.carta_docente_fecha) }}</output></div>
             </div>
             <div class="documento-solicitud">
               <p>Documento de solicitud</p>
@@ -111,45 +93,6 @@
           </section>
           <div class="siguiente-solicitud"><p-button label="Siguiente" icon="pi pi-chevron-right" iconPos="right" (onClick)="cambiarPaso(1)" /></div>
         }
-        @if (indiceActivoVisible() === 2) {
-          <section class="tarjeta resumen-expediente">
-            <h2 class="tarjeta-titulo"><i class="pi pi-file"></i> Documento</h2>
-            @if (carta(); as archivo) {
-              <div class="archivo-carta">
-                <i class="pi pi-file-pdf"></i>
-                <span class="nombre">{{ archivo.nombre_original }}</span>
-                <p-button icon="pi pi-eye" [text]="true" [rounded]="true"
-                  ariaLabel="Ver carta del docente" (onClick)="modalCartaVisible.set(true)" />
-              </div>
-            } @else {
-              <p class="pendiente">Sin carta del docente adjunta.</p>
-            }
-            <div class="fila-datos">
-              <div class="dato"><span class="etiqueta">Número de carta docente</span><strong>{{ e.carta_docente_numero }}</strong></div>
-              <div class="dato"><span class="etiqueta">Fecha de carta docente</span><strong>{{ formatoFecha(e.carta_docente_fecha) }}</strong></div>
-            </div>
-            <h2 class="tarjeta-titulo"><i class="pi pi-user"></i> Investigador Solicitante</h2>
-            <div class="resumen-bloque">
-              <strong>{{ e.docente?.nombre_completo ?? '—' }}</strong>
-              <p class="dato-simple">DNI: {{ e.docente?.dni ?? '—' }}</p>
-            </div>
-            <div class="fila-datos">
-              <div class="dato resumen-bloque"><span class="etiqueta">Facultad</span><strong>{{ e.docente?.facultad?.nombre ?? '—' }}</strong>
-                <span class="etiqueta">Escuela Profesional</span><strong>{{ e.docente?.escuela?.nombre ?? '—' }}</strong></div>
-              <div class="dato resumen-bloque"><span class="etiqueta">Condición Laboral</span><strong>{{ e.docente ? condicionLaboral(e.docente.tipo_contrato) : '—' }}</strong></div>
-            </div>
-            <h2 class="tarjeta-titulo"><i class="pi pi-book"></i> Artículo Indexado Elegible</h2>
-            <div class="dato resumen-bloque"><span class="etiqueta">Título del manuscrito aprobado</span><strong>{{ e.articulo?.titulo ?? '—' }}</strong></div>
-            <div class="fila-datos">
-              <div class="dato resumen-bloque"><span class="etiqueta">Revista Científica</span><strong>{{ e.articulo?.revista ?? '—' }}</strong></div>
-              <div class="dato resumen-bloque"><span class="etiqueta">Indexación / Base de Datos</span><strong>{{ e.articulo?.base_indexadora ?? '—' }}</strong></div>
-              <div class="dato resumen-bloque resumen-monto"><span class="etiqueta">Monto Solicitado</span><strong>{{ formatoSoles(e.articulo?.monto_solicitado) }}</strong></div>
-            </div>
-            <div><p-tag [value]="'Cuartil: ' + (e.articulo?.cuartil ?? '—')" severity="secondary" /></div>
-            <div class="dato resumen-bloque"><span class="etiqueta">DOI (Identificador Digital de Objeto)</span><strong>{{ e.articulo?.doi ?? '—' }}</strong></div>
-          </section>
-        }
-
         @if (indiceActivoVisible() === 1) {
           <section class="tarjeta registro-solicitud carta-opp">
             <div class="registro-cabecera">
@@ -162,16 +105,16 @@
             @if (docCartaGenerada(); as doc) {
               <div class="documentos-cabecera"><div><strong>Documentos generados</strong><small>{{ versionesCarta().length }} {{ versionesCarta().length === 1 ? 'documento asociado' : 'versiones asociadas' }} al expediente</small></div><span class="vigente">VIGENTE</span></div>
               <div class="archivo-solicitud documento-generado">
-                <span class="pdf-insignia">PDF</span><div class="archivo-info"><strong>Carta_OPP_{{ e.carta_vrin ? numeroCartaFormateado(e.carta_vrin.numero, e.carta_vrin.anio) : e.codigo }}_V{{ doc.version }}.pdf</strong><small>Versión {{ doc.version }} · Generada el {{ doc.generado_at }}</small></div>
-                <p-button label="Ver carta" icon="pi pi-eye" severity="secondary" [outlined]="true" (onClick)="verVersionCarta(doc)" />
-                @if (puedeEditarCarta() && !editandoCarta()) { <p-button icon="pi pi-pencil" severity="secondary" [outlined]="true" ariaLabel="Editar información de la carta" (onClick)="editarCarta()" /> }
-                <p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar PDF" [disabled]="!doc.pdf_path" (onClick)="descargarDocGenerado('pdf')" />
-                <details class="menu-documento"><summary aria-label="Más opciones">···</summary><div><button type="button" (click)="descargarDocGenerado('docx')">Descargar Word</button></div></details>
+                <span class="word-insignia">DOCX</span><div class="archivo-info"><strong>{{ e.codigo.toLowerCase() }}_carta_vrin_v{{ doc.version }}.docx</strong><small>Versión {{ doc.version }} · Generada el {{ doc.generado_at }} · Vista previa en PDF</small></div>
+                <div class="documento-acciones">
+                  <p-button label="Ver carta" icon="pi pi-eye" severity="secondary" [outlined]="true" (onClick)="verVersionCarta(doc)" />
+                  <p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar carta en Word (.docx)" (onClick)="descargarDocGenerado(doc)" />
+                </div>
               </div>
               @if (versionesCarta().length > 1) {
                 <details class="historial-cartas"><summary>Ver historial de versiones</summary>
                   @for (version of versionesCarta(); track version.id) {
-                    @if (!version.es_vigente) { <div class="archivo-solicitud"><span class="pdf-insignia">PDF</span><div class="archivo-info"><strong>Carta OPP · Versión {{ version.version }}</strong><small>{{ version.generado_at }} · Versión anterior</small></div><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver versión anterior" (onClick)="verVersionCarta(version)" /></div> }
+                    @if (!version.es_vigente) { <div class="archivo-solicitud"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>Carta OPP · Versión {{ version.version }}</strong><small>{{ version.generado_at }} · Versión anterior</small></div><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver versión anterior en PDF" (onClick)="verVersionCarta(version)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" [attr.aria-label]="'Descargar versión ' + version.version + ' en Word (.docx)'" (onClick)="descargarDocGenerado(version)" /></div> }
                   }
                 </details>
               }
@@ -227,31 +170,49 @@
               <p-button label="Guardar cambios" icon="pi pi-eye" iconPos="right" [disabled]="guardandoCarta()" (onClick)="confirmarGenerarCarta()" />
             } @else {
               <p-button label="Volver a expedientes" icon="pi pi-chevron-left" severity="secondary" [outlined]="true" routerLink="/expedientes" />
-              <div class="acciones-carta-secundarias">@if (puedeEditarCarta()) { <p-button label="Editar información" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="editarCarta()" /> }
-                @if (docCartaGenerada(); as doc) { <p-button label="Ver carta generada" icon="pi pi-eye" (onClick)="verVersionCarta(doc)" /> }
-              </div>
+              @if (docCartaGenerada(); as doc) {
+                <div class="acciones-carta-secundarias">
+                  @if (puedeEditarCarta()) { <p-button label="Editar información" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="editarCarta()" /> }
+                  <p-button label="Ver carta generada" icon="pi pi-eye" (onClick)="verVersionCarta(doc)" />
+                </div>
+              }
             }
           </div>
         }
 
         @if (indiceActivoVisible() === 2) {
-          <section class="tarjeta">
-            <h2 class="tarjeta-titulo"><i class="pi pi-folder"></i> Registrar Respuesta OPP</h2>
-          @if (puedeRegistrarOpp()) {
-            <form [formGroup]="oppForm" class="form-etapa" (ngSubmit)="guardarRespuestaOpp()">
-              <p class="ayuda">Registra la respuesta de OPP para habilitar la generación de la resolución.</p>
-              <div class="campo">
-                <label for="disponibilidad">Disponibilidad presupuestal *</label>
-                <p-select
-                  inputId="disponibilidad"
-                  formControlName="disponibilidad"
-                  [options]="opcionesDisponibilidad"
-                  optionLabel="label"
-                  optionValue="value"
-                  appendTo="body"
-                  styleClass="select-ancho"
-                />
+          <section class="tarjeta registro-solicitud resolucion-principal">
+            <div class="registro-cabecera"><span class="registro-icono"><i class="pi pi-book"></i></span><div><h2>{{ editandoOpp() ? 'Editar información de la resolución' : docResolucionGenerada() ? 'Resolución VRIN' : 'Preparar resolución VRIN' }}</h2><p>{{ editandoOpp() ? 'Actualiza los datos y revisa la nueva versión antes de reemplazar el documento vigente.' : docResolucionGenerada() ? 'Consulta y administra la resolución generada para este expediente.' : 'Carga la respuesta de OPP, valida la disponibilidad y completa los datos de la resolución.' }}</p></div>@if (docResolucionGenerada()) { <span class="estado-registro" [class.completo]="!editandoOpp()">{{ editandoOpp() ? 'Editando' : 'Generada' }}</span> }</div>
+            @if (docResolucionGenerada(); as doc) {
+              <div class="documentos-cabecera"><div><strong>Resoluciones generadas</strong><small>{{ versionesResolucion().length }} {{ versionesResolucion().length === 1 ? 'versión asociada' : 'versiones asociadas' }} al expediente</small></div><span class="vigente">VIGENTE</span></div>
+              <div class="archivo-solicitud documento-generado"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>Resolución · Versión {{ doc.version }}.docx</strong><small>Generada el {{ doc.generado_at }} · Vista previa en PDF</small></div><div class="documento-acciones"><p-button label="Ver resolución" icon="pi pi-eye" severity="secondary" [outlined]="true" (onClick)="verResolucionGenerada(doc)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar resolución en Word (.docx)" (onClick)="descargarDocResolucion('docx', doc)" /></div></div>
+              @if (versionesResolucion().length > 1) { <details class="historial-cartas"><summary>Ver historial de versiones</summary>@for (version of versionesResolucion(); track version.id) { @if (!version.es_vigente) { <div class="archivo-solicitud"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>Resolución · Versión {{ version.version }}.docx</strong><small>{{ version.generado_at }} · Versión anterior</small></div><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver resolución anterior" (onClick)="verResolucionGenerada(version)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar resolución anterior en Word (.docx)" (onClick)="descargarDocResolucion('docx', version)" /></div> } } </details> }
+              <div class="aviso-carta"><i class="pi pi-check"></i><div><strong>La resolución ya fue generada</strong><p>El documento vigente y las versiones anteriores están disponibles en este expediente.</p></div></div>
+              @if (editandoOpp()) { <div class="aviso-carta aviso-version"><i class="pi pi-clock"></i><div><strong>Se creará una nueva versión</strong><p>La resolución vigente se conservará en el historial.</p></div></div> }
+            }
+          @if (puedeRegistrarOpp() || editandoOpp()) {
+            <form [formGroup]="oppForm" class="formulario form-etapa" (ngSubmit)="guardarRespuestaOpp()">
+              <fieldset class="opciones-resolucion"><legend>¿Existe disponibilidad presupuestal?</legend>
+                <label><input type="radio" formControlName="disponibilidad" value="SI" /> Sí, existe disponibilidad</label>
+                <label><input type="radio" formControlName="disponibilidad" value="NO" [disabled]="editandoOpp()" /> No hay disponibilidad</label>
+              </fieldset>
+              <fieldset class="opciones-resolucion"><legend>Selecciona cómo completar la información</legend>
+                <label><input type="radio" name="modoOpp" [checked]="modoOpp() === 'IA'" (change)="modoOpp.set('IA')" /> Autocompletar con IA</label>
+                <label><input type="radio" name="modoOpp" [checked]="modoOpp() === 'MANUAL'" (change)="modoOpp.set('MANUAL')" /> Registro manual</label>
+              </fieldset>
+              <div class="campo"><label for="archivo_opp">Carta de respuesta de OPP</label>
+                <div class="carga-opp"><div class="archivo-campo-opp">
+                    <label class="boton-archivo-opp" for="archivo_opp">Elegir archivo</label>
+                    <input id="archivo_opp" class="input-archivo-opp" type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="seleccionarEscaneoOpp($event)" />
+                    @if (archivoOppSeleccionado(); as archivo) { <span class="etiqueta-archivo-opp">{{ archivo.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'IMG' }}</span> }
+                    <span class="nombre-archivo-opp" aria-live="polite">{{ archivoOppSeleccionado()?.name ?? 'Ningún archivo seleccionado' }}</span>
+                  </div>
+                  <p-button label="Subir" icon="pi pi-upload" [loading]="adjuntandoOpp() || analizandoOpp()" [disabled]="!archivoOppSeleccionado() || adjuntandoOpp() || analizandoOpp()" (onClick)="subirEscaneoOpp()" />
+                </div>
+                @if (modoOpp() === 'IA') { <small class="ayuda">Al subirla, la IA propondrá datos. Revísalos antes de guardar.</small> }
+                @if (adjuntosOpp().length > 0) { <div class="archivo-solicitud documento-generado"><span class="pdf-insignia">PDF</span><div class="archivo-info"><strong>{{ adjuntosOpp()[0].nombre_original }}</strong><small>Documento original de OPP</small></div><div class="documento-acciones"><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver carta OPP" (onClick)="verArchivoOpp(adjuntosOpp()[0])" /></div></div> }
               </div>
+              <h3 class="seccion-resolucion">Datos de la carta OPP</h3>
               @if (oppForm.controls.disponibilidad.value === 'SI') {
                 <div class="fila">
                   <div class="campo">
@@ -358,331 +319,111 @@
                 </div>
               </div>
 
-              <div class="campo">
-                <label>Escaneo de la carta OPP (PDF/JPG/PNG, máx. 25 MB)</label>
-                <div class="selector-archivo-mini">
-                  <label class="boton-archivo-mini">
-                    Adjuntar escaneo OPP
-                    <input
-                      type="file"
-                      class="input-archivo"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      (change)="seleccionarEscaneoOpp($event)"
-                    />
-                  </label>
-                  @if (adjuntandoOpp()) {
-                    <i class="pi pi-spin pi-spinner"></i>
-                  }
+              @if (oppForm.controls.disponibilidad.value === 'SI') {
+                <h3 class="seccion-resolucion">Datos de la resolución</h3>
+                <div class="fila" [formGroup]="resolucionForm">
+                  <div class="campo"><label for="res_numero">Número de resolución *</label><input pInputText id="res_numero" type="number" formControlName="numero" min="1" /></div>
+                  <div class="campo"><label for="res_anio">Año *</label><input pInputText id="res_anio" type="number" formControlName="anio" /></div>
+                  <div class="campo"><label for="res_fecha">Fecha de emisión VRIN *</label><p-datepicker inputId="res_fecha" formControlName="fecha_emision" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" styleClass="select-ancho" /></div>
                 </div>
-                @if (adjuntosOpp().length > 0) {
-                  <ul class="lista-adjuntos">
-                    @for (adj of adjuntosOpp(); track adj.id) {
-                      <li>
-                        <i class="pi pi-paperclip"></i>
-                        <span>{{ adj.nombre_original }}</span>
-                        <small>{{ formatoFecha(adj.created_at?.slice(0, 10)) }}</small>
-                      </li>
-                    }
-                  </ul>
-                }
-              </div>
-
-              <div class="acciones-form">
-                <p-button
-                  label="Guardar Respuesta"
-                  icon="pi pi-check"
-                  severity="success"
-                  [loading]="guardandoOpp()"
-                  type="submit"
-                  [disabled]="oppForm.invalid || guardandoOpp() || adjuntandoOpp()"
-                />
-              </div>
+              }
             </form>
           } @else if (e.respuesta_opp; as opp) {
-            <div class="fila-datos">
-              <div class="dato">
-                <span class="etiqueta">Disponibilidad presupuestal</span>
-                <p-tag
-                  [value]="opp.disponibilidad === 'SI' ? 'Confirmada' : 'Sin disponibilidad'"
-                  [severity]="opp.disponibilidad === 'SI' ? 'success' : 'danger'"
-                />
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Monto aprobado</span>
-                <strong>{{ formatoSoles(opp.monto_aprobado) }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Carta OPP N°</span>
-                <strong>{{ opp.carta_numero ?? '—' }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Registro VRIN</span>
-                <strong>{{ opp.registro_vrin_numero ?? '—' }}</strong>
-              </div>
-              <div class="dato"><span class="etiqueta">Fecha de recepción VRIN</span><strong>{{ formatoFecha(opp.registro_vrin_fecha) }}</strong></div>
-              <div class="dato"><span class="etiqueta">Fecha de carta OPP</span><strong>{{ formatoFecha(opp.carta_fecha) }}</strong></div>
-              <div class="dato"><span class="etiqueta">Meta presupuestal</span><strong>{{ opp.meta_presupuestal ?? '—' }}</strong></div>
-              <div class="dato"><span class="etiqueta">Específica de gasto</span><strong>{{ opp.especifica_gasto ?? '—' }}</strong></div>
-              <div class="dato"><span class="etiqueta">Fuente de financiamiento</span><strong>{{ opp.fuente_financiamiento ?? '—' }}</strong></div>
+            @if (adjuntosOpp().length > 0) { <div class="archivo-solicitud documento-generado"><span class="pdf-insignia">PDF</span><div class="archivo-info"><strong>{{ adjuntosOpp()[0].nombre_original }}</strong><small>Documento original de OPP</small></div><div class="documento-acciones"><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver carta OPP" (onClick)="verArchivoOpp(adjuntosOpp()[0])" /></div></div> }
+            <div class="formulario carta-lectura resolucion-lectura">
+              <div class="fila"><div class="campo"><label>Disponibilidad presupuestal</label><div class="valor-carta">{{ opp.disponibilidad === 'SI' ? 'Sí, existe disponibilidad' : 'No hay disponibilidad' }}</div></div><div class="campo"><label>Monto aprobado</label><div class="valor-carta">{{ formatoSoles(opp.monto_aprobado) }}</div></div></div>
+              <div class="fila"><div class="campo"><label>Carta remitida por OPP</label><div class="valor-carta">{{ opp.carta_numero ?? '—' }}</div></div><div class="campo"><label>Fecha de carta OPP</label><div class="valor-carta">{{ formatoFecha(opp.carta_fecha) }}</div></div></div>
+              <div class="fila"><div class="campo"><label>N.º de expediente VRIN</label><div class="valor-carta">{{ opp.registro_vrin_numero ?? '—' }}</div></div><div class="campo"><label>Fecha de recepción</label><div class="valor-carta">{{ formatoFecha(opp.registro_vrin_fecha) }}</div></div></div>
+              @if (opp.disponibilidad === 'SI') {
+                <div class="fila"><div class="campo"><label>Meta presupuestal</label><div class="valor-carta">{{ opp.meta_presupuestal ?? '—' }}</div></div><div class="campo"><label>Específica de gasto</label><div class="valor-carta">{{ opp.especifica_gasto ?? '—' }}</div></div></div>
+                <div class="campo"><label>Fuente de financiamiento</label><div class="valor-carta">{{ opp.fuente_financiamiento ?? '—' }}</div></div>
+                <div class="fila"><div class="campo"><label>Número de resolución</label><div class="valor-carta">{{ e.resolucion?.numero ?? resolucionForm.controls.numero.value ?? '—' }}</div></div><div class="campo"><label>Fecha de emisión VRIN</label><div class="valor-carta">{{ e.resolucion ? formatoFecha(e.resolucion.fecha_emision) : fechaCartaVista(resolucionForm.controls.fecha_emision.value) }}</div></div></div>
+              }
             </div>
           } @else {
             <p class="pendiente">{{ e.estado === 'EN_ESPERA_OPP' ? 'Pendiente de registro por Secretaría.' : 'Genera primero la carta VRIN / OPP en el paso 2.' }}</p>
           }
           </section>
-        <section class="tarjeta">
-          <h2 class="tarjeta-titulo"><i class="pi pi-file-edit"></i> Resolución</h2>
-          @if (puedeGenerarResolucion()) {
-            <form [formGroup]="resolucionForm" class="formulario">
-              <div class="fila">
-                <div class="campo">
-                  <label for="res_numero">Número (Sugerido) *</label>
-                  <input pInputText id="res_numero" type="number" formControlName="numero" />
-                  @if (
-                    resolucionForm.controls.numero.touched &&
-                    resolucionForm.controls.numero.invalid
-                  ) {
-                    <small class="error">Obligatorio y > 0.</small>
-                  }
+          <div class="acciones-carta-opp acciones-resolucion">
+            @if (puedeRegistrarOpp() || editandoOpp()) {
+              <p-button [label]="editandoOpp() ? 'Cancelar edición' : 'Descartar'" severity="secondary" [outlined]="true" [disabled]="guardandoOpp()" (onClick)="descartarRespuestaOpp()" />
+              <p-button label="Guardar cambios" icon="pi pi-eye" iconPos="right" [loading]="guardandoOpp()" [disabled]="oppForm.invalid || (oppForm.controls.disponibilidad.value === 'SI' && resolucionForm.invalid) || guardandoOpp() || adjuntandoOpp() || analizandoOpp()" (onClick)="guardarRespuestaOpp()" />
+            } @else {
+              <p-button label="Volver a expedientes" icon="pi pi-chevron-left" severity="secondary" [outlined]="true" routerLink="/expedientes" />
+              @if (docResolucionGenerada(); as doc) {
+                <div class="acciones-carta-secundarias">
+                  @if (puedeEditarOpp()) { <p-button label="Editar información" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="editarRespuestaOpp()" /> }
+                  <p-button label="Ver resolución generada" icon="pi pi-eye" (onClick)="verResolucionGenerada(doc)" />
                 </div>
-                <div class="campo">
-                  <label for="res_anio">Año *</label>
-                  <input pInputText id="res_anio" type="number" formControlName="anio" />
+              } @else if (puedeGenerarResolucion()) {
+                <div class="acciones-carta-secundarias">
+                  @if (puedeEditarOpp()) { <p-button label="Editar información" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="editarRespuestaOpp()" /> }
+                  <p-button label="Ver vista previa y generar resolución" icon="pi pi-eye" [disabled]="resolucionForm.invalid" (onClick)="confirmarGenerarResolucion()" />
                 </div>
-                <div class="campo">
-                  <label for="res_fecha">Fecha de Emisión *</label>
-                  <p-datepicker
-                    inputId="res_fecha"
-                    formControlName="fecha_emision"
-                    dateFormat="dd/mm/yy"
-                    [showIcon]="true"
-                    [showOnFocus]="false"
-                    appendTo="body"
-                    styleClass="select-ancho"
-                  />
-                </div>
-              </div>
-              <div class="acciones-form">
-                <p-button
-                  label="Generar Resolución Final"
-                  icon="pi pi-cog"
-                  [loading]="guardandoResolucion()"
-                  (onClick)="confirmarGenerarResolucion()"
-                />
-              </div>
-            </form>
-          } @else if (e.resolucion; as r) {
-            <div class="fila-datos">
-              <div class="dato">
-                <span class="etiqueta">Número de Resolución</span>
-                <strong>{{ r.numero }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Año</span>
-                <strong>{{ r.anio }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Fecha de emisión</span>
-                <strong>{{ formatoFecha(r.fecha_emision) }}</strong>
-              </div>
-            </div>
-
-            @if (docResolucionGenerada(); as doc) {
-              @if (urlDocResolucion(); as url) {
-                <div class="acciones-archivo">
-                  <p-button
-                    label="Descargar PDF"
-                    icon="pi pi-download"
-                    size="small"
-                    severity="secondary"
-                    [outlined]="true"
-                    (onClick)="descargarDocResolucion('pdf')"
-                  />
-                  <p-button
-                    label="Descargar Word"
-                    icon="pi pi-file-word"
-                    size="small"
-                    severity="secondary"
-                    [outlined]="true"
-                    (onClick)="descargarDocResolucion('docx')"
-                  />
-                  <p-button
-                    label="Anular"
-                    icon="pi pi-times"
-                    size="small"
-                    severity="danger"
-                    [outlined]="true"
-                    (onClick)="anularDocumento(doc.id)"
-                  />
-                </div>
-              } @else {
-                <p class="pendiente">
-                  <i class="pi pi-spin pi-spinner"></i> Convirtiendo a PDF…
-                </p>
               }
             }
-          } @else {
-            <p class="pendiente">{{ e.respuesta_opp?.disponibilidad === 'NO' ? 'No se puede emitir una resolución sin disponibilidad presupuestal.' : 'La generación de la resolución se habilitará al registrar la respuesta OPP con disponibilidad confirmada.' }}</p>
-          }
-          
-          @if (e.etapa_actual >= 3) {
-            <div class="campo mt-4">
-              <label>Anexos y documentos probatorios (Opcional, máx. 50 MB)</label>
-              <div class="selector-archivo-mini">
-                <label class="boton-archivo-mini">
-                  Adjuntar Anexo
-                  <input
-                    type="file"
-                    class="input-archivo"
-                    accept=".pdf,.jpg,.jpeg,.png,.docx,.xlsx"
-                    (change)="seleccionarAnexo($event)"
-                  />
-                </label>
-                @if (adjuntandoAnexo()) {
-                  <i class="pi pi-spin pi-spinner"></i>
-                }
-              </div>
-              @if (adjuntosAnexo().length > 0) {
-                <ul class="lista-adjuntos">
-                  @for (adj of adjuntosAnexo(); track adj.id) {
-                    <li>
-                      <i class="pi pi-paperclip"></i>
-                      <span>{{ adj.nombre_original }}</span>
-                      <small>{{ formatoFecha(adj.created_at?.slice(0, 10)) }}</small>
-                    </li>
-                  }
-                </ul>
-              }
-            </div>
-          }
-        </section>
+          </div>
         }
 
         @if (indiceActivoVisible() === 3) {
-        <section class="tarjeta">
-          <h2 class="tarjeta-titulo"><i class="pi pi-wallet"></i> Rendición</h2>
-          @if (e.estado === 'RESOLUCION_EMITIDA') {
-            <p-button
-              label="Registrar fecha de desembolso"
-              icon="pi pi-calendar"
-              (onClick)="abrirModalDesembolso()"
-            />
-          } @else if (e.rendicion; as ren) {
-            <div class="fila-datos">
-              <div class="dato">
-                <span class="etiqueta">Fecha de desembolso</span>
-                <strong>{{ formatoFecha(ren.fecha_desembolso) }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Fecha límite</span>
-                <strong>{{ formatoFecha(ren.fecha_limite) }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Fecha de informe</span>
-                <strong>{{ formatoFecha(ren.fecha_informe) }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Estado</span>
-                <strong>{{ ren.estado ?? '—' }}</strong>
-              </div>
+          <section class="tarjeta registro-solicitud rendicion-principal">
+            <div class="registro-cabecera">
+              <span class="registro-icono rendicion-icono"><i class="pi pi-clock"></i></span>
+              <div><h2>Rendición de cuentas</h2><p>Registra el desembolso y controla la entrega del informe con sus comprobantes.</p></div>
+              <span class="estado-registro" [class.completo]="e.rendicion?.estado === 'CERRADA'">{{ e.rendicion?.estado === 'CERRADA' ? 'Rendición cerrada' : e.estado === 'RENDICION_VENCIDA' ? 'Plazo vencido' : e.rendicion ? 'Por rendir' : 'Pendiente de desembolso' }}</span>
             </div>
 
-            @if (ren.estado !== 'PRESENTADA') {
-              <div class="mt-4 p-4 border-round" [ngClass]="ren.dias_habiles_restantes < 0 ? 'bg-red-50 text-red-900 border-1 border-red-200' : 'bg-blue-50 text-blue-900 border-1 border-blue-200'">
-                <strong>Plazo reglamentario vigente:</strong> 
-                @if (ren.dias_habiles_restantes < 0) {
-                  Vencido hace {{ -ren.dias_habiles_restantes }} días hábiles.
-                } @else {
-                  {{ ren.dias_habiles_restantes }} días hábiles restantes.
-                }
-                <br>
-                <small>(Recuerde adjuntar los comprobantes de depósito bancario según el Art. 52)</small>
-              </div>
-            }
-
-            <div class="mt-4">
-              <p-button
-                label="Registrar DOI (Opcional)"
-                icon="pi pi-link"
-                severity="secondary"
-                [outlined]="true"
-                size="small"
-                (onClick)="abrirModalDoi()"
-              />
-              @if (e.articulo?.doi) {
-                <span class="ml-2 text-sm">
-                  DOI: <a [href]="e.articulo!.doi" target="_blank">{{ e.articulo!.doi }}</a>
-                </span>
+            <section class="rendicion-etapa" aria-labelledby="rendicion-desembolso-titulo">
+              <span class="rendicion-paso">Paso 1</span>
+              <h3 id="rendicion-desembolso-titulo">Registrar desembolso</h3>
+              <p>El plazo de 60 días hábiles comienza a partir de la fecha registrada.</p>
+              @if (e.rendicion; as ren) {
+                <div class="rendicion-desembolso-lectura">
+                  <div class="campo"><span class="rendicion-etiqueta">Fecha de desembolso</span><output class="valor-carta">{{ formatoFecha(ren.fecha_desembolso) }}</output></div>
+                  <div class="campo"><span class="rendicion-etiqueta">Monto desembolsado</span><output class="valor-carta">{{ formatoSoles(ren.monto_desembolsado) }}</output></div>
+                  <div class="campo"><span class="rendicion-etiqueta">Fecha límite</span><output class="valor-carta">{{ formatoFecha(ren.fecha_limite) }}</output></div>
+                </div>
+              } @else if (e.estado === 'RESOLUCION_EMITIDA' && puedeGestionarRendicion()) {
+                <form [formGroup]="desembolsoForm" (ngSubmit)="registrarDesembolso()" class="rendicion-desembolso-form">
+                  <div class="campo"><label for="fecha_desembolso">Fecha de desembolso *</label><p-datepicker inputId="fecha_desembolso" formControlName="fecha_desembolso" dateFormat="dd/mm/yy" appendTo="body" styleClass="select-ancho" /></div>
+                  <div class="campo"><label for="monto_desembolsado">Monto desembolsado *</label><p-inputnumber inputId="monto_desembolsado" formControlName="monto_desembolsado" mode="currency" currency="PEN" locale="es-PE" [min]="0.01" [minFractionDigits]="2" [maxFractionDigits]="2" styleClass="numero-ancho" /></div>
+                  <p-button label="Registrar y activar plazo" icon="pi pi-check" type="submit" [loading]="guardandoDesembolso()" [disabled]="desembolsoForm.invalid" />
+                </form>
+              } @else {
+                <p class="rendicion-aviso">El desembolso se registra cuando la resolución está emitida y tu usuario tiene permiso para gestionarlo.</p>
               }
-            </div>
+            </section>
 
-            @if (e.etapa_actual === 4 && ren.estado !== 'PRESENTADA') {
-              <div class="campo mt-4">
-                <label>Comprobantes de rendición (PDF, máx. 25 MB) *</label>
-                <div class="selector-archivo-mini">
-                  <label class="boton-archivo-mini">
-                    Adjuntar Comprobante
-                    <input
-                      type="file"
-                      class="input-archivo"
-                      accept=".pdf"
-                      (change)="seleccionarComprobante($event)"
-                    />
-                  </label>
-                  @if (adjuntandoComprobante()) {
-                    <i class="pi pi-spin pi-spinner"></i>
-                  }
-                </div>
-              </div>
-            }
-
-            @if (comprobantes().length > 0) {
-              <ul class="lista-adjuntos mt-2">
-                @for (adj of comprobantes(); track adj.id) {
-                  <li>
-                    <i class="pi pi-file-pdf text-red-500"></i>
-                    <span>{{ adj.nombre_original }}</span>
-                    <small>{{ formatoFecha(adj.created_at?.slice(0, 10)) }}</small>
-                  </li>
+            <section class="rendicion-etapa" aria-labelledby="rendicion-informe-titulo">
+              <span class="rendicion-paso">Paso 2 @if (e.rendicion?.estado !== 'CERRADA' && e.rendicion) { · {{ e.rendicion!.dias_habiles_restantes < 0 ? 'plazo vencido' : e.rendicion!.dias_habiles_restantes + ' días hábiles restantes' }} }</span>
+              <h3 id="rendicion-informe-titulo">Informe y documentos probatorios</h3>
+              @if (e.rendicion; as ren) {
+                @if (ren.estado === 'CERRADA') {
+                  <div class="campo"><span class="rendicion-etiqueta">Fecha de entrega del informe de rendición</span><output class="valor-carta">{{ formatoFecha(ren.fecha_informe) }}</output></div>
+                } @else if (puedeGestionarRendicion()) {
+                  <form [formGroup]="rendicionForm" class="rendicion-informe-form" (ngSubmit)="cerrarRendicion()">
+                    <div class="campo"><label for="fecha_informe">Fecha de entrega del informe de rendición *</label><p-datepicker inputId="fecha_informe" formControlName="fecha_informe" dateFormat="dd/mm/yy" [minDate]="fechaMinimaInforme()" appendTo="body" styleClass="select-ancho" /></div>
+                  </form>
                 }
-              </ul>
-            }
-
-            @if (e.etapa_actual === 4 && ren.estado !== 'PRESENTADA') {
-              <form [formGroup]="rendicionForm" class="mt-4 p-4 surface-100 border-round">
-                <div class="campo">
-                  <label for="fecha_informe">Fecha de informe (según mesa de partes) *</label>
-                  <p-datepicker
-                    inputId="fecha_informe"
-                    formControlName="fecha_informe"
-                    dateFormat="dd/mm/yy"
-                    [showIcon]="true"
-                    [showOnFocus]="false"
-                    appendTo="body"
-                    styleClass="select-ancho"
-                  />
-                </div>
-                <div class="mt-3 flex gap-2">
-                  <p-button
-                    label="Guardar Borrador"
-                    icon="pi pi-save"
-                    severity="secondary"
-                    [outlined]="true"
-                    (onClick)="mensajes.add({severity:'info', summary:'Borrador', detail:'El expediente se mantiene en Por Rendir.'})"
-                  />
-                  <p-button
-                    label="Confirmar y Cerrar Rendición"
-                    icon="pi pi-check-circle"
-                    severity="success"
-                    [loading]="cerrandoRendicion()"
-                    (onClick)="cerrarRendicion()"
-                  />
-                </div>
-              </form>
-            }
-          } @else {
-            <p class="pendiente">Pendiente.</p>
-          }
-        </section>
+                <div class="rendicion-adjuntos-cabecera"><strong>Documentos probatorios adjuntos (digitalizados)</strong><small>{{ comprobantes().length }} {{ comprobantes().length === 1 ? 'archivo cargado' : 'archivos cargados' }}</small></div>
+                @if (ren.estado !== 'CERRADA' && puedeGestionarRendicion()) {
+                  <div class="rendicion-carga"><div class="archivo-campo-opp"><label class="boton-archivo-opp" for="comprobante-rendicion">Elegir archivo</label><input id="comprobante-rendicion" class="input-archivo-opp" type="file" accept=".pdf" (change)="seleccionarComprobante($event)" /><span class="nombre-archivo-opp" aria-live="polite">{{ archivoComprobanteSeleccionado()?.name ?? 'Ningún archivo seleccionado' }}</span></div><p-button label="Subir" icon="pi pi-upload" [loading]="adjuntandoComprobante()" [disabled]="!archivoComprobanteSeleccionado() || adjuntandoComprobante()" (onClick)="subirComprobante()" /></div>
+                }
+                @if (comprobantes().length > 0) {
+                  <ul class="rendicion-lista">
+                    @for (adj of comprobantes(); track adj.id) {
+                      <li><span class="pdf-insignia">PDF</span><span class="rendicion-archivo-nombre">{{ adj.nombre_original }}</span><p-button icon="pi pi-eye" [text]="true" severity="secondary" [attr.aria-label]="'Ver ' + adj.nombre_original" (onClick)="verComprobante(adj)" />@if (ren.estado !== 'CERRADA' && puedeGestionarRendicion()) { <p-button icon="pi pi-trash" [text]="true" severity="danger" [attr.aria-label]="'Retirar ' + adj.nombre_original" [loading]="retirandoComprobante() === adj.id" (onClick)="retirarComprobante(adj)" /> }</li>
+                    }
+                  </ul>
+                } @else { <p class="rendicion-vacio">Aún no hay comprobantes adjuntos.</p> }
+                @if (ren.estado !== 'CERRADA' && puedeGestionarRendicion()) {
+                  <div class="rendicion-cierre"><p-button label="Confirmar y cerrar rendición" icon="pi pi-check" [loading]="cerrandoRendicion()" [disabled]="rendicionForm.invalid || comprobantes().length === 0 || adjuntandoComprobante() || retirandoComprobante() !== null" (onClick)="cerrarRendicion()" /></div>
+                }
+              } @else {
+                <p class="rendicion-aviso">Registra el desembolso para activar el plazo y adjuntar los documentos probatorios.</p>
+              }
+            </section>
+          </section>
         }
 
         @if (observacionesPendientes().length > 0) {
@@ -704,10 +445,10 @@
       </div>
 
       <div class="columna-derecha">
-        @if (indiceActivoVisible() <= 1) {
+        @if (indiceActivoVisible() <= 3) {
           <aside class="tarjeta resumen-solicitud">
             <div class="resumen-titulo"><span>Resumen del expediente</span><h2>Datos consolidados</h2>
-              @if (indiceActivoVisible() === 1 && puedeEditarCarta()) { <p-button icon="pi pi-pencil" severity="secondary" [outlined]="true" ariaLabel="Editar información de la carta" (onClick)="editarCarta()" /> }
+              @if (puedeEditarExpediente()) { <p-button icon="pi pi-pencil" severity="secondary" [outlined]="true" ariaLabel="Editar datos del expediente" [routerLink]="['/expedientes', e.id, 'editar']" /> }
             </div>
             <div class="docente-cabecera"><span class="avatar">{{ iniciales(e.docente?.nombre_completo) }}</span><div><strong>{{ e.docente?.nombre_completo ?? '—' }}</strong><p class="dato-simple">{{ e.docente ? condicionLaboral(e.docente.tipo_contrato) : '—' }} · {{ e.docente?.facultad?.nombre ?? '—' }}</p></div></div>
             <div class="datos-docente"><p><strong>Facultad:</strong> {{ e.docente?.facultad?.nombre ?? '—' }}</p><p><strong>Escuela profesional:</strong> {{ e.docente?.escuela?.nombre ?? '—' }}</p></div>
@@ -719,38 +460,6 @@
               <div class="dato"><span class="etiqueta">Validado por</span><strong>{{ e.validacion_calidad?.validado_por ?? 'Pendiente' }}</strong></div>
             </div>
           </aside>
-        }
-        @if (indiceActivoVisible() === 2) {
-          @if (urlDocResolucion(); as url) {
-            <div class="visor">
-              <div class="visor-barra">
-                <span class="visor-titulo"><i class="pi pi-eye"></i> Resolución Generada</span>
-                <span class="visor-nombre">Resolución N° {{ e.resolucion?.numero }}</span>
-                <p-button
-                  label="Descargar PDF"
-                  icon="pi pi-download"
-                  size="small"
-                  severity="secondary"
-                  [outlined]="true"
-                  (onClick)="descargarDocResolucion('pdf')"
-                />
-              </div>
-              <iframe class="visor-iframe" [src]="url" title="Vista previa de la resolución generada"></iframe>
-            </div>
-          } @else {
-            <div class="visor visor-vacio">
-              <i class="pi pi-file-pdf visor-icono"></i>
-              <p>La resolución aún no ha sido generada</p>
-            </div>
-          }
-        }
-
-        @if (indiceActivoVisible() === 3) {
-          <div class="visor visor-vacio">
-            <i class="pi pi-wallet visor-icono"></i>
-            <p>Sección de Rendición</p>
-            <p class="text-sm">Consulte los comprobantes adjuntos en el panel izquierdo.</p>
-          </div>
         }
       </div>
     </div>
@@ -791,7 +500,8 @@
             <div class="pdf-pendiente" role="status">
               @if (cargandoVersionCarta()) { <i class="pi pi-spin pi-spinner"></i><p>Cargando documento…</p> }
               @else if (errorVersionCarta()) { <p>{{ vistaBorrador() ? mensajeErrorPreview() : 'No se pudo cargar el PDF.' }}</p><p-button label="Reintentar" (onClick)="vistaBorrador() ? confirmarGenerarCarta() : verVersionCarta(documentoVista()!)" /> }
-              @else { <p>El PDF se está preparando. Puedes descargar el documento Word mientras termina.</p><p-button label="Actualizar" (onClick)="reintentarVistaCarta(); vistaCartaVrinVisible.set(false)" /> }
+              @else if (esperaVistaCartaAgotada()) { <p>La vista en PDF sigue sin estar disponible. Puedes descargar la carta en Word o volver a comprobarla.</p><p-button label="Volver a comprobar" (onClick)="reintentarVistaCarta()" /> }
+              @else { <p>La vista en PDF se está preparando. La carta en Word ya está disponible para descargar.</p><p-button label="Actualizar" (onClick)="reintentarVistaCarta()" /> }
             </div>
           }
         </div>
@@ -803,9 +513,41 @@
         <div>@if (vistaBorrador()) {
           <p-button label="Volver a editar" icon="pi pi-pencil" severity="secondary" [outlined]="true" [disabled]="guardandoCarta()" (onClick)="vistaCartaVrinVisible.set(false)" />
           <p-button [label]="editandoCarta() ? 'Generar y guardar nueva versión' : 'Generar y guardar carta'" icon="pi pi-file" [loading]="guardandoCarta()" [disabled]="cargandoVersionCarta() || errorVersionCarta() || !urlVersionCarta()" (onClick)="generarCarta()" />
-        } @else { <p-button label="Cerrar" severity="secondary" [outlined]="true" (onClick)="vistaCartaVrinVisible.set(false)" /> }</div>
+        } @else { @if (documentoVista(); as version) { <p-button label="Descargar Word (.docx)" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="descargarDocGenerado(version)" /> } <p-button label="Cerrar" severity="secondary" [outlined]="true" (onClick)="vistaCartaVrinVisible.set(false)" /> }</div>
       </div>
     </ng-template>
+  </p-dialog>
+
+  <p-dialog [(visible)]="vistaResolucionVisible" [modal]="true" [draggable]="false" [resizable]="false"
+    [style]="{ width: '1120px', maxWidth: '96vw' }" styleClass="vista-carta-opp vista-resolucion">
+    <ng-template #header><div class="vista-cabecera"><span class="registro-icono"><i class="pi pi-book"></i></span><div><span class="vista-kicker">{{ vistaResolucionGenerada() ? 'Resolución generada' : 'Vista previa' }}</span><h2>Resolución de financiamiento de artículo científico</h2><p>{{ vistaResolucionGenerada() ? 'Consulta la resolución guardada en el expediente.' : 'Revisa el documento creado con la plantilla seleccionada antes de emitirlo.' }}</p></div></div></ng-template>
+    <div class="vista-cuerpo">
+      <aside class="vista-datos"><span class="vista-kicker">Datos verificados</span><h3>Información presupuestal</h3>
+        @if (detalle()?.respuesta_opp; as opp) {
+          <div class="vista-dato"><span>Disponibilidad</span><strong>{{ opp.disponibilidad === 'SI' ? 'Confirmada por OPP' : 'Sin disponibilidad' }}</strong></div>
+          <div class="vista-dato"><span>Específica de gasto</span><strong>{{ opp.especifica_gasto ?? '—' }}</strong></div>
+          <div class="vista-dato"><span>Meta presupuestal</span><strong>{{ opp.meta_presupuestal ?? '—' }}</strong></div>
+          <div class="vista-dato"><span>Fuente de financiamiento</span><strong>{{ opp.fuente_financiamiento ?? '—' }}</strong></div>
+          <div class="vista-dato"><span>Expediente VRIN</span><strong>{{ opp.registro_vrin_numero ?? '—' }}</strong></div>
+          <div class="vista-dato"><span>Carta OPP</span><strong>{{ opp.carta_numero ?? '—' }}</strong></div>
+          <div class="vista-dato"><span>Número de resolución</span><strong>{{ resolucionForm.controls.numero.value }}-{{ resolucionForm.controls.anio.value }}</strong></div>
+        }
+      </aside>
+      <div class="vista-papel">
+        @if (urlVistaResolucion(); as url) { <iframe [src]="url" title="Vista de la resolución" class="pdf-carta-opp"></iframe> }
+        @else { <div class="pdf-pendiente" role="status">@if (cargandoVistaResolucion()) { <i class="pi pi-spin pi-spinner"></i><p>Preparando resolución…</p> } @else { <p>{{ errorVistaResolucion() }}</p> } </div> }
+      </div>
+    </div>
+    <ng-template #footer><div class="vista-footer"><small>La resolución se emitirá usando la plantilla vigente de Resolución.</small><div>
+      @if (vistaResolucionGenerada()) { <p-button label="Descargar Word" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="descargarDocResolucion('docx')" /><p-button label="Cerrar" severity="secondary" [outlined]="true" (onClick)="vistaResolucionVisible.set(false)" /> }
+      @else { <p-button label="Volver a revisar" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="vistaResolucionVisible.set(false)" /><p-button [label]="docResolucionGenerada() ? 'Generar y guardar nueva versión' : 'Generar y guardar resolución'" icon="pi pi-book" [loading]="guardandoResolucion()" [disabled]="!urlVistaResolucion() || cargandoVistaResolucion()" (onClick)="generarResolucion()" /> }
+    </div></div></ng-template>
+  </p-dialog>
+
+  <p-dialog [(visible)]="vistaArchivoOppVisible" [modal]="true" [style]="{ width: '850px', maxWidth: '96vw' }" header="Carta de respuesta OPP">
+    @if (urlArchivoOpp(); as url) { <iframe [src]="url" title="Carta de respuesta OPP" class="modal-carta-iframe"></iframe> }
+    @else if (errorArchivoOpp()) { <p>No se pudo mostrar la carta OPP. Comprueba que el archivo siga disponible.</p> }
+    @else { <p>Cargando carta…</p> }
   </p-dialog>
 
   <p-dialog
@@ -822,29 +564,10 @@
     }
   </p-dialog>
 
-  <p-dialog
-    header="Registrar Desembolso"
-    [(visible)]="modalDesembolso"
-    [modal]="true"
-    [style]="{ width: '400px' }"
-  >
-    <form [formGroup]="desembolsoForm" (ngSubmit)="registrarDesembolso()" class="flex flex-column gap-3">
-      <div class="campo mt-3">
-        <label for="fecha_desembolso">Fecha de desembolso (SIAF) *</label>
-        <p-datepicker
-          inputId="fecha_desembolso"
-          formControlName="fecha_desembolso"
-          dateFormat="dd/mm/yy"
-          [showIcon]="true"
-          appendTo="body"
-          styleClass="w-full"
-        />
-      </div>
-      <div class="flex justify-content-end gap-2 mt-4">
-        <p-button label="Cancelar" severity="secondary" [outlined]="true" (onClick)="modalDesembolso.set(false)" />
-        <p-button label="Registrar" type="submit" severity="primary" [loading]="guardandoDesembolso()" />
-      </div>
-    </form>
+  <p-dialog [(visible)]="vistaComprobanteVisible" [modal]="true" [style]="{ width: '850px', maxWidth: '96vw' }" header="Comprobante de rendición">
+    @if (urlComprobante(); as url) { <iframe [src]="url" title="Comprobante de rendición" class="modal-carta-iframe"></iframe> }
+    @else if (errorComprobante()) { <p>No se pudo mostrar el comprobante. Comprueba que el archivo siga disponible.</p> }
+    @else { <p>Cargando comprobante…</p> }
   </p-dialog>
 
   <p-dialog

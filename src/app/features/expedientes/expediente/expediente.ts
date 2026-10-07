@@ -1,5 +1,4 @@
 import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { NgClass } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
@@ -10,8 +9,6 @@ import { ConfirmationService, MessageService, type MenuItem } from 'primeng/api'
 import { DatePicker } from 'primeng/datepicker';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
-import { Select } from 'primeng/select';
-import { Steps } from 'primeng/steps';
 import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
 
@@ -45,11 +42,8 @@ import { Dialog } from 'primeng/dialog';
     Dialog,
     InputNumber,
     InputText,
-    NgClass,
     ReactiveFormsModule,
     RouterLink,
-    Select,
-    Steps,
     Tag,
     Toast,
     ValidacionExpediente,
@@ -82,10 +76,29 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected readonly subsanando = signal(false);
   protected readonly guardandoCarta = signal(false);
   protected readonly guardandoOpp = signal(false);
+  protected readonly editandoOpp = signal(false);
   protected readonly adjuntandoOpp = signal(false);
+  protected readonly analizandoOpp = signal(false);
+  protected readonly modoOpp = signal<'IA' | 'MANUAL'>('IA');
+  protected readonly archivoOppSeleccionado = signal<File | null>(null);
+  protected readonly vistaArchivoOppVisible = signal(false);
+  protected readonly urlArchivoOpp = signal<SafeResourceUrl | null>(null);
+  protected readonly errorArchivoOpp = signal(false);
+  private blobArchivoOpp?: string;
   protected readonly guardandoResolucion = signal(false);
-  protected readonly adjuntandoAnexo = signal(false);
-  protected readonly modalDesembolso = signal(false);
+  protected readonly vistaResolucionVisible = signal(false);
+  protected readonly vistaResolucionGenerada = signal(false);
+  protected readonly documentoResolucionVista = signal<DocumentoGeneradoDetalle | null>(null);
+  protected readonly urlVistaResolucion = signal<SafeResourceUrl | null>(null);
+  protected readonly cargandoVistaResolucion = signal(false);
+  protected readonly errorVistaResolucion = signal('');
+  private blobVistaResolucion?: string;
+  protected readonly archivoComprobanteSeleccionado = signal<File | null>(null);
+  protected readonly vistaComprobanteVisible = signal(false);
+  protected readonly urlComprobante = signal<SafeResourceUrl | null>(null);
+  protected readonly errorComprobante = signal(false);
+  protected readonly retirandoComprobante = signal<number | null>(null);
+  private blobComprobante?: string;
   protected readonly modalDoi = signal(false);
   protected readonly modalCartaVisible = signal(false);
   protected readonly editandoCarta = signal(false);
@@ -101,7 +114,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private solicitudVista = 0;
   protected readonly versionesCarta = computed(() => (this.detalle()?.documentos_generados ?? [])
     .filter(d => d.tipo === 'CARTA_VRIN').sort((a, b) => b.version - a.version));
-  protected readonly puedeEditarCarta = computed(() => this.detalle()?.estado === 'EN_ESPERA_OPP'
+  protected readonly puedeEditarCarta = computed(() => ['EN_ESPERA_OPP', 'DISPONIBILIDAD_CONFIRMADA', 'RESOLUCION_EMITIDA'].includes(this.detalle()?.estado ?? '')
     && !!this.docCartaGenerada() && ['SECRETARIA', 'ADMINISTRADOR_GENERAL'].includes(this.auth.usuarioActual()?.rol_codigo ?? ''));
   protected readonly guardandoDesembolso = signal(false);
   protected readonly guardandoDoi = signal(false);
@@ -109,6 +122,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected readonly adjuntandoComprobante = signal(false);
 
   private blobUrlCarta?: string;
+  private archivoCartaCargadoId?: number;
   private blobUrlDocGenerado?: string;
   private blobUrlDocResolucion?: string;
   private expedienteId?: number;
@@ -120,8 +134,13 @@ export class VistaExpediente implements OnInit, OnDestroy {
 
   protected readonly paso0Ok = computed(() => (this.detalle()?.etapa_actual ?? 1) > 1 || this.detalle()?.validacion_calidad?.resultado === 'CUMPLE');
   protected readonly paso1Ok = computed(() => this.detalle()?.carta_vrin?.estado === 'EMITIDA');
-  protected readonly paso2Ok = computed(() => (this.detalle()?.etapa_actual ?? 1) > 3);
+  protected readonly paso2Ok = computed(() => !!this.detalle()?.resolucion);
   protected readonly paso3Ok = computed(() => this.detalle()?.estado === 'RENDIDO');
+
+  protected pasoCompletado(index: number): boolean {
+    if (this.paso3Ok()) return true;
+    return [this.paso0Ok(), this.paso1Ok(), this.paso2Ok(), this.paso3Ok()][index] ?? false;
+  }
 
   protected readonly pasos = computed<MenuItem[]>(() => {
     return [
@@ -199,9 +218,27 @@ export class VistaExpediente implements OnInit, OnDestroy {
     (this.detalle()?.archivos ?? []).filter((a) => a.tipo === 'CARTA_OPP'),
   );
 
-  protected readonly adjuntosAnexo = computed(() =>
-    (this.detalle()?.archivos ?? []).filter((a) => a.tipo === 'ANEXO'),
+  protected readonly puedeEditarExpediente = computed(() =>
+    ['SECRETARIA', 'ADMINISTRADOR_GENERAL'].includes(this.auth.usuarioActual()?.rol_codigo ?? '')
+      && this.detalle()?.estado !== 'RENDIDO',
   );
+
+  protected readonly puedeGestionarRendicion = computed(() =>
+    ['SECRETARIA', 'ADMINISTRADOR_GENERAL'].includes(this.auth.usuarioActual()?.rol_codigo ?? '')
+      && ['RESOLUCION_EMITIDA', 'POR_RENDIR', 'RENDICION_VENCIDA'].includes(this.detalle()?.estado ?? ''),
+  );
+
+  protected readonly fechaMinimaInforme = computed(() => {
+    const fecha = this.detalle()?.rendicion?.fecha_desembolso;
+    return fecha ? new Date(`${fecha}T00:00:00`) : undefined;
+  });
+  protected readonly puedeEditarOpp = computed(() => ['DISPONIBILIDAD_CONFIRMADA', 'RESOLUCION_EMITIDA'].includes(this.detalle()?.estado ?? '')
+    && !!this.detalle()?.respuesta_opp
+    && ['SECRETARIA', 'ADMINISTRADOR_GENERAL'].includes(this.auth.usuarioActual()?.rol_codigo ?? ''));
+
+  protected readonly versionesResolucion = computed(() => (this.detalle()?.documentos_generados ?? [])
+    .filter((documento) => documento.tipo === 'RESOLUCION').sort((a, b) => b.version - a.version));
+
 
   protected readonly comprobantes = computed(() =>
     (this.detalle()?.archivos ?? []).filter((a) => a.tipo === 'COMPROBANTE_RENDICION'),
@@ -211,11 +248,6 @@ export class VistaExpediente implements OnInit, OnDestroy {
     const checklist = this.detalle()?.validacion_calidad?.checklist;
     return checklist ? Object.keys(checklist).length : 0;
   });
-
-  protected readonly opcionesDisponibilidad = [
-    { label: 'Sí — hay disponibilidad presupuestal', value: 'SI' },
-    { label: 'No — sin disponibilidad', value: 'NO' },
-  ];
 
   protected readonly cartaForm = this.fb.group({
     numero_completo: ['', [Validators.required, Validators.pattern(/^(?:CARTA\s+N[°º]?\s*)?0*[1-9]\d*-(?:20[2-9]\d|2100)(?:-VRIN-UNAMBA)?$/i)]],
@@ -245,6 +277,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
 
   protected readonly desembolsoForm = this.fb.group({
     fecha_desembolso: [new Date() as Date | null, Validators.required],
+    monto_desembolsado: [null as number | null, [Validators.required, Validators.min(0.01)]],
   });
 
   protected readonly doiForm = this.fb.group({
@@ -284,13 +317,22 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.cargar(id);
   }
 
-  private cargar(id: number, silencioso = false): void {
+  private cargar(id: number, silencioso = false, desdePolling = false): void {
     if (!silencioso) {
       this.cargando.set(true);
     }
     this.expedienteService.obtener(id).subscribe({
       next: (detalle) => {
         this.detalle.set(detalle);
+        const fechaMinima = detalle.rendicion?.fecha_desembolso;
+        const fechaInforme = this.rendicionForm.controls.fecha_informe.value;
+        const fechaInformeIso = this.iso(fechaInforme);
+        if (fechaMinima && (!fechaInformeIso || fechaInformeIso < fechaMinima)) {
+          this.rendicionForm.controls.fecha_informe.setValue(new Date(`${fechaMinima}T00:00:00`));
+        }
+        if (detalle.estado === 'RESOLUCION_EMITIDA' && this.desembolsoForm.controls.monto_desembolsado.value === null) {
+          this.desembolsoForm.controls.monto_desembolsado.setValue(detalle.respuesta_opp?.monto_aprobado ?? detalle.articulo?.monto_solicitado ?? null);
+        }
         if (!silencioso) {
           if (!this.pasoInicializado) {
             const pasoQuery = this.route.snapshot.queryParamMap.get('paso');
@@ -300,20 +342,36 @@ export class VistaExpediente implements OnInit, OnDestroy {
               : this.pasoSugerido(detalle));
             this.pasoInicializado = true;
             this.restablecerDatosCarta(detalle);
+            this.restablecerDatosResolucion(detalle);
           }
           this.cargando.set(false);
         }
         this.prepararVistaCarta(detalle);
         this.prepararVistaDocGenerado(detalle);
         this.prepararVistaDocResolucion(detalle);
+        const documentoAbierto = this.documentoVista();
+        if (this.vistaCartaVrinVisible() && !this.vistaBorrador() && documentoAbierto && !documentoAbierto.pdf_path) {
+          const versionActualizada = detalle.documentos_generados.find((doc) => doc.id === documentoAbierto.id);
+          if (versionActualizada?.pdf_path) {
+            if (this.urlVersionCarta()) {
+              this.documentoVista.set(versionActualizada);
+            } else if (!this.cargandoVersionCarta()) {
+              this.verVersionCarta(versionActualizada);
+            }
+          }
+        }
         this.gestionarPolling(detalle);
         this.sugerirNumeroSiCorresponde();
         this.sugerirNumeroResolucionSiCorresponde();
       },
       error: (error) => {
         if (silencioso) {
-          this.esperaVistaCartaAgotada.set(true);
-          this.detenerPolling();
+          if (desdePolling) {
+            this.esperaVistaCartaAgotada.set(true);
+            this.detenerPolling();
+          } else {
+            this.mensajes.add({ severity: 'error', summary: 'No se pudo actualizar el expediente', detail: 'Recarga la página para consultar los datos actuales.' });
+          }
           return;
         }
         this.cargando.set(false);
@@ -330,10 +388,10 @@ export class VistaExpediente implements OnInit, OnDestroy {
   }
 
   private pasoSugerido(detalle: ExpedienteDetalle): number {
-    if (detalle.estado === 'VALIDADO_CALIDAD') {
+    if (['VALIDADO_CALIDAD', 'EN_ESPERA_OPP'].includes(detalle.estado)) {
       return 1;
     }
-    if (['EN_ESPERA_OPP', 'DISPONIBILIDAD_CONFIRMADA', 'SIN_DISPONIBILIDAD'].includes(detalle.estado)) {
+    if (['DISPONIBILIDAD_CONFIRMADA', 'SIN_DISPONIBILIDAD'].includes(detalle.estado)) {
       return 2;
     }
     return Math.min(Math.max((detalle.etapa_actual ?? 1) - 1, 0), 3);
@@ -356,6 +414,17 @@ export class VistaExpediente implements OnInit, OnDestroy {
       registro_mp_numero: detalle.registro_mp_numero ?? '',
       fecha_aceptacion: detalle.articulo?.fecha_aceptacion
         ? new Date(`${detalle.articulo.fecha_aceptacion}T00:00:00`) : null,
+    });
+  }
+
+  private restablecerDatosResolucion(detalle: ExpedienteDetalle): void {
+    const borrador = detalle.resolucion_borrador;
+    const emitida = detalle.resolucion;
+    this.resolucionForm.patchValue({
+      numero: emitida?.numero != null ? Number(emitida.numero) : borrador?.numero ?? null,
+      anio: emitida?.anio ?? borrador?.anio ?? new Date().getFullYear(),
+      fecha_emision: emitida?.fecha_emision ? new Date(`${emitida.fecha_emision}T00:00:00`)
+        : borrador?.fecha_emision ? new Date(`${borrador.fecha_emision}T00:00:00`) : new Date(),
     });
   }
 
@@ -385,7 +454,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
         this.detenerPolling();
         return;
       }
-      this.cargar(this.expedienteId, true);
+      this.cargar(this.expedienteId, true, true);
     }, 2000);
   }
 
@@ -413,7 +482,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   }
 
   private sugerirNumeroResolucionSiCorresponde(): void {
-    if (!this.puedeGenerarResolucion() || this.resolucionForm.controls.numero.value !== null) {
+    if ((!this.puedeGenerarResolucion() && !this.puedeRegistrarOpp()) || this.resolucionForm.controls.numero.value !== null) {
       return;
     }
     const anio = this.resolucionForm.controls.anio.value ?? new Date().getFullYear();
@@ -601,14 +670,14 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.documentoVista.set(doc);
     this.vistaBorrador.set(false);
     this.vistaCartaVrinVisible.set(true);
-    this.cargandoVersionCarta.set(!!doc.pdf_path);
-    if (!doc.pdf_path) return;
+    this.cargandoVersionCarta.set(true);
     this.documentoService.obtenerBlob(detalle.id, doc.id, 'pdf').subscribe({
       next: blob => {
         if (solicitud !== this.solicitudVista) return;
         this.blobVersionCarta = URL.createObjectURL(blob);
         this.urlVersionCarta.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobVersionCarta));
         this.cargandoVersionCarta.set(false);
+        if (!doc.pdf_path) this.cargar(detalle.id, true);
       },
       error: () => {
         if (solicitud !== this.solicitudVista) return;
@@ -627,8 +696,9 @@ export class VistaExpediente implements OnInit, OnDestroy {
     if (!detalle || this.guardandoOpp()) {
       return;
     }
-    if (this.oppForm.invalid) {
+    if (this.oppForm.invalid || (this.oppForm.controls.disponibilidad.value === 'SI' && this.resolucionForm.invalid)) {
       this.oppForm.markAllAsTouched();
+      this.resolucionForm.markAllAsTouched();
       return;
     }
     const valores = this.oppForm.getRawValue();
@@ -670,22 +740,31 @@ export class VistaExpediente implements OnInit, OnDestroy {
       payload['meta_presupuestal'] = (valores.meta_presupuestal ?? '').trim();
       payload['especifica_gasto'] = (valores.especifica_gasto ?? '').trim();
       payload['fuente_financiamiento'] = (valores.fuente_financiamiento ?? '').trim();
+      const resolucion = this.resolucionForm.getRawValue();
+      payload['resolucion_numero'] = resolucion.numero;
+      payload['resolucion_anio'] = resolucion.anio;
+      payload['resolucion_fecha_emision'] = this.iso(resolucion.fecha_emision) ?? null;
     }
 
     this.guardandoOpp.set(true);
-    this.expedienteService.registrarRespuestaOpp(detalle.id, payload).subscribe({
+    const operacion = this.editandoOpp()
+      ? this.expedienteService.actualizarRespuestaOpp(detalle.id, payload)
+      : this.expedienteService.registrarRespuestaOpp(detalle.id, payload);
+    operacion.subscribe({
       next: (respuesta) => {
         this.guardandoOpp.set(false);
+        this.editandoOpp.set(false);
         this.mensajes.add({
-          severity: respuesta.estado === 'DISPONIBILIDAD_CONFIRMADA' ? 'success' : 'warn',
+          severity: respuesta.estado === 'SIN_DISPONIBILIDAD' ? 'warn' : 'success',
           summary:
-            respuesta.estado === 'DISPONIBILIDAD_CONFIRMADA'
-              ? 'Disponibilidad confirmada'
-              : 'Expediente cerrado: sin disponibilidad presupuestal',
+            respuesta.estado === 'RESOLUCION_EMITIDA' ? 'Datos de la resolución actualizados'
+              : respuesta.estado === 'DISPONIBILIDAD_CONFIRMADA' ? 'Disponibilidad confirmada'
+                : 'Expediente cerrado: sin disponibilidad presupuestal',
           detail: `${detalle.codigo} · ${respuesta.estado}.`,
         });
         this.oppForm.reset({ disponibilidad: 'SI' });
         this.cargar(detalle.id);
+        if (respuesta.estado === 'DISPONIBILIDAD_CONFIRMADA' || respuesta.estado === 'RESOLUCION_EMITIDA') this.confirmarGenerarResolucion(true);
       },
       error: (error) => {
         this.guardandoOpp.set(false);
@@ -704,8 +783,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     const archivo = input.files?.[0] ?? null;
     input.value = '';
-    const detalle = this.detalle();
-    if (!archivo || !detalle || this.adjuntandoOpp()) {
+    if (!archivo || this.adjuntandoOpp()) {
       return;
     }
     const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
@@ -725,16 +803,71 @@ export class VistaExpediente implements OnInit, OnDestroy {
       });
       return;
     }
+    this.archivoOppSeleccionado.set(archivo);
+  }
+
+  protected editarRespuestaOpp(): void {
+    const detalle = this.detalle();
+    const opp = detalle?.respuesta_opp;
+    if (!opp || !this.puedeEditarOpp()) return;
+    const fecha = (valor: string | null): Date | null => valor ? new Date(`${valor}T00:00:00`) : null;
+    this.oppForm.patchValue({
+      disponibilidad: opp.disponibilidad ?? 'SI', monto_aprobado: opp.monto_aprobado,
+      meta_presupuestal: opp.meta_presupuestal ?? '', especifica_gasto: opp.especifica_gasto ?? '',
+      fuente_financiamiento: opp.fuente_financiamiento ?? '', carta_numero: opp.carta_numero ?? '',
+      carta_fecha: fecha(opp.carta_fecha), registro_vrin_numero: opp.registro_vrin_numero ?? '',
+      registro_vrin_fecha: fecha(opp.registro_vrin_fecha),
+    });
+    this.restablecerDatosResolucion(detalle);
+    this.editandoOpp.set(true);
+  }
+
+  protected descartarRespuestaOpp(): void {
+    if (!this.editandoOpp()) {
+      this.oppForm.reset({ disponibilidad: 'SI' });
+      this.resolucionForm.reset({ numero: null, anio: new Date().getFullYear(), fecha_emision: new Date() });
+      this.archivoOppSeleccionado.set(null);
+      this.sugerirNumeroResolucionSiCorresponde();
+    }
+    this.editandoOpp.set(false);
+  }
+
+  protected verArchivoOpp(archivo: ArchivoDetalle): void {
+    const detalle = this.detalle();
+    if (!detalle) return;
+    this.vistaArchivoOppVisible.set(true);
+    this.urlArchivoOpp.set(null);
+    this.errorArchivoOpp.set(false);
+    this.archivoService.obtenerBlob(detalle.id, archivo.id).subscribe({
+      next: (blob) => {
+        if (this.blobArchivoOpp) URL.revokeObjectURL(this.blobArchivoOpp);
+        this.blobArchivoOpp = URL.createObjectURL(blob);
+        this.urlArchivoOpp.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobArchivoOpp));
+      },
+      error: () => {
+        this.errorArchivoOpp.set(true);
+        this.mensajes.add({ severity: 'error', summary: 'No se pudo abrir la carta OPP' });
+      },
+    });
+  }
+
+  protected subirEscaneoOpp(): void {
+    const detalle = this.detalle();
+    const archivo = this.archivoOppSeleccionado();
+    if (!detalle || !archivo || this.adjuntandoOpp()) return;
+
     this.adjuntandoOpp.set(true);
-    this.expedienteService.subirArchivo(detalle.id, archivo, 'CARTA_OPP').subscribe({
+    this.expedienteService.subirArchivo(detalle.id, archivo, 'CARTA_OPP', 3).subscribe({
       next: (guardado) => {
         this.adjuntandoOpp.set(false);
+        this.archivoOppSeleccionado.set(null);
         this.mensajes.add({
           severity: 'success',
           summary: 'Escaneo adjuntado',
           detail: guardado.nombre_original,
         });
         this.cargar(detalle.id, true);
+        if (this.modoOpp() === 'IA') this.analizarEscaneoOpp(archivo);
       },
       error: (error) => {
         this.adjuntandoOpp.set(false);
@@ -749,69 +882,52 @@ export class VistaExpediente implements OnInit, OnDestroy {
     });
   }
 
-  protected seleccionarAnexo(event: Event): void {
-    const input = event.target as HTMLInputElement;
-    const archivo = input.files?.[0] ?? null;
-    input.value = '';
+  private analizarEscaneoOpp(archivo: File): void {
     const detalle = this.detalle();
-    if (!archivo || !detalle || this.adjuntandoAnexo()) {
-      return;
-    }
-    const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
-    if (!['pdf', 'jpg', 'jpeg', 'png', 'docx', 'xlsx'].includes(extension)) {
-      this.mensajes.add({
-        severity: 'error',
-        summary: 'Archivo no permitido',
-        detail: 'El anexo debe ser PDF, JPG, PNG, DOCX o XLSX.',
-      });
-      return;
-    }
-    if (archivo.size > 50 * 1024 * 1024) {
-      this.mensajes.add({
-        severity: 'error',
-        summary: 'Archivo muy grande',
-        detail: 'El anexo no puede superar los 50 MB.',
-      });
-      return;
-    }
-    this.adjuntandoAnexo.set(true);
-    // etapa 3 y tipo ANEXO
-    this.expedienteService.subirArchivo(detalle.id, archivo, 'ANEXO', 3).subscribe({
-      next: (guardado) => {
-        this.adjuntandoAnexo.set(false);
-        this.mensajes.add({
-          severity: 'success',
-          summary: 'Anexo adjuntado',
-          detail: guardado.nombre_original,
+    if (!detalle) return;
+    this.analizandoOpp.set(true);
+    this.expedienteService.analizarCartaOpp(detalle.id, archivo).subscribe({
+      next: ({ datos }) => {
+        this.analizandoOpp.set(false);
+        const fecha = (valor: unknown): Date | null => typeof valor === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(valor)
+          ? new Date(`${valor}T00:00:00`) : null;
+        const texto = (valor: unknown): string => typeof valor === 'string' ? valor.trim() : '';
+        const disponibilidad = datos['disponibilidad'];
+        this.oppForm.patchValue({
+          disponibilidad: disponibilidad === 'SI' || disponibilidad === 'NO' ? disponibilidad : this.oppForm.controls.disponibilidad.value,
+          monto_aprobado: datos['monto_aprobado'] !== null && datos['monto_aprobado'] !== '' && datos['monto_aprobado'] !== undefined && Number.isFinite(Number(datos['monto_aprobado'])) ? Number(datos['monto_aprobado']) : this.oppForm.controls.monto_aprobado.value,
+          meta_presupuestal: texto(datos['meta_presupuestal']) || this.oppForm.controls.meta_presupuestal.value,
+          especifica_gasto: texto(datos['especifica_gasto']) || this.oppForm.controls.especifica_gasto.value,
+          fuente_financiamiento: texto(datos['fuente_financiamiento']) || this.oppForm.controls.fuente_financiamiento.value,
+          carta_numero: texto(datos['carta_numero']) || this.oppForm.controls.carta_numero.value,
+          carta_fecha: fecha(datos['carta_fecha']) ?? this.oppForm.controls.carta_fecha.value,
+          registro_vrin_numero: texto(datos['registro_vrin_numero']) || this.oppForm.controls.registro_vrin_numero.value,
+          registro_vrin_fecha: fecha(datos['registro_vrin_fecha']) ?? this.oppForm.controls.registro_vrin_fecha.value,
         });
-        this.cargar(detalle.id, true);
+        this.mensajes.add({ severity: 'success', summary: 'Carta analizada', detail: 'Revisa y completa los datos extraídos antes de guardarlos.' });
       },
       error: (error) => {
-        this.adjuntandoAnexo.set(false);
-        this.mensajes.add({
-          severity: 'error',
-          summary: 'No se pudo adjuntar',
-          detail:
-            (error as { error?: { message?: string } })?.error?.message ??
-            'Ocurrió un error inesperado.',
-        });
+        this.analizandoOpp.set(false);
+        this.mensajes.add({ severity: 'warn', summary: 'No se pudo analizar la carta',
+          detail: error?.error?.message ?? 'Completa el formulario manualmente.' });
       },
     });
   }
 
-  protected descargarDocGenerado(formato: 'pdf' | 'docx'): void {
+  protected descargarDocGenerado(doc: DocumentoGeneradoDetalle): void {
     const detalle = this.detalle();
-    const doc = this.docCartaGenerada();
-    if (!detalle || !doc) {
+    if (!detalle || !this.versionesCarta().some((version) => version.id === doc.id)) {
       return;
     }
-    this.documentoService.obtenerBlob(detalle.id, doc.id, formato, formato === 'pdf').subscribe({
+    this.documentoService.obtenerBlob(detalle.id, doc.id, 'docx', true).subscribe({
       next: (blob) => {
         const url = URL.createObjectURL(blob);
         const enlace = document.createElement('a');
         enlace.href = url;
-        enlace.download = `${detalle.codigo}_carta_vrin_v${doc.version}.${formato}`.toLowerCase();
+        enlace.download = `${detalle.codigo}_carta_vrin_v${doc.version}.docx`.toLowerCase();
+        document.body.appendChild(enlace);
         enlace.click();
+        enlace.remove();
         URL.revokeObjectURL(url);
       },
       error: () => {
@@ -897,6 +1013,10 @@ export class VistaExpediente implements OnInit, OnDestroy {
     if (this.blobUrlDocGenerado) {
       URL.revokeObjectURL(this.blobUrlDocGenerado);
     }
+    if (this.blobUrlDocResolucion) URL.revokeObjectURL(this.blobUrlDocResolucion);
+    if (this.blobVistaResolucion) URL.revokeObjectURL(this.blobVistaResolucion);
+    if (this.blobArchivoOpp) URL.revokeObjectURL(this.blobArchivoOpp);
+    if (this.blobComprobante) URL.revokeObjectURL(this.blobComprobante);
   }
 
   protected descargarCarta(): void {
@@ -947,41 +1067,85 @@ export class VistaExpediente implements OnInit, OnDestroy {
     return tipo === 'NOMBRADO' ? 'Nombrado' : tipo === 'CONTRATADO' ? 'Contratado' : tipo;
   }
 
-  protected confirmarGenerarResolucion(): void {
+  protected confirmarGenerarResolucion(trasGuardar = false): void {
     if (this.resolucionForm.invalid || this.guardandoResolucion()) {
       this.resolucionForm.markAllAsTouched();
       return;
     }
+    const detalle = this.detalle();
+    if (!detalle || (!trasGuardar && !this.puedeGenerarResolucion() && !detalle.resolucion)) return;
     const valores = this.resolucionForm.getRawValue();
-    const numeroStr = String(valores.numero ?? 0).padStart(3, '0');
-    this.confirmacion.confirm({
-      header: 'Confirmar generación de Resolución',
-      message: `¿Estás seguro de emitir la Resolución N° ${numeroStr}-${valores.anio}?`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Sí, generar',
-      rejectLabel: 'Cancelar',
-      acceptButtonStyleClass: 'p-button-success',
-      rejectButtonStyleClass: 'p-button-text',
-      accept: () => this.generarResolucion(),
+    this.vistaResolucionGenerada.set(false);
+    this.documentoResolucionVista.set(null);
+    this.vistaResolucionVisible.set(true);
+    this.cargandoVistaResolucion.set(true);
+    this.errorVistaResolucion.set('');
+    this.urlVistaResolucion.set(null);
+    if (this.blobVistaResolucion) URL.revokeObjectURL(this.blobVistaResolucion);
+    this.resolucionService.preview(detalle.id, {
+      numero: valores.numero ?? 0,
+      anio: valores.anio ?? new Date().getFullYear(),
+      fecha_emision: this.iso(valores.fecha_emision) ?? '',
+    }).subscribe({
+      next: (blob) => {
+        this.blobVistaResolucion = URL.createObjectURL(blob);
+        this.urlVistaResolucion.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobVistaResolucion));
+        this.cargandoVistaResolucion.set(false);
+      },
+      error: async (error) => {
+        this.cargandoVistaResolucion.set(false);
+        let mensaje = 'No se pudo crear la vista previa con la plantilla de resolución.';
+        try {
+          const contenido = error.error instanceof Blob ? JSON.parse(await error.error.text()) : error.error;
+          mensaje = contenido?.message ?? mensaje;
+        } catch {}
+        this.errorVistaResolucion.set(mensaje);
+      },
     });
   }
 
-  private generarResolucion(): void {
+  protected verResolucionGenerada(documento: DocumentoGeneradoDetalle): void {
     const detalle = this.detalle();
-    if (!detalle || this.guardandoResolucion()) {
+    if (!detalle) return;
+    this.vistaResolucionGenerada.set(true);
+    this.documentoResolucionVista.set(documento);
+    this.vistaResolucionVisible.set(true);
+    this.cargandoVistaResolucion.set(true);
+    this.errorVistaResolucion.set('');
+    this.urlVistaResolucion.set(null);
+    if (this.blobVistaResolucion) URL.revokeObjectURL(this.blobVistaResolucion);
+    this.documentoService.obtenerBlob(detalle.id, documento.id, 'pdf').subscribe({
+      next: (blob) => {
+        this.blobVistaResolucion = URL.createObjectURL(blob);
+        this.urlVistaResolucion.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobVistaResolucion));
+        this.cargandoVistaResolucion.set(false);
+      },
+      error: () => {
+        this.cargandoVistaResolucion.set(false);
+        this.errorVistaResolucion.set('No se pudo cargar la resolución en PDF. Puedes descargar el documento Word.');
+      },
+    });
+  }
+
+  protected generarResolucion(): void {
+    const detalle = this.detalle();
+    if (!detalle || this.guardandoResolucion() || !this.urlVistaResolucion()) {
       return;
     }
     const valores = this.resolucionForm.getRawValue();
     this.guardandoResolucion.set(true);
-    this.expedienteService
-      .generarResolucion(detalle.id, {
+    const payload = {
         numero: valores.numero ?? 0,
         anio: valores.anio ?? new Date().getFullYear(),
         fecha_emision: this.iso(valores.fecha_emision) ?? '',
-      })
-      .subscribe({
+      };
+    const operacion = detalle.resolucion
+      ? this.expedienteService.actualizarResolucion(detalle.id, payload)
+      : this.expedienteService.generarResolucion(detalle.id, payload);
+    operacion.subscribe({
         next: () => {
           this.guardandoResolucion.set(false);
+          this.vistaResolucionVisible.set(false);
           const numeroFormateado = String(valores.numero ?? 0).padStart(3, '0');
           this.mensajes.add({
             severity: 'success',
@@ -1003,8 +1167,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
       });
   }
 
-  protected descargarDocResolucion(formato: 'pdf' | 'docx' = 'pdf'): void {
-    const doc = this.docResolucionGenerada();
+  protected descargarDocResolucion(formato: 'pdf' | 'docx' = 'docx', version?: DocumentoGeneradoDetalle): void {
+    const doc = version ?? this.documentoResolucionVista() ?? this.docResolucionGenerada();
     const detalle = this.detalle();
     if (!doc || !detalle) return;
 
@@ -1066,26 +1230,24 @@ export class VistaExpediente implements OnInit, OnDestroy {
     });
   }
 
-  protected abrirModalDesembolso(): void {
-    this.desembolsoForm.reset({ fecha_desembolso: new Date() });
-    this.modalDesembolso.set(true);
-  }
-
   protected registrarDesembolso(): void {
-    if (this.desembolsoForm.invalid || this.guardandoDesembolso()) return;
+    if (this.desembolsoForm.invalid || this.guardandoDesembolso()) {
+      this.desembolsoForm.markAllAsTouched();
+      return;
+    }
     const detalle = this.detalle();
-    if (!detalle) return;
+    if (!detalle || detalle.estado !== 'RESOLUCION_EMITIDA' || !this.puedeGestionarRendicion()) return;
 
     const fecha = this.desembolsoForm.value.fecha_desembolso;
-    if (!fecha) return;
+    const monto = this.desembolsoForm.value.monto_desembolsado;
+    if (!fecha || monto === null || monto === undefined) return;
 
     this.guardandoDesembolso.set(true);
     this.expedienteService
-      .registrarDesembolso(detalle.id, { fecha_desembolso: this.iso(fecha) ?? '' })
+      .registrarDesembolso(detalle.id, { fecha_desembolso: this.iso(fecha) ?? '', monto_desembolsado: monto })
       .subscribe({
         next: () => {
           this.guardandoDesembolso.set(false);
-          this.modalDesembolso.set(false);
           this.mensajes.add({ severity: 'success', summary: 'Éxito', detail: 'Fecha de desembolso registrada.' });
           this.cargar(detalle.id);
         },
@@ -1137,11 +1299,12 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected seleccionarComprobante(event: Event): void {
     const input = event.target as HTMLInputElement;
     const archivo = input.files?.[0] ?? null;
-    input.value = '';
+    this.archivoComprobanteSeleccionado.set(null);
     const detalle = this.detalle();
-    if (!archivo || !detalle || this.adjuntandoComprobante()) {
+    if (!archivo || !detalle || !this.puedeGestionarRendicion() || this.adjuntandoComprobante()) {
       return;
     }
+    input.value = '';
     const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
     if (!['pdf'].includes(extension)) {
       this.mensajes.add({ severity: 'error', summary: 'Archivo no permitido', detail: 'El comprobante debe ser PDF.' });
@@ -1151,10 +1314,33 @@ export class VistaExpediente implements OnInit, OnDestroy {
       this.mensajes.add({ severity: 'error', summary: 'Archivo muy grande', detail: 'El comprobante no puede superar los 25 MB.' });
       return;
     }
+    this.archivoComprobanteSeleccionado.set(archivo);
+  }
+
+  protected subirComprobante(): void {
+    const detalle = this.detalle();
+    const archivo = this.archivoComprobanteSeleccionado();
+    if (!detalle || !archivo || !this.puedeGestionarRendicion()
+      || !['POR_RENDIR', 'RENDICION_VENCIDA'].includes(detalle.estado) || this.adjuntandoComprobante()) return;
+
     this.adjuntandoComprobante.set(true);
     this.expedienteService.subirArchivo(detalle.id, archivo, 'COMPROBANTE_RENDICION', 4).subscribe({
       next: (guardado) => {
         this.adjuntandoComprobante.set(false);
+        this.archivoComprobanteSeleccionado.set(null);
+        const nuevo: ArchivoDetalle = {
+          id: guardado.id,
+          tipo: 'COMPROBANTE_RENDICION',
+          etapa: 4,
+          nombre_original: guardado.nombre_original,
+          mime: guardado.mime ?? 'application/pdf',
+          tamano_bytes: guardado.tamano_bytes ?? archivo.size,
+          sha256: guardado.sha256 ?? null,
+          created_at: new Date().toISOString(),
+        };
+        this.detalle.update((actual) => actual && actual.id === detalle.id
+          ? { ...actual, archivos: [nuevo, ...actual.archivos] }
+          : actual);
         this.mensajes.add({ severity: 'success', summary: 'Comprobante adjuntado', detail: guardado.nombre_original });
         this.cargar(detalle.id, true);
       },
@@ -1169,13 +1355,59 @@ export class VistaExpediente implements OnInit, OnDestroy {
     });
   }
 
+  protected verComprobante(archivo: ArchivoDetalle): void {
+    const detalle = this.detalle();
+    if (!detalle) return;
+    this.vistaComprobanteVisible.set(true);
+    this.urlComprobante.set(null);
+    this.errorComprobante.set(false);
+    this.archivoService.obtenerBlob(detalle.id, archivo.id).subscribe({
+      next: (blob) => {
+        if (this.blobComprobante) URL.revokeObjectURL(this.blobComprobante);
+        this.blobComprobante = URL.createObjectURL(blob);
+        this.urlComprobante.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobComprobante));
+      },
+      error: () => this.errorComprobante.set(true),
+    });
+  }
+
+  protected retirarComprobante(archivo: ArchivoDetalle): void {
+    const detalle = this.detalle();
+    if (!detalle || !this.puedeGestionarRendicion()
+      || !['POR_RENDIR', 'RENDICION_VENCIDA'].includes(detalle.estado) || this.retirandoComprobante() !== null) return;
+    this.confirmacion.confirm({
+      header: 'Retirar comprobante',
+      message: `¿Retirar ${archivo.nombre_original} de la rendición?`,
+      acceptLabel: 'Retirar',
+      rejectLabel: 'Cancelar',
+      accept: () => {
+        this.retirandoComprobante.set(archivo.id);
+        this.expedienteService.retirarComprobante(detalle.id, archivo.id).subscribe({
+          next: () => {
+            this.detalle.update((actual) => actual && actual.id === detalle.id
+              ? { ...actual, archivos: actual.archivos.filter((item) => item.id !== archivo.id) }
+              : actual);
+            this.retirandoComprobante.set(null);
+            this.cargar(detalle.id, true);
+          },
+          error: (error) => {
+            this.retirandoComprobante.set(null);
+            this.mensajes.add({ severity: 'error', summary: 'No se pudo retirar', detail: (error as { error?: { message?: string } })?.error?.message ?? 'Intenta de nuevo.' });
+          },
+        });
+      },
+    });
+  }
+
   protected cerrarRendicion(): void {
     if (this.rendicionForm.invalid || this.cerrandoRendicion()) {
       this.rendicionForm.markAllAsTouched();
       return;
     }
     const detalle = this.detalle();
-    if (!detalle) return;
+    if (!detalle || !this.puedeGestionarRendicion()
+      || !['POR_RENDIR', 'RENDICION_VENCIDA'].includes(detalle.estado)
+      || this.comprobantes().length === 0 || this.adjuntandoComprobante() || this.retirandoComprobante() !== null) return;
 
     const fecha = this.rendicionForm.value.fecha_informe;
     if (!fecha) return;
@@ -1235,11 +1467,14 @@ export class VistaExpediente implements OnInit, OnDestroy {
     const carta: ArchivoDetalle | null =
       detalle.archivos.find((a) => a.tipo === 'CARTA_DOCENTE') ?? null;
     const mime = (carta?.mime ?? '').toLowerCase();
-    if (!carta || (!mime.includes('pdf') && !mime.startsWith('image'))) {
+    if (!carta || (!mime.includes('pdf') && !mime.startsWith('image')) || carta.id === this.archivoCartaCargadoId) {
       return;
     }
+    this.archivoCartaCargadoId = carta.id;
     this.archivoService.obtenerBlob(detalle.id, carta.id).subscribe({
       next: (blob) => {
+        if (this.carta()?.id !== carta.id) return;
+        if (this.blobUrlCarta) URL.revokeObjectURL(this.blobUrlCarta);
         this.blobUrlCarta = URL.createObjectURL(blob);
         this.urlCarta.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlCarta));
       },
@@ -1247,7 +1482,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
         this.mensajes.add({
           severity: 'warn',
           summary: 'Vista previa no disponible',
-          detail: 'No se pudo cargar la vista previa de la carta; usa «Descargar PDF».',
+          detail: 'No se pudo cargar la vista previa de la carta; usa «Descargar».',
         });
       },
     });

@@ -98,6 +98,7 @@ export interface ExpedienteDetalle {
     registro_vrin_fecha: string | null;
     registrado_por: string | null;
   } | null;
+  resolucion_borrador?: { numero: number | null; anio: number | null; fecha_emision: string | null } | null;
   resolucion: {
     numero: string;
     anio: number;
@@ -107,6 +108,7 @@ export interface ExpedienteDetalle {
   } | null;
   rendicion: {
     fecha_desembolso: string | null;
+    monto_desembolsado: number | null;
     fecha_limite: string | null;
     fecha_informe: string | null;
     estado: string | null;
