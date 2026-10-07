@@ -1,0 +1,58 @@
+
+.paso-carta-vrin {
+  .cabecera-acciones { display: none; }
+  .carta-opp { gap: 1.25rem; }
+  .formulario { margin-top: .2rem; gap: 1rem; }
+  .documento-generado ~ .formulario, .aviso-carta ~ .formulario { margin-top: 1.25rem; }
+  .campo { label { font-size: .7rem; color: #58738f; font-weight: 500; } input, textarea, .p-datepicker-input { font-size: .75rem; border-color: #dbe5ef; border-radius: 8px; padding: .85rem; color: #38536c; background: white; } textarea { min-height: 44px; } }
+  .valor-carta { border: 1px solid #dbe5ef; border-radius: 8px; padding: .85rem; font-size: .75rem; min-height: 44px; color: #58738f; overflow-wrap: anywhere; }
+  em { color: #d74747; font-style: normal; }
+  .documentos-cabecera { display: flex; justify-content: space-between; align-items: center; font-size: .75rem; small { display: block; margin-top: .4rem; font-size: .6rem; color: #96a7b8; } }
+  .vigente { color: #00856c; background: #ecfcf5; padding: .4rem .7rem; border-radius: 20px; font-size: .55rem; }
+  .documento-generado { background: #f7f9fc; padding: .85rem; gap: .75rem; .p-button { font-size: .7rem; padding: .55rem .7rem; background: white; border-color: #dbe5ef; color: #58738f; } }
+  .historial-cartas { border: 1px solid #dfe7ef; border-radius: 9px; padding: .8rem; margin-top: -.7rem; summary { cursor: pointer; font-size: .65rem; color: #58738f; } .archivo-solicitud { margin-top: .75rem; border: 0; border-top: 1px solid #edf1f5; border-radius: 0; background: white; } }
+  .menu-documento { position: relative; summary { list-style: none; cursor: pointer; padding: .45rem .6rem; background: white; border: 1px solid #dbe5ef; border-radius: 8px; } > div { position: absolute; z-index: 2; right: 0; top: 36px; min-width: 140px; background: white; border: 1px solid #dbe5ef; border-radius: 8px; padding: .5rem; box-shadow: 0 4px 16px #18365315; } button { border: 0; background: none; font: inherit; font-size: .75rem; padding: .5rem; cursor: pointer; color: #38536c; } }
+}
+.aviso-carta { display: flex; align-items: flex-start; gap: .65rem; background: #ecfcf5; color: #22836d; padding: 1rem; border-radius: 8px; font-size: .65rem; line-height: 1.5; i { font-size: .8rem; margin-top: .15rem; } p { margin: .2rem 0 0; } }
+.aviso-version { background: #fffbec; border: 1px solid #ffdb6b; color: #b76b21; }
+.acciones-carta-opp { display: flex; justify-content: space-between; align-items: center; gap: 1rem; margin-top: .7rem; .p-button { font-size: .8rem; border-radius: 9px; } .p-button-primary { background: #245693; border-color: #245693; box-shadow: 0 6px 12px #24569320; } }
+.acciones-carta-secundarias { display: flex; flex-wrap: wrap; gap: .65rem; }
+.pasos-solicitud .terminado { .paso-circulo { color: white; background: #5177b5; border-color: #5177b5; i { font-size: .75rem; } } &::after { background: #7897c7 !important; } }
+.vista-carta-opp {
+  overflow: hidden; border-radius: 16px; color: #38536c;
+  .p-dialog-header { padding: 1.25rem 1.5rem; border-bottom: 1px solid #dfe7ef; }
+  .p-dialog-content { padding: 0; }
+  .p-dialog-footer { padding: 1rem 1.5rem; border-top: 1px solid #dfe7ef; }
+  .p-button { font-size: .75rem; border-radius: 8px; }
+  .p-button-primary { background: #245693; border-color: #245693; }
+}
+.vista-cabecera { display: flex; gap: .8rem; align-items: flex-start; .registro-icono { display: grid; place-items: center; background: #e8f0fd; border-radius: 10px; color: #245693; width: 40px; height: 40px; flex-shrink: 0; } h2 { font-size: 1rem; font-weight: 400; margin: .45rem 0; } p { font-size: .65rem; color: #879bb0; margin: 0; } }
+.vista-kicker { color: #527cf4; text-transform: uppercase; letter-spacing: .1em; font-size: .6rem; font-weight: 600; }
+.vista-cuerpo { display: grid; grid-template-columns: 245px minmax(0, 1fr); }
+.vista-datos { padding: 1.5rem 1.1rem; border-right: 1px solid #dfe7ef; h3 { font-size: .85rem; font-weight: 400; margin: .7rem 0 1rem; } .aviso-carta { margin-top: 1.25rem; background: #edf3ff; color: #5177b5; border: 1px solid #d9e5fc; } }
+.vista-dato { display: flex; flex-direction: column; gap: .45rem; padding: .85rem 0; border-bottom: 1px solid #edf1f5; span { color: #96a7b8; font-size: .55rem; text-transform: uppercase; } strong { font-size: .65rem; overflow-wrap: anywhere; } }
+.vista-papel { padding: 1.5rem; background: #e9eef2; min-width: 0; max-height: 70vh; overflow: auto; }
+.carta-borrador { position: relative; width: 100%; max-width: 620px; min-height: 790px; padding: 2.75rem 3rem; margin: 0 auto; background: white; box-shadow: 0 5px 25px #18365312; font-family: Arial, sans-serif; font-size: .65rem; line-height: 1.7;
+  header { position: relative; padding: 0 4rem 1.75rem 0; border-bottom: 2px solid #4a9a92; color: #168074; font-size: .65rem; small { display: block; font-size: .45rem; color: #96a7b8; letter-spacing: .05em; } }
+  .sello-unamba { display: grid; place-items: center; position: absolute; top: 0; right: 0; width: 46px; height: 46px; border: 2px solid #5177b5; color: #5177b5; border-radius: 50%; font-size: .5rem; }
+  .carta-fecha { text-align: right; margin: 1.5rem 0; }
+  h3 { text-align: center; text-decoration: underline; font-size: .75rem; font-weight: 400; margin: 1.75rem 0; }
+  p { margin: 1.1rem 0; }
+  footer { margin: 4.5rem auto 0; text-align: center; width: 65%; border-top: 1px solid #8197ac; padding-top: .5rem; font-size: .55rem; small { display: block; color: #96a7b8; font-size: .45rem; } }
+}
+.pdf-carta-opp { width: 100%; height: 65vh; border: 0; }
+.pdf-pendiente { min-height: 50vh; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; gap: .75rem; }
+.vista-footer { display: flex; align-items: center; justify-content: space-between; gap: 1rem; small { font-size: .6rem; color: #879bb0; } > div { display: flex; gap: .5rem; } }
+@media (max-width: 700px) {
+  .paso-carta-vrin .documento-generado { flex-wrap: wrap; .archivo-info { flex-basis: calc(100% - 60px); } }
+  .acciones-carta-opp, .vista-footer { flex-wrap: wrap; }
+  .vista-cuerpo { grid-template-columns: 1fr; }
+  .vista-datos { display: none; }
+  .vista-papel { padding: .75rem; }
+  .carta-borrador { padding: 1.5rem; min-height: 650px; }
+}
+
+.paso-carta-vrin {
+  .expediente-kicker { display: block; color: #527cf4; text-transform: uppercase; letter-spacing: .12em; font-size: .6rem; font-weight: 600; margin-bottom: .8rem; }
+  .resumen-titulo { position: relative; padding-right: 40px; p-button { position: absolute; top: 0; right: 0; } .p-button { padding: .5rem; border-color: #dbe5ef; } }
+}

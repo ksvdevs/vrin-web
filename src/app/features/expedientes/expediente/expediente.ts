@@ -25,6 +25,7 @@ import {
   type ExpedienteDetalle,
 } from '../../../core/models/expediente-detalle.model';
 import { ArchivoService } from '../../../core/services/archivo.service';
+import { AuthService } from '../../../core/services/auth.service';
 import { CartaVrinService } from '../../../core/services/carta-vrin.service';
 import { DocumentoService } from '../../../core/services/documento.service';
 import { ExpedienteService } from '../../../core/services/expediente.service';
@@ -63,6 +64,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private readonly sanitizer = inject(DomSanitizer);
   private readonly expedienteService = inject(ExpedienteService);
   private readonly archivoService = inject(ArchivoService);
+  private readonly auth = inject(AuthService);
   private readonly cartaVrinService = inject(CartaVrinService);
   private readonly resolucionService = inject(ResolucionService);
   private readonly documentoService = inject(DocumentoService);
@@ -86,6 +88,21 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected readonly modalDesembolso = signal(false);
   protected readonly modalDoi = signal(false);
   protected readonly modalCartaVisible = signal(false);
+  protected readonly editandoCarta = signal(false);
+  private versionEditando?: number;
+  protected readonly vistaCartaVrinVisible = signal(false);
+  protected readonly vistaBorrador = signal(false);
+  protected readonly documentoVista = signal<DocumentoGeneradoDetalle | null>(null);
+  protected readonly urlVersionCarta = signal<SafeResourceUrl | null>(null);
+  protected readonly cargandoVersionCarta = signal(false);
+  protected readonly errorVersionCarta = signal(false);
+  protected readonly mensajeErrorPreview = signal('No se pudo preparar la vista previa de la plantilla.');
+  private blobVersionCarta?: string;
+  private solicitudVista = 0;
+  protected readonly versionesCarta = computed(() => (this.detalle()?.documentos_generados ?? [])
+    .filter(d => d.tipo === 'CARTA_VRIN').sort((a, b) => b.version - a.version));
+  protected readonly puedeEditarCarta = computed(() => this.detalle()?.estado === 'EN_ESPERA_OPP'
+    && !!this.docCartaGenerada() && ['SECRETARIA', 'ADMINISTRADOR_GENERAL'].includes(this.auth.usuarioActual()?.rol_codigo ?? ''));
   protected readonly guardandoDesembolso = signal(false);
   protected readonly guardandoDoi = signal(false);
   protected readonly cerrandoRendicion = signal(false);
@@ -326,15 +343,16 @@ export class VistaExpediente implements OnInit, OnDestroy {
     const detalle = this.detalle();
     if (detalle && !this.guardandoCarta()) {
       this.restablecerDatosCarta(detalle);
+      this.editandoCarta.set(false);
       this.sugerirNumeroSiCorresponde();
     }
   }
 
   private restablecerDatosCarta(detalle: ExpedienteDetalle): void {
     this.cartaForm.reset({
-      numero_completo: '',
-      fecha: new Date(),
-      asunto: `Solicito financiamiento para publicación en revista indexada para el docente ${detalle.docente?.nombre_completo ?? ''}`.trim(),
+      numero_completo: detalle.carta_vrin ? `CARTA N° ${this.numeroCartaFormateado(detalle.carta_vrin.numero, detalle.carta_vrin.anio)}-VRIN-UNAMBA` : '',
+      fecha: detalle.carta_vrin?.fecha ? new Date(`${detalle.carta_vrin.fecha}T00:00:00`) : new Date(),
+      asunto: detalle.carta_vrin?.asunto ?? `Solicito financiamiento para publicación en revista indexada para el docente ${detalle.docente?.nombre_completo ?? ''}`.trim(),
       registro_mp_numero: detalle.registro_mp_numero ?? '',
       fecha_aceptacion: detalle.articulo?.fecha_aceptacion
         ? new Date(`${detalle.articulo.fecha_aceptacion}T00:00:00`) : null,
@@ -474,34 +492,58 @@ export class VistaExpediente implements OnInit, OnDestroy {
       this.cartaForm.markAllAsTouched();
       return;
     }
+    this.vistaBorrador.set(true);
+    this.documentoVista.set(null);
+    this.vistaCartaVrinVisible.set(true);
+    this.cargandoVersionCarta.set(true);
+    this.errorVersionCarta.set(false);
+    this.urlVersionCarta.set(null);
+    const detalle = this.detalle();
+    if (!detalle) return;
     const valores = this.cartaForm.getRawValue();
-    const numero_completo = valores.numero_completo || '';
-    
-    this.confirmacion.confirm({
-      header: 'Generar Carta VRIN → OPP',
-      message: `Se emitirá la ${numero_completo} y el expediente pasará a «En espera OPP». ¿Continuar?`,
-      icon: 'pi pi-send',
-      acceptLabel: 'Generar carta',
-      rejectLabel: 'Cancelar',
-      accept: () => this.generarCarta(),
+    const match = valores.numero_completo?.match(/(\d+)-(\d{4})/);
+    const solicitud = ++this.solicitudVista;
+    this.cartaVrinService.preview(detalle.id, {
+      numero: Number(match?.[1]), anio: Number(match?.[2]),
+      fecha: this.iso(valores.fecha), ciudad: detalle.carta_vrin?.ciudad ?? 'Abancay',
+      registro_mp_numero: valores.registro_mp_numero?.trim(), asunto: valores.asunto?.trim(),
+      fecha_aceptacion: this.iso(valores.fecha_aceptacion),
+    }).subscribe({
+      next: blob => {
+        if (solicitud !== this.solicitudVista) return;
+        if (this.blobVersionCarta) URL.revokeObjectURL(this.blobVersionCarta);
+        this.blobVersionCarta = URL.createObjectURL(blob);
+        this.urlVersionCarta.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobVersionCarta));
+        this.cargandoVersionCarta.set(false);
+      },
+      error: async (error) => {
+        if (solicitud !== this.solicitudVista) return;
+        this.cargandoVersionCarta.set(false);
+        this.errorVersionCarta.set(true);
+        let mensaje = 'No se pudo preparar la vista previa de la plantilla.';
+        try {
+          const contenido = error.error instanceof Blob ? JSON.parse(await error.error.text()) : error.error;
+          mensaje = contenido?.message ?? mensaje;
+        } catch {}
+        if (solicitud === this.solicitudVista) this.mensajeErrorPreview.set(mensaje);
+      },
     });
   }
 
-  private generarCarta(): void {
+  protected generarCarta(): void {
     const detalle = this.detalle();
-    if (!detalle || this.guardandoCarta()) {
+    if (!detalle || this.guardandoCarta() || this.cartaForm.invalid || (this.vistaBorrador() && !this.urlVersionCarta())) {
       return;
     }
     const valores = this.cartaForm.getRawValue();
     
     // Parse "CARTA Nº 0667-2026-VRIN-UNAMBA" -> 667, 2026
-    const match = valores.numero_completo?.match(/N?[°º]?\s*(\d+)-(\d{4})/i);
+    const match = valores.numero_completo?.match(/(\d+)-(\d{4})/);
     const numero = match ? parseInt(match[1], 10) : 0;
     const anio = match ? parseInt(match[2], 10) : new Date().getFullYear();
 
     this.guardandoCarta.set(true);
-    this.expedienteService
-      .generarCarta(detalle.id, {
+    const payload = {
         numero: numero,
         anio: anio,
         fecha: this.iso(valores.fecha) ?? '',
@@ -509,16 +551,23 @@ export class VistaExpediente implements OnInit, OnDestroy {
         registro_mp_numero: valores.registro_mp_numero?.trim() || null,
         asunto: valores.asunto?.trim() || null,
         fecha_aceptacion: this.iso(valores.fecha_aceptacion),
-      })
+      };
+    const operacion = this.editandoCarta()
+      ? this.cartaVrinService.actualizar(detalle.id, { ...payload, fecha_aceptacion: payload.fecha_aceptacion ?? null, version_actual: this.versionEditando ?? 0 })
+      : this.expedienteService.generarCarta(detalle.id, payload);
+    operacion
       .subscribe({
         next: (respuesta) => {
           this.guardandoCarta.set(false);
+          this.editandoCarta.set(false);
+          this.vistaCartaVrinVisible.set(false);
+          this.indiceActivoVisible.set(1);
           this.mensajes.add({
             severity: 'success',
             summary: `${valores.numero_completo} generada`,
             detail: 'Carta guardada. Puedes ver el documento aquí y registrar la respuesta OPP en el paso 3: Resolución.',
           });
-          this.cargar(detalle.id);
+          this.cargar(detalle.id, true);
         },
         error: (error) => {
           this.guardandoCarta.set(false);
@@ -531,6 +580,46 @@ export class VistaExpediente implements OnInit, OnDestroy {
           });
         },
       });
+  }
+
+  protected editarCarta(): void {
+    const detalle = this.detalle();
+    if (!detalle || !this.puedeEditarCarta()) return;
+    this.restablecerDatosCarta(detalle);
+    this.versionEditando = this.docCartaGenerada()?.version;
+    this.editandoCarta.set(true);
+  }
+
+  protected verVersionCarta(doc: DocumentoGeneradoDetalle): void {
+    const detalle = this.detalle();
+    if (!detalle) return;
+    const solicitud = ++this.solicitudVista;
+    if (this.blobVersionCarta) URL.revokeObjectURL(this.blobVersionCarta);
+    this.blobVersionCarta = undefined;
+    this.urlVersionCarta.set(null);
+    this.errorVersionCarta.set(false);
+    this.documentoVista.set(doc);
+    this.vistaBorrador.set(false);
+    this.vistaCartaVrinVisible.set(true);
+    this.cargandoVersionCarta.set(!!doc.pdf_path);
+    if (!doc.pdf_path) return;
+    this.documentoService.obtenerBlob(detalle.id, doc.id, 'pdf').subscribe({
+      next: blob => {
+        if (solicitud !== this.solicitudVista) return;
+        this.blobVersionCarta = URL.createObjectURL(blob);
+        this.urlVersionCarta.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobVersionCarta));
+        this.cargandoVersionCarta.set(false);
+      },
+      error: () => {
+        if (solicitud !== this.solicitudVista) return;
+        this.cargandoVersionCarta.set(false);
+        this.errorVersionCarta.set(true);
+      },
+    });
+  }
+
+  protected fechaCartaVista(fecha: Date | null | undefined): string {
+    return fecha instanceof Date ? fecha.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
   }
 
   protected guardarRespuestaOpp(): void {
@@ -799,6 +888,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    this.solicitudVista++;
+    if (this.blobVersionCarta) URL.revokeObjectURL(this.blobVersionCarta);
     this.detenerPolling();
     if (this.blobUrlCarta) {
       URL.revokeObjectURL(this.blobUrlCarta);

@@ -5,6 +5,7 @@ import { of, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { ExpedienteDetalle } from '../../../core/models/expediente-detalle.model';
+import { AuthService } from '../../../core/services/auth.service';
 import { ArchivoService } from '../../../core/services/archivo.service';
 import { CartaVrinService } from '../../../core/services/carta-vrin.service';
 import { DocumentoService } from '../../../core/services/documento.service';
@@ -16,6 +17,7 @@ describe('Etapas de carta VRIN y resolución', () => {
   let fixture: ComponentFixture<VistaExpediente>;
   let detalle: ExpedienteDetalle;
   let pasoQuery: string | null;
+  const cartas = { sugerencia: () => of({ siguiente_numero: 67 }), actualizar: vi.fn(), preview: vi.fn() };
   const documentos = { obtenerBlob: vi.fn() };
   const api = {
     obtener: vi.fn(),
@@ -28,6 +30,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:carta-vrin');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     documentos.obtenerBlob.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
+    cartas.preview.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
     pasoQuery = null;
     detalle = {
       id: 1, codigo: 'ART-2026-000001', modulo: 'ARTICULOS', estado: 'VALIDADO_CALIDAD',
@@ -67,7 +70,8 @@ describe('Etapas de carta VRIN y resolución', () => {
           get queryParamMap() { return convertToParamMap(pasoQuery === null ? {} : { paso: pasoQuery }); },
         } } },
         { provide: ExpedienteService, useValue: api },
-        { provide: CartaVrinService, useValue: { sugerencia: () => of({ siguiente_numero: 67 }) } },
+        { provide: CartaVrinService, useValue: cartas },
+        { provide: AuthService, useValue: { usuarioActual: () => ({ rol_codigo: 'SECRETARIA' }) } },
         { provide: ResolucionService, useValue: { sugerencia: () => of({ siguiente_numero: 13 }) } },
         { provide: ArchivoService, useValue: {} },
         { provide: DocumentoService, useValue: documentos },
@@ -96,12 +100,12 @@ describe('Etapas de carta VRIN y resolución', () => {
     return encontrado!;
   }
 
-  it('muestra los datos legales y Generar Carta en el paso 2, sin respuesta OPP', async () => {
+  it('muestra el formulario y Guardar cambios en el paso 2, sin respuesta OPP', async () => {
     await abrir();
     expect(fixture.componentInstance['indiceActivoVisible']()).toBe(1);
     expect(fixture.nativeElement.querySelector('#asunto_carta')).not.toBeNull();
     expect(fixture.nativeElement.querySelector('#carta_opp_numero')).toBeNull();
-    expect(boton('Generar Carta')).toBeDefined();
+    expect(boton('Guardar cambios')).toBeDefined();
   });
 
   it('permite pasar de la carta emitida a la respuesta OPP en Resolución', async () => {
@@ -109,7 +113,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     pasoQuery = '1';
     await abrir();
     expect(fixture.nativeElement.textContent).not.toContain('Registrar Respuesta OPP');
-    boton('Continuar a Resolución').click();
+    fixture.componentInstance['cambiarPaso'](2);
     fixture.detectChanges();
     expect(fixture.componentInstance['indiceActivoVisible']()).toBe(2);
     expect(fixture.nativeElement.querySelector('#carta_opp_numero')).not.toBeNull();
@@ -124,19 +128,19 @@ describe('Etapas de carta VRIN y resolución', () => {
     componente['cartaForm'].patchValue({ numero_completo: 'CARTA Nº 0067-2026-VRIN-UNAMBA',
       fecha: new Date(2026, 9, 5), asunto: 'Asunto de prueba', registro_mp_numero: '123-2026',
       fecha_aceptacion: new Date(2026, 9, 2) });
-    vi.spyOn(TestBed.inject(ConfirmationService), 'confirm').mockImplementation((opciones) => {
-      opciones.accept?.();
-      return TestBed.inject(ConfirmationService);
-    });
     fixture.detectChanges();
     const form = fixture.nativeElement.querySelector('form') as HTMLFormElement;
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+    fixture.detectChanges();
+    expect(api.generarCarta).not.toHaveBeenCalled();
+    expect(componente['vistaCartaVrinVisible']()).toBe(true);
+    componente['generarCarta']();
     fixture.detectChanges();
     expect(api.generarCarta).toHaveBeenCalledWith(1, expect.objectContaining({
       numero: 67, anio: 2026, asunto: 'Asunto de prueba', fecha_aceptacion: '2026-10-02',
     }));
     expect(componente['indiceActivoVisible']()).toBe(1);
-    expect(boton('Continuar a Resolución')).toBeDefined();
+    expect(boton('Volver a expedientes')).toBeDefined();
   });
 
   it('guarda la respuesta en el paso 3 y habilita la resolución sin volver al paso 2', async () => {
@@ -155,35 +159,93 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(boton('Generar Resolución Final')).toBeDefined();
   });
 
-  it('muestra la carta en el panel lateral cuando termina la conversión a PDF', async () => {
+  it('abre el PDF generado en el modal cuando termina la conversión', async () => {
     esperarOpp();
     pasoQuery = '1';
     detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
       pdf_path: null, es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
     await abrir();
-    expect(fixture.nativeElement.textContent).toContain('Preparando la vista previa PDF');
     expect(documentos.obtenerBlob).not.toHaveBeenCalled();
     detalle = { ...detalle, documentos_generados: [{ ...detalle.documentos_generados[0], pdf_path: 'carta.pdf' }] };
     fixture.componentInstance['cargar'](1, true);
+    fixture.componentInstance['verVersionCarta'](detalle.documentos_generados[0]);
     fixture.detectChanges();
-    const visor = fixture.nativeElement.querySelector('.columna-derecha iframe');
-    expect(visor?.getAttribute('src')).toBe('blob:carta-vrin');
-    expect(fixture.componentInstance['indiceActivoVisible']()).toBe(1);
+    expect(fixture.componentInstance['urlVersionCarta']()).not.toBeNull();
+    expect(fixture.componentInstance['vistaBorrador']()).toBe(false);
+    expect(fixture.nativeElement.querySelector('.columna-derecha iframe')).toBeNull();
     expect(documentos.obtenerBlob).toHaveBeenCalledWith(1, 9, 'pdf');
   });
 
-  it('permite reintentar la vista previa si falla la descarga del PDF', async () => {
+  it('permite reintentar la descarga de una versión sin perder la selección', async () => {
     esperarOpp();
     pasoQuery = '1';
     detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
       pdf_path: 'carta.pdf', es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
-    documentos.obtenerBlob.mockReturnValueOnce(throwError(() => new Error('Error de red')));
     await abrir();
-    expect(fixture.nativeElement.textContent).toContain('No se pudo cargar la vista previa.');
-    boton('Reintentar vista previa').click();
-    fixture.detectChanges();
-    expect(fixture.nativeElement.querySelector('.columna-derecha iframe')?.getAttribute('src')).toBe('blob:carta-vrin');
-    expect(documentos.obtenerBlob).toHaveBeenCalledTimes(2);
+    documentos.obtenerBlob.mockReturnValueOnce(throwError(() => new Error('Error de red')));
+    fixture.componentInstance['verVersionCarta'](detalle.documentos_generados[0]);
+    expect(fixture.componentInstance['errorVersionCarta']()).toBe(true);
+    fixture.componentInstance['verVersionCarta'](detalle.documentos_generados[0]);
+    expect(fixture.componentInstance['errorVersionCarta']()).toBe(false);
+    expect(fixture.componentInstance['urlVersionCarta']()).not.toBeNull();
+  });
+
+  it('cancela la edición y restaura los datos de la carta vigente', async () => {
+    esperarOpp();
+    pasoQuery = '1';
+    detalle.carta_vrin!.asunto = 'Asunto vigente';
+    detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
+      pdf_path: 'carta.pdf', es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
+    await abrir();
+    const componente = fixture.componentInstance;
+    componente['editarCarta']();
+    expect(componente['cartaForm'].valid).toBe(false);
+    expect(componente['cartaForm'].controls.numero_completo.valid).toBe(true);
+    componente['cartaForm'].patchValue({ asunto: 'Cambio sin guardar' });
+    componente['descartarCarta']();
+    expect(componente['editandoCarta']()).toBe(false);
+    expect(componente['cartaForm'].controls.asunto.value).toBe('Asunto vigente');
+    expect(cartas.actualizar).not.toHaveBeenCalled();
+  });
+
+  it('guarda la edición como nueva versión y conserva el formulario ante un error', async () => {
+    esperarOpp();
+    pasoQuery = '1';
+    detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
+      pdf_path: 'carta.pdf', es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
+    await abrir();
+    const componente = fixture.componentInstance;
+    componente['editarCarta']();
+    componente['cartaForm'].patchValue({ asunto: 'Asunto nuevo', registro_mp_numero: '123', fecha_aceptacion: new Date(2026, 9, 2) });
+    componente['confirmarGenerarCarta']();
+    cartas.actualizar.mockReturnValueOnce(throwError(() => new Error('Conflicto')));
+    componente['generarCarta']();
+    expect(cartas.actualizar).toHaveBeenCalledWith(1, expect.objectContaining({ version_actual: 1, asunto: 'Asunto nuevo' }));
+    expect(api.generarCarta).not.toHaveBeenCalled();
+    expect(componente['editandoCarta']()).toBe(true);
+    expect(componente['vistaCartaVrinVisible']()).toBe(true);
+    expect(componente['guardandoCarta']()).toBe(false);
+    cartas.actualizar.mockReturnValueOnce(of({}));
+    componente['generarCarta']();
+    expect(componente['editandoCarta']()).toBe(false);
+    expect(componente['vistaCartaVrinVisible']()).toBe(false);
+  });
+
+  it('envía la versión que se empezó a editar aunque el detalle se actualice', async () => {
+    esperarOpp();
+    pasoQuery = '1';
+    detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
+      pdf_path: 'carta.pdf', es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
+    await abrir();
+    const componente = fixture.componentInstance;
+    componente['editarCarta']();
+    componente['cartaForm'].patchValue({ asunto: 'Mi edición', registro_mp_numero: '123', fecha_aceptacion: new Date(2026, 9, 2) });
+    detalle = { ...detalle, documentos_generados: [{ ...detalle.documentos_generados[0], id: 10, version: 2 }] };
+    componente['cargar'](1, true);
+    cartas.actualizar.mockReturnValueOnce(throwError(() => new Error('Conflicto')));
+    componente['generarCarta']();
+    expect(cartas.actualizar).toHaveBeenCalledWith(1, expect.objectContaining({ version_actual: 1 }));
+    expect(componente['cartaForm'].controls.asunto.value).toBe('Mi edición');
   });
 
   it('mantiene la respuesta OPP en consulta para usuarios sin permiso de registro', async () => {

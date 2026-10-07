@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 
 import type { Plantilla, SeleccionPlantilla, TipoDocumento } from '../models/plantilla.model';
@@ -32,6 +32,13 @@ export class PlantillaService {
 @Injectable({ providedIn: 'root' })
 export class SeleccionService {
   private readonly api = inject(ApiService);
+  readonly catalogo = signal<{
+    usuarioId: number;
+    cartas: Plantilla[];
+    resoluciones: Plantilla[];
+    cartaId: number | null;
+    resolucionId: number | null;
+  } | null>(null);
 
   listarVigentes(modulo = 'ARTICULOS'): Observable<SeleccionPlantilla[]> {
     return this.api.get<SeleccionPlantilla[]>('/plantilla-seleccion', { modulo });

@@ -1,4 +1,4 @@
-<main class="detalle-page">
+<main class="detalle-page" [class.paso-solicitud]="indiceActivoVisible() <= 1" [class.paso-carta-vrin]="indiceActivoVisible() === 1">
   <p-toast />
   <p-confirmdialog />
 
@@ -20,11 +20,12 @@
           ariaLabel="Volver a la bandeja"
         />
         <div>
+          @if (indiceActivoVisible() === 1) { <span class="expediente-kicker">Expediente de financiamiento</span> }
           <div class="linea-principal">
-            <h1>Expediente {{ e.codigo }}</h1>
-            <p-tag [value]="e.badge.label" [severity]="severidadBadge()" />
+            <h1>{{ indiceActivoVisible() <= 1 ? 'Artículo científico' : 'Expediente ' + e.codigo }}</h1>
+            @if (indiceActivoVisible() > 1) { <p-tag [value]="e.badge.label" [severity]="severidadBadge()" /> }
           </div>
-          <p class="subtitulo">Registrado el {{ e.fecha_registro }}</p>
+          <p class="subtitulo">{{ e.codigo }} · Ingresado el {{ e.fecha_registro }}</p>
         </div>
       </div>
       <div class="cabecera-acciones">
@@ -49,6 +50,16 @@
       </div>
     </header>
 
+    @if (indiceActivoVisible() <= 1) {
+      <nav class="pasos-solicitud" aria-label="Etapas del expediente">
+        @for (paso of pasos(); track $index) {
+          <button type="button" [class.activo]="$index === indiceActivoVisible()" [class.terminado]="$index < indiceActivoVisible()" [disabled]="guardandoCarta()" (click)="cambiarPaso($index)" [attr.aria-current]="$index === indiceActivoVisible() ? 'step' : null">
+            <span class="paso-circulo">@if ($index < indiceActivoVisible()) { <i class="pi pi-check"></i> }</span><strong>Paso {{ $index + 1 }}. {{ paso.label }}</strong>
+            <small>{{ $index === 0 ? 'Solicitud registrada' : $index === 3 ? 'Pendiente' : 'En elaboración' }}</small>
+          </button>
+        }
+      </nav>
+    } @else {
     <p-steps 
       [model]="pasos()" 
       [activeIndex]="indiceActivoVisible()" 
@@ -62,151 +73,45 @@
       }"
     />
 
+    }
     <div class="contenido">
       <div class="columna-izquierda">
         @if (indiceActivoVisible() === 0) {
-          <section class="tarjeta">
-            <h2 class="tarjeta-titulo"><i class="pi pi-file"></i> Documento</h2>
-            <div class="fila-datos">
-            <div class="dato">
-              <span class="etiqueta">Número de Carta Docente *</span>
-              <strong>{{ e.carta_docente_numero }}</strong>
+          <section class="tarjeta registro-solicitud">
+            <div class="registro-cabecera">
+              <span class="registro-icono"><i class="pi pi-file"></i></span>
+              <div><h2>Registro de la solicitud</h2><p>Valida la carta y confirma los requisitos del docente.</p></div>
+              <span class="estado-registro" [class.completo]="paso0Ok()">{{ paso0Ok() ? 'Completo' : 'Pendiente' }}</span>
             </div>
-            <div class="dato">
-              <span class="etiqueta">Fecha de Carta Docente *</span>
-              <strong>{{ formatoFecha(e.carta_docente_fecha) }}</strong>
+            <div class="fila-datos datos-carta">
+              <div class="dato"><span class="etiqueta">N.º de carta</span><strong>{{ e.carta_docente_numero }}</strong></div>
+              <div class="dato"><span class="etiqueta">Fecha de carta</span><strong>{{ formatoFecha(e.carta_docente_fecha) }}</strong></div>
             </div>
-          </div>
-          @if (carta(); as c) {
-            <div class="archivo-carta">
-              <i class="pi pi-file-pdf"></i>
-              <span class="nombre">{{ c.nombre_original }}</span>
-              <div class="acciones-archivo">
-                <p-button
-                  label="Descargar PDF"
-                  icon="pi pi-download"
-                  size="small"
-                  severity="secondary"
-                  [outlined]="true"
-                  (onClick)="descargarCarta()"
-                />
-              </div>
+            <div class="documento-solicitud">
+              <p>Documento de solicitud</p>
+              @if (carta(); as c) {
+                <div class="archivo-solicitud">
+                  <span class="pdf-insignia">PDF</span>
+                  <div class="archivo-info"><strong>{{ c.nombre_original }}</strong><small>{{ (c.tamano_bytes / 1048576).toFixed(1) }} MB · {{ c.mime === 'application/pdf' ? 'PDF' : 'Documento' }}</small></div>
+                  <p-button icon="pi pi-eye" [text]="true" severity="secondary" ariaLabel="Ver carta del docente" (onClick)="modalCartaVisible.set(true)" />
+                  <p-button icon="pi pi-download" [text]="true" severity="secondary" ariaLabel="Descargar carta del docente" (onClick)="descargarCarta()" />
+                </div>
+              } @else { <p class="pendiente">Sin carta adjunta.</p> }
             </div>
-          } @else {
-            <p class="pendiente">Sin carta adjunta.</p>
-          }
-        </section>
-
-        <section class="tarjeta">
-          <h2 class="tarjeta-titulo"><i class="pi pi-user"></i> Investigador Solicitante</h2>
-          <div class="docente-cabecera">
-            <span class="avatar">{{ iniciales(e.docente?.nombre_completo) }}</span>
-            <div>
-              <strong>{{ e.docente?.nombre_completo ?? '—' }}</strong>
-              <p class="dato-simple">DNI: {{ e.docente?.dni ?? '—' }}</p>
-            </div>
-          </div>
-          <div class="fila-datos">
-            <div class="dato">
-              <span class="etiqueta">Facultad</span>
-              <strong>{{ e.docente?.facultad?.nombre ?? '—' }}</strong>
-            </div>
-            <div class="dato">
-              <span class="etiqueta">Escuela Profesional</span>
-              <strong>{{ e.docente?.escuela?.nombre ?? '—' }}</strong>
-            </div>
-            <div class="dato">
-              <span class="etiqueta">Condición Laboral</span>
-              <strong>{{ e.docente ? condicionLaboral(e.docente.tipo_contrato) : '—' }}</strong>
-            </div>
-          </div>
-        </section>
-
-        <section class="tarjeta">
-          <h2 class="tarjeta-titulo"><i class="pi pi-book"></i> Artículo Indexado Elegible</h2>
-          @if (e.articulo; as a) {
-            <p class="titulo-articulo">{{ a.titulo }}</p>
-            <div class="fila-datos">
-              <div class="dato">
-                <span class="etiqueta">Revista Científica</span>
-                <strong>{{ a.revista }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Indexación / Base de Datos</span>
-                <strong>{{ a.base_indexadora }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Cuartil</span>
-                <strong>{{ a.cuartil }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Monto Solicitado</span>
-                <strong class="monto">{{ formatoSoles(a.monto_solicitado) }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">DOI (Identificador Digital de Objeto)</span>
-                <strong>{{ a.doi ?? '—' }}</strong>
-              </div>
-            </div>
-          } @else {
-            <p class="pendiente">Sin artículo registrado.</p>
-          }
-        </section>
-
-        <section class="tarjeta">
-          <h2 class="tarjeta-titulo">
-            <i class="pi pi-check-square"></i> Validación Técnica de Requisitos
-            @if (e.validacion_calidad) {
-              <p-tag
-                class="contador"
-                [value]="verificados() + '/3 Verificados'"
-                [severity]="verificados() === 3 ? 'success' : 'secondary'"
-              />
-            }
-          </h2>
-          @if (e.validacion_calidad; as v) {
-            <div class="fila-datos">
-              <div class="dato">
-                <span class="etiqueta">Resultado</span>
-                <p-tag
-                  [value]="v.resultado === 'CUMPLE' ? 'Validado' : 'No cumple'"
-                  [severity]="v.resultado === 'CUMPLE' ? 'success' : 'danger'"
-                />
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Validado por</span>
-                <strong>{{ v.validado_por ?? '—' }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Fecha de validación</span>
-                <strong>{{ v.validado_at ?? '—' }}</strong>
-              </div>
-            </div>
-            @if (v.checklist) {
-              <ul class="checklist">
-                @for (item of checklistItems(v.checklist); track item.etiqueta) {
-                  <li>
-                    <span class="requisito-linea">
-                      {{ item.etiqueta }}
-                      <p-tag
-                        [value]="item.cumple ? 'CUMPLE' : 'NO CUMPLE'"
-                        [severity]="item.cumple ? 'success' : 'danger'"
-                      />
-                    </span>
-                  </li>
-                }
-              </ul>
-            }
-            @if (v.observacion) {
-              <p class="observacion-texto">{{ v.observacion }}</p>
-            }
-          } @else {
-            <p class="pendiente">Pendiente de validación por Calidad.</p>
-          }
-        </section>
+            @if (e.validacion_calidad; as v) {
+              @if (v.checklist) {
+                <ul class="requisitos-solicitud">
+                  @for (item of checklistItems(v.checklist); track item.etiqueta) {
+                    <li><span class="requisito-icono" [class.no-cumple]="!item.cumple"><i [class]="item.cumple ? 'pi pi-check' : 'pi pi-times'"></i></span><span>{{ item.etiqueta }}</span><strong [class.no-cumple]="!item.cumple">{{ item.cumple ? 'CUMPLE' : 'NO CUMPLE' }}</strong></li>
+                  }
+                </ul>
+              }
+              @if (v.observacion) { <p class="observacion-texto">{{ v.observacion }}</p> }
+            } @else { <p class="pendiente">Pendiente de validación por Calidad.</p> }
+          </section>
+          <div class="siguiente-solicitud"><p-button label="Siguiente" icon="pi pi-chevron-right" iconPos="right" (onClick)="cambiarPaso(1)" /></div>
         }
-
-        @if (indiceActivoVisible() === 1 || indiceActivoVisible() === 2) {
+        @if (indiceActivoVisible() === 2) {
           <section class="tarjeta resumen-expediente">
             <h2 class="tarjeta-titulo"><i class="pi pi-file"></i> Documento</h2>
             @if (carta(); as archivo) {
@@ -246,13 +151,35 @@
         }
 
         @if (indiceActivoVisible() === 1) {
-          <section class="tarjeta">
-            <div class="tarjeta-cabecera">
-              <h2 class="tarjeta-titulo"><i class="pi pi-folder"></i> Datos Legales del Expediente</h2>
-              <span class="ayuda">{{ puedeGenerarCarta() ? 'Edición autorizada' : 'Carta VRIN / OPP' }}</span>
+          <section class="tarjeta registro-solicitud carta-opp">
+            <div class="registro-cabecera">
+              <span class="registro-icono"><i class="pi pi-money-bill"></i></span>
+              <div><h2>{{ editandoCarta() ? 'Editar información de la carta' : docCartaGenerada() ? 'Carta para OPP' : 'Generar Carta para OPP' }}</h2>
+                <p>{{ editandoCarta() ? 'Actualiza los datos y revisa la nueva versión antes de reemplazar el documento vigente.' : docCartaGenerada() ? 'Consulta y administra el documento generado para este expediente.' : 'Completa y verifica la información que se utilizará para generar la carta dirigida a OPP.' }}</p>
+              </div>
+              @if (docCartaGenerada()) { <span class="estado-registro" [class.completo]="!editandoCarta()">{{ editandoCarta() ? 'Editando' : 'Generada' }}</span> }
             </div>
-            @if (puedeGenerarCarta()) {
-              <form [formGroup]="cartaForm" class="formulario" (ngSubmit)="confirmarGenerarCarta()">
+            @if (docCartaGenerada(); as doc) {
+              <div class="documentos-cabecera"><div><strong>Documentos generados</strong><small>{{ versionesCarta().length }} {{ versionesCarta().length === 1 ? 'documento asociado' : 'versiones asociadas' }} al expediente</small></div><span class="vigente">VIGENTE</span></div>
+              <div class="archivo-solicitud documento-generado">
+                <span class="pdf-insignia">PDF</span><div class="archivo-info"><strong>Carta_OPP_{{ e.carta_vrin ? numeroCartaFormateado(e.carta_vrin.numero, e.carta_vrin.anio) : e.codigo }}_V{{ doc.version }}.pdf</strong><small>Versión {{ doc.version }} · Generada el {{ doc.generado_at }}</small></div>
+                <p-button label="Ver carta" icon="pi pi-eye" severity="secondary" [outlined]="true" (onClick)="verVersionCarta(doc)" />
+                @if (puedeEditarCarta() && !editandoCarta()) { <p-button icon="pi pi-pencil" severity="secondary" [outlined]="true" ariaLabel="Editar información de la carta" (onClick)="editarCarta()" /> }
+                <p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar PDF" [disabled]="!doc.pdf_path" (onClick)="descargarDocGenerado('pdf')" />
+                <details class="menu-documento"><summary aria-label="Más opciones">···</summary><div><button type="button" (click)="descargarDocGenerado('docx')">Descargar Word</button></div></details>
+              </div>
+              @if (versionesCarta().length > 1) {
+                <details class="historial-cartas"><summary>Ver historial de versiones</summary>
+                  @for (version of versionesCarta(); track version.id) {
+                    @if (!version.es_vigente) { <div class="archivo-solicitud"><span class="pdf-insignia">PDF</span><div class="archivo-info"><strong>Carta OPP · Versión {{ version.version }}</strong><small>{{ version.generado_at }} · Versión anterior</small></div><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver versión anterior" (onClick)="verVersionCarta(version)" /></div> }
+                  }
+                </details>
+              }
+              <div class="aviso-carta"><i class="pi pi-check"></i><div><strong>La carta ya fue generada</strong><p>Para evitar duplicados, el sistema reutilizará este documento mientras permanezca vigente.</p></div></div>
+              @if (editandoCarta()) { <div class="aviso-carta aviso-version"><i class="pi pi-clock"></i><div><strong>Se creará una nueva versión</strong><p>La carta vigente se conservará en el historial para mantener la trazabilidad.</p></div></div> }
+            }
+            @if (puedeGenerarCarta() || editandoCarta()) {
+              <form id="form-carta-opp" [formGroup]="cartaForm" class="formulario" (ngSubmit)="confirmarGenerarCarta()">
                 <div class="fila">
                   <div class="campo">
                     <label for="numero_completo">Número de carta VRIN *</label>
@@ -269,7 +196,7 @@
                 </div>
                 <div class="campo">
                   <label for="asunto_carta">Asunto *</label>
-                  <textarea pInputText id="asunto_carta" formControlName="asunto" rows="3" maxlength="255"></textarea>
+                  <textarea pInputText id="asunto_carta" formControlName="asunto" rows="1" maxlength="255"></textarea>
                   @if (cartaForm.controls.asunto.touched && cartaForm.controls.asunto.invalid) {
                     <small class="error">El asunto es obligatorio (máximo 255 caracteres).</small>
                   }
@@ -285,89 +212,26 @@
                       [showIcon]="true" [showOnFocus]="false" appendTo="body" styleClass="select-ancho" />
                   </div>
                 </div>
-                <p class="ayuda">Al generar la carta se guardan los datos y se prepara el documento para OPP.</p>
-                <div class="acciones-form">
-                  <p-button label="Descartar" type="button" severity="secondary" [outlined]="true"
-                    [disabled]="guardandoCarta()" (onClick)="descartarCarta()" />
-                  <p-button label="Generar Carta" icon="pi pi-file-pdf" type="submit"
-                    [loading]="guardandoCarta()" [disabled]="cartaForm.invalid || guardandoCarta()" />
-                </div>
               </form>
+            } @else if (e.carta_vrin; as cv) {
+              <div class="formulario carta-lectura">
+                <div class="fila"><div class="campo"><label>Número de carta VRIN <em>*</em></label><div class="valor-carta">CARTA N.° {{ numeroCartaFormateado(cv.numero, cv.anio) }}-VRIN-UNAMBA</div></div><div class="campo"><label>Fecha de carta VRIN <em>*</em></label><div class="valor-carta">{{ formatoFecha(cv.fecha) }}</div></div></div>
+                <div class="campo"><label>Asunto <em>*</em></label><div class="valor-carta">{{ cv.asunto ?? '—' }}</div></div>
+                <div class="fila"><div class="campo"><label>Registro de carta docente <em>*</em></label><div class="valor-carta">{{ e.registro_mp_numero ?? '—' }}</div></div><div class="campo"><label>Fecha de aceptación <em>*</em></label><div class="valor-carta">{{ formatoFecha(e.articulo?.fecha_aceptacion) }}</div></div></div>
+              </div>
+            } @else { <p class="pendiente">La generación de la carta requiere validación de Calidad y permisos de Secretaría o Administración.</p> }
+          </section>
+          <div class="acciones-carta-opp">
+            @if (puedeGenerarCarta() || editandoCarta()) {
+              <p-button [label]="editandoCarta() ? 'Cancelar edición' : 'Descartar'" severity="secondary" [outlined]="true" [disabled]="guardandoCarta()" (onClick)="descartarCarta()" />
+              <p-button label="Guardar cambios" icon="pi pi-eye" iconPos="right" [disabled]="guardandoCarta()" (onClick)="confirmarGenerarCarta()" />
+            } @else {
+              <p-button label="Volver a expedientes" icon="pi pi-chevron-left" severity="secondary" [outlined]="true" routerLink="/expedientes" />
+              <div class="acciones-carta-secundarias">@if (puedeEditarCarta()) { <p-button label="Editar información" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="editarCarta()" /> }
+                @if (docCartaGenerada(); as doc) { <p-button label="Ver carta generada" icon="pi pi-eye" (onClick)="verVersionCarta(doc)" /> }
+              </div>
             }
-
-          @if (e.carta_vrin; as cv) {
-            <div class="fila-datos">
-              <div class="dato">
-                <span class="etiqueta">Número de Carta VRIN</span>
-                <strong>{{ numeroCartaFormateado(cv.numero, cv.anio) }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Fecha de emisión</span>
-                <strong>{{ formatoFecha(cv.fecha) }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Ciudad</span>
-                <strong>{{ cv.ciudad ?? '—' }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Registro de mesa de partes</span>
-                <strong>{{ e.registro_mp_numero ?? '—' }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Asunto</span>
-                <strong>{{ cv.asunto ?? '—' }}</strong>
-              </div>
-              <div class="dato">
-                <span class="etiqueta">Fecha de aceptación</span>
-                <strong>{{ formatoFecha(e.articulo?.fecha_aceptacion) }}</strong>
-              </div>
-            </div>
-
-            @if (docCartaGenerada(); as doc) {
-              @if (doc.pdf_path) {
-                <div class="acciones-archivo">
-                  <p-button
-                    label="Descargar PDF"
-                    icon="pi pi-download"
-                    size="small"
-                    severity="secondary"
-                    [outlined]="true"
-                    (onClick)="descargarDocGenerado('pdf')"
-                  />
-                  <p-button
-                    label="Descargar Word"
-                    icon="pi pi-file-word"
-                    size="small"
-                    severity="secondary"
-                    [outlined]="true"
-                    (onClick)="descargarDocGenerado('docx')"
-                  />
-                  <p-button
-                    label="Anular"
-                    icon="pi pi-times"
-                    size="small"
-                    severity="danger"
-                    [outlined]="true"
-                    (onClick)="anularDocumento(doc.id)"
-                  />
-                </div>
-              } @else if (!esperaVistaCartaAgotada()) {
-                <p class="pendiente">
-                  <i class="pi pi-spin pi-spinner"></i> Convirtiendo a PDF…
-                </p>
-              }
-            }
-          } @else if (!puedeGenerarCarta()) {
-            <p class="pendiente">La generación de la carta requiere la validación de Calidad y permisos de Secretaría o Administración.</p>
-          }
-
-          @if (e.carta_vrin?.estado === 'EMITIDA') {
-            <div class="acciones-form">
-              <p-button label="Continuar a Resolución" icon="pi pi-arrow-right" iconPos="right"
-                [outlined]="true" (onClick)="cambiarPaso(2)" />
-            </div>
-          }
-        </section>
+          </div>
         }
 
         @if (indiceActivoVisible() === 2) {
@@ -840,69 +704,22 @@
       </div>
 
       <div class="columna-derecha">
-        @if (indiceActivoVisible() === 0) {
-          @if (urlCarta(); as url) {
-            <div class="visor">
-              <div class="visor-barra">
-                <span class="visor-titulo"><i class="pi pi-eye"></i> Carta Docente</span>
-                <span class="visor-nombre">{{ carta()?.nombre_original }}</span>
-                <p-button
-                  label="Descargar PDF"
-                  icon="pi pi-download"
-                  size="small"
-                  severity="secondary"
-                  [outlined]="true"
-                  (onClick)="descargarCarta()"
-                />
-              </div>
-              <iframe class="visor-iframe" [src]="url" title="Vista previa de la carta"></iframe>
+        @if (indiceActivoVisible() <= 1) {
+          <aside class="tarjeta resumen-solicitud">
+            <div class="resumen-titulo"><span>Resumen del expediente</span><h2>Datos consolidados</h2>
+              @if (indiceActivoVisible() === 1 && puedeEditarCarta()) { <p-button icon="pi pi-pencil" severity="secondary" [outlined]="true" ariaLabel="Editar información de la carta" (onClick)="editarCarta()" /> }
             </div>
-          } @else {
-            <div class="visor visor-vacio">
-              <i class="pi pi-file-pdf visor-icono"></i>
-              <p>Sin carta adjunta</p>
+            <div class="docente-cabecera"><span class="avatar">{{ iniciales(e.docente?.nombre_completo) }}</span><div><strong>{{ e.docente?.nombre_completo ?? '—' }}</strong><p class="dato-simple">{{ e.docente ? condicionLaboral(e.docente.tipo_contrato) : '—' }} · {{ e.docente?.facultad?.nombre ?? '—' }}</p></div></div>
+            <div class="datos-docente"><p><strong>Facultad:</strong> {{ e.docente?.facultad?.nombre ?? '—' }}</p><p><strong>Escuela profesional:</strong> {{ e.docente?.escuela?.nombre ?? '—' }}</p></div>
+            <div class="resumen-articulo"><span class="etiqueta">Artículo</span><p>{{ e.articulo?.titulo ?? 'Sin artículo registrado' }}</p><div class="insignias-articulo"><span>{{ e.articulo?.base_indexadora ?? '—' }}</span><span>{{ e.articulo?.cuartil ?? '—' }}</span><span>{{ e.articulo?.revista ?? '—' }}</span></div></div>
+            <div class="fila-datos resumen-meta">
+              <div class="dato"><span class="etiqueta">Monto solicitado</span><strong>{{ formatoSoles(e.articulo?.monto_solicitado) }}</strong></div>
+              <div class="dato"><span class="etiqueta">Expediente</span><strong>{{ e.codigo }}</strong></div>
+              <div class="dato"><span class="etiqueta">Fecha de ingreso</span><strong>{{ e.fecha_registro }}</strong></div>
+              <div class="dato"><span class="etiqueta">Validado por</span><strong>{{ e.validacion_calidad?.validado_por ?? 'Pendiente' }}</strong></div>
             </div>
-          }
+          </aside>
         }
-
-        @if (indiceActivoVisible() === 1) {
-          @if (urlDocGenerado(); as url) {
-            <div class="visor">
-              <div class="visor-barra">
-                <span class="visor-titulo"><i class="pi pi-eye"></i> Carta VRIN Generada</span>
-                <span class="visor-nombre">Carta N° {{ e.carta_vrin?.numero }}</span>
-                <p-button
-                  label="Descargar PDF"
-                  icon="pi pi-download"
-                  size="small"
-                  severity="secondary"
-                  [outlined]="true"
-                  (onClick)="descargarDocGenerado('pdf')"
-                />
-              </div>
-              <iframe class="visor-iframe" [src]="url" title="Vista previa de la carta generada"></iframe>
-            </div>
-          } @else {
-            <div class="visor visor-vacio">
-              <i class="pi pi-file-pdf visor-icono"></i>
-              @if (docCartaGenerada()) {
-                @if (errorVistaCarta() || esperaVistaCartaAgotada()) {
-                  <p role="status">{{ errorVistaCarta() ? 'No se pudo cargar la vista previa.' : 'El PDF aún no está disponible.' }}</p>
-                  <p-button label="Reintentar vista previa" icon="pi pi-refresh" [outlined]="true"
-                    (onClick)="reintentarVistaCarta()" />
-                } @else {
-                  <p role="status"><i class="pi pi-spin pi-spinner"></i> Preparando la vista previa PDF…</p>
-                }
-                <p-button label="Descargar Word" icon="pi pi-file-word" [outlined]="true"
-                  (onClick)="descargarDocGenerado('docx')" />
-              } @else {
-                <p>Completa los datos y pulsa «Generar Carta».</p>
-                <p class="ayuda">La vista previa aparecerá aquí.</p>
-              }
-            </div>
-          }
-        }
-
         @if (indiceActivoVisible() === 2) {
           @if (urlDocResolucion(); as url) {
             <div class="visor">
@@ -944,6 +761,52 @@
       }
     </div>
   }
+
+
+  <p-dialog [(visible)]="vistaCartaVrinVisible" [modal]="true" [draggable]="false" [resizable]="false"
+    [style]="{ width: '1120px', maxWidth: '96vw' }" styleClass="vista-carta-opp" [dismissableMask]="!guardandoCarta()" [closable]="!guardandoCarta()">
+    <ng-template #header>
+      <div class="vista-cabecera"><span class="registro-icono"><i class="pi pi-file"></i></span><div><span class="vista-kicker">{{ vistaBorrador() ? 'Vista previa' : 'Documento generado' }}</span><h2>Carta para la Oficina de Planeamiento y Presupuesto</h2><p>{{ vistaBorrador() ? 'Revisa el documento antes de generarlo y guardarlo en el expediente.' : 'Consulta la versión ' + documentoVista()?.version + ' de la carta guardada en el expediente.' }}</p></div></div>
+    </ng-template>
+    @if (detalle(); as e) {
+      <div class="vista-cuerpo">
+        <aside class="vista-datos"><span class="vista-kicker">Datos del documento</span><h3>Información verificada</h3>
+          @if (vistaBorrador()) {
+            <div class="vista-dato"><span>Número de carta</span><strong>{{ cartaForm.controls.numero_completo.value }}</strong></div>
+            <div class="vista-dato"><span>Fecha de emisión</span><strong>{{ fechaCartaVista(cartaForm.controls.fecha.value) }}</strong></div>
+            <div class="vista-dato"><span>Registro docente</span><strong>{{ cartaForm.controls.registro_mp_numero.value }}</strong></div>
+            <div class="vista-dato"><span>Fecha de aceptación</span><strong>{{ fechaCartaVista(cartaForm.controls.fecha_aceptacion.value) }}</strong></div>
+            <div class="vista-dato"><span>Monto solicitado</span><strong>{{ formatoSoles(e.articulo?.monto_solicitado) }}</strong></div>
+            <div class="aviso-carta"><i class="pi pi-check"></i><div><strong>Documento listo</strong><p>Todos los campos obligatorios están completos.</p></div></div>
+          } @else {
+            <div class="vista-dato"><span>Versión</span><strong>{{ documentoVista()?.version }}</strong></div>
+            <div class="vista-dato"><span>Generada el</span><strong>{{ documentoVista()?.generado_at }}</strong></div>
+            <div class="vista-dato"><span>Estado</span><strong>{{ documentoVista()?.es_vigente ? 'Vigente' : 'Versión anterior' }}</strong></div>
+          }
+        </aside>
+        <div class="vista-papel">
+          @if (urlVersionCarta(); as url) {
+            <iframe [src]="url" title="Carta para OPP" class="pdf-carta-opp"></iframe>
+          } @else {
+            <div class="pdf-pendiente" role="status">
+              @if (cargandoVersionCarta()) { <i class="pi pi-spin pi-spinner"></i><p>Cargando documento…</p> }
+              @else if (errorVersionCarta()) { <p>{{ vistaBorrador() ? mensajeErrorPreview() : 'No se pudo cargar el PDF.' }}</p><p-button label="Reintentar" (onClick)="vistaBorrador() ? confirmarGenerarCarta() : verVersionCarta(documentoVista()!)" /> }
+              @else { <p>El PDF se está preparando. Puedes descargar el documento Word mientras termina.</p><p-button label="Actualizar" (onClick)="reintentarVistaCarta(); vistaCartaVrinVisible.set(false)" /> }
+            </div>
+          }
+        </div>
+      </div>
+    }
+    <ng-template #footer>
+      <div class="vista-footer">
+        <small><i class="pi pi-check"></i> {{ vistaBorrador() ? 'Carta preparada con la plantilla registrada para el expediente ' + detalle()?.codigo + '.' : 'Documento guardado en el expediente ' + detalle()?.codigo + '.' }}</small>
+        <div>@if (vistaBorrador()) {
+          <p-button label="Volver a editar" icon="pi pi-pencil" severity="secondary" [outlined]="true" [disabled]="guardandoCarta()" (onClick)="vistaCartaVrinVisible.set(false)" />
+          <p-button [label]="editandoCarta() ? 'Generar y guardar nueva versión' : 'Generar y guardar carta'" icon="pi pi-file" [loading]="guardandoCarta()" [disabled]="cargandoVersionCarta() || errorVersionCarta() || !urlVersionCarta()" (onClick)="generarCarta()" />
+        } @else { <p-button label="Cerrar" severity="secondary" [outlined]="true" (onClick)="vistaCartaVrinVisible.set(false)" /> }</div>
+      </div>
+    </ng-template>
+  </p-dialog>
 
   <p-dialog
     [header]="'Carta Docente — ' + (carta()?.nombre_original ?? '')"

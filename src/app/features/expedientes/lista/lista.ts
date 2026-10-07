@@ -1,6 +1,6 @@
 import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged, Subscription } from 'rxjs';
+import { debounceTime, distinctUntilChanged, forkJoin, Subscription } from 'rxjs';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 
@@ -69,6 +69,7 @@ export class ListaExpedientes implements OnInit {
   // HU-41 — selección vigente de plantillas (solo administrador).
   protected readonly plantillasCarta = signal<Plantilla[]>([]);
   protected readonly plantillasResolucion = signal<Plantilla[]>([]);
+  protected readonly actualizandoPlantillas = signal(false);
   protected readonly seleccionCartaId = signal<number | null>(null);
   protected readonly seleccionResolucionId = signal<number | null>(null);
 
@@ -95,11 +96,7 @@ export class ListaExpedientes implements OnInit {
   private filtrosAplicados: FiltrosExpediente = {};
 
   ngOnInit(): void {
-    this.auth.verificarSesion().subscribe({
-      next: () => {
-        if (this.esAdmin()) this.cargarSeleccionPlantillas();
-      },
-    });
+    if (this.esAdmin()) this.cargarSeleccionPlantillas();
     this.filtroForm.controls.busqueda.valueChanges
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.aplicarFiltros());
@@ -109,36 +106,45 @@ export class ListaExpedientes implements OnInit {
 
   // HU-41 — plantillas activas por tipo + selección vigente (solo admin).
   private cargarSeleccionPlantillas(): void {
-    this.plantillaService.listar(1).subscribe({
-      next: (plantillas) =>
-        this.plantillasCarta.set(plantillas.filter((p) => p.estado === 'ACTIVO')),
-      error: () => {},
-    });
-    this.plantillaService.listar(2).subscribe({
-      next: (plantillas) =>
-        this.plantillasResolucion.set(plantillas.filter((p) => p.estado === 'ACTIVO')),
-      error: () => {},
-    });
-    this.seleccionService.listarVigentes().subscribe({
-      next: (selecciones) => {
-        for (const seleccion of selecciones) {
-          const id = seleccion.plantilla?.id ?? null;
-          if (seleccion.tipo_documento?.codigo === 'CARTA') {
-            this.seleccionCartaId.set(id);
-          }
-          if (seleccion.tipo_documento?.codigo === 'RESOLUCION') {
-            this.seleccionResolucionId.set(id);
-          }
-        }
-      },
-      error: () => {},
-    });
+    const usuarioId = this.auth.usuarioActual()?.id;
+    if (usuarioId === undefined) return;
+    const cache = this.seleccionService.catalogo();
+    if (cache?.usuarioId === usuarioId) {
+      this.plantillasCarta.set(cache.cartas);
+      this.plantillasResolucion.set(cache.resoluciones);
+      this.seleccionCartaId.set(cache.cartaId);
+      this.seleccionResolucionId.set(cache.resolucionId);
+    }
+    this.actualizandoPlantillas.set(true);
+    forkJoin({ plantillas: this.plantillaService.listar(), selecciones: this.seleccionService.listarVigentes() })
+      .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
+        next: ({ plantillas, selecciones }) => {
+          const cartas = plantillas.filter(p => p.estado === 'ACTIVO' && p.tipo_documento?.codigo === 'CARTA');
+          const resoluciones = plantillas.filter(p => p.estado === 'ACTIVO' && p.tipo_documento?.codigo === 'RESOLUCION');
+          const cartaId = selecciones.find(s => s.tipo_documento?.codigo === 'CARTA')?.plantilla?.id ?? null;
+          const resolucionId = selecciones.find(s => s.tipo_documento?.codigo === 'RESOLUCION')?.plantilla?.id ?? null;
+          this.plantillasCarta.set(cartas);
+          this.plantillasResolucion.set(resoluciones);
+          this.seleccionCartaId.set(cartaId);
+          this.seleccionResolucionId.set(resolucionId);
+          this.seleccionService.catalogo.set({ usuarioId, cartas, resoluciones, cartaId, resolucionId });
+          this.actualizandoPlantillas.set(false);
+        },
+        error: () => {
+          this.actualizandoPlantillas.set(false);
+          this.mensajes.add({ severity: 'warn', summary: 'Plantillas no actualizadas', detail: 'No se pudo consultar la selección vigente. Vuelve a intentar recargando la lista.' });
+        },
+      });
   }
 
   protected alCambiarPlantilla(tipoDocumentoId: number, plantillaId: number | null): void {
-    if (plantillaId === null) {
+    if (plantillaId === null || this.actualizandoPlantillas()) {
       return;
     }
+    const anterior = tipoDocumentoId === 1 ? this.seleccionCartaId() : this.seleccionResolucionId();
+    if (tipoDocumentoId === 1) this.seleccionCartaId.set(plantillaId);
+    else this.seleccionResolucionId.set(plantillaId);
+    this.actualizandoPlantillas.set(true);
     this.seleccionService
       .seleccionar({
         modulo: 'ARTICULOS',
@@ -149,6 +155,8 @@ export class ListaExpedientes implements OnInit {
         next: () => {
           if (tipoDocumentoId === 1) this.seleccionCartaId.set(plantillaId);
           else this.seleccionResolucionId.set(plantillaId);
+          this.seleccionService.catalogo.update(cache => cache ? { ...cache, cartaId: this.seleccionCartaId(), resolucionId: this.seleccionResolucionId() } : null);
+          this.actualizandoPlantillas.set(false);
           this.mensajes.add({
             severity: 'success',
             summary: 'Plantilla seleccionada',
@@ -156,6 +164,9 @@ export class ListaExpedientes implements OnInit {
           });
         },
         error: (error) => {
+          if (tipoDocumentoId === 1) this.seleccionCartaId.set(anterior);
+          else this.seleccionResolucionId.set(anterior);
+          this.actualizandoPlantillas.set(false);
           this.mensajes.add({
             severity: 'error',
             summary: 'No se pudo seleccionar',

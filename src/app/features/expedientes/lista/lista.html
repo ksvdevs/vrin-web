@@ -18,11 +18,11 @@
         <label class="selector-plantilla">
           <span class="sr-only">Plantilla de carta vigente</span>
           <select
-            [ngModel]="seleccionCartaId()"
+            [ngModel]="seleccionCartaId()" [disabled]="actualizandoPlantillas()"
             (ngModelChange)="alCambiarPlantilla(1, $event)"
             aria-label="Plantilla de carta vigente"
           >
-            <option [ngValue]="null" disabled>Plantilla Carta</option>
+            <option [ngValue]="null" disabled>{{ actualizandoPlantillas() ? 'Cargando plantilla…' : 'Plantilla Carta' }}</option>
             @for (plantilla of plantillasCarta(); track plantilla.id) {
               <option [ngValue]="plantilla.id">{{ plantilla.codigo }}</option>
             }
@@ -32,11 +32,11 @@
         <label class="selector-plantilla selector-resolucion">
           <span class="sr-only">Plantilla de resolución vigente</span>
           <select
-            [ngModel]="seleccionResolucionId()"
+            [ngModel]="seleccionResolucionId()" [disabled]="actualizandoPlantillas()"
             (ngModelChange)="alCambiarPlantilla(2, $event)"
             aria-label="Plantilla de resolución vigente"
           >
-            <option [ngValue]="null" disabled>Plantilla Resolución</option>
+            <option [ngValue]="null" disabled>{{ actualizandoPlantillas() ? 'Cargando plantilla…' : 'Plantilla Resolución' }}</option>
             @for (plantilla of plantillasResolucion(); track plantilla.id) {
               <option [ngValue]="plantilla.id">{{ plantilla.codigo }}</option>
             }
