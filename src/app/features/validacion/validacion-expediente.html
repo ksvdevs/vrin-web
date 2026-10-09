@@ -1,24 +1,18 @@
 @if (visible()) {
-  <div class="validacion-overlay" role="dialog" aria-label="Validación de expediente">
+  <div class="validacion-overlay" role="dialog" aria-modal="true" aria-labelledby="titulo-validacion">
     <aside class="panel">
       <header class="cabecera">
+        <span class="icono-cabecera"><i class="pi pi-check-square" aria-hidden="true"></i></span>
         <div class="titulo">
-          <h1>Validación de Expediente de Artículo Financiado</h1>
+          <h1 id="titulo-validacion">{{ esReevaluacion() ? 'Reevaluar Expediente de Artículo Financiado' : 'Validación de Expediente de Artículo Financiado' }}</h1>
           <p class="subtitulo">Requisitos técnicos para el financiamiento de publicación (Etapa 1)</p>
         </div>
-        <p-button
-          icon="pi pi-times"
-          severity="secondary"
-          [text]="true"
-          [rounded]="true"
-          ariaLabel="Cerrar"
-          (onClick)="visible.set(false)"
-        />
+        <button type="button" class="cerrar" aria-label="Cerrar" (click)="visible.set(false)"><i class="pi pi-times" aria-hidden="true"></i></button>
       </header>
 
       @if (expediente(); as e) {
         <form class="cuerpo" [formGroup]="formulario">
-          <section class="resumen">
+          <section class="resumen tarjeta" aria-label="Datos del expediente">
             <div class="fila-dato">
               <span class="etiqueta">Expediente</span>
               <strong>{{ e.codigo }}</strong>
@@ -40,10 +34,11 @@
             </div>
           </section>
 
-          <section class="requisitos">
+          <section class="requisitos tarjeta">
             <div class="requisitos-cabecera">
-              <h2>Checklist de requisitos</h2>
-              <p-tag [value]="verificados + '/3 Verificados'" [severity]="verificados === 3 ? 'success' : 'secondary'" />
+              <span class="icono-tarjeta"><i class="pi pi-list-check" aria-hidden="true"></i></span>
+              <div class="titulo-seccion"><h2>Checklist de requisitos</h2><p>Comprueba las condiciones antes de guardar la validación.</p></div>
+              <span class="badge-verificados" [class.completo]="verificados === 3">{{ verificados }}/3 Verificados</span>
             </div>
 
             @for (requisito of requisitos; track requisito.clave) {
@@ -58,6 +53,7 @@
                   optionLabel="label"
                   optionValue="value"
                   placeholder="Selecciona"
+                  appendTo="body"
                   styleClass="select-ancho"
                 />
               </div>
@@ -65,44 +61,40 @@
             @if (formulario.invalid && formulario.touched) {
               <small class="error">Debes verificar los 3 requisitos para guardar.</small>
             }
+            <div class="resultado-previa">
+              <span>Resultado automático:</span>
+              <span class="badge-resultado" [class.cumple]="resultado === 'CUMPLE'">{{ resultado === 'CUMPLE' ? 'CUMPLE — Pasar a validado' : 'NO CUMPLE' }}</span>
+            </div>
+
+            <div class="campo">
+              <label for="observacion">Observación (opcional)</label>
+              <textarea
+                pTextarea
+                id="observacion"
+                formControlName="observacion"
+                [rows]="3"
+                [autoResize]="true"
+                placeholder="Si el expediente No Cumple, registra aquí el motivo para el docente."
+              ></textarea>
+            </div>
+            @if (esReevaluacion()) {
+              <div class="campo">
+                <label for="motivo-correccion">Motivo de la reevaluación *</label>
+                <textarea pTextarea id="motivo-correccion" formControlName="motivo_correccion" [rows]="3" [autoResize]="true" maxlength="500" placeholder="Explica por qué se corrige la evaluación anterior"></textarea>
+                @if (formulario.controls.motivo_correccion.touched && (formulario.controls.motivo_correccion.value?.trim()?.length ?? 0) < 10) {
+                  <small class="error">Escribe un motivo de al menos 10 caracteres.</small>
+                }
+              </div>
+            }
           </section>
-
-          <div class="resultado-previa">
-            Resultado automático:
-            <p-tag
-              [value]="resultado === 'CUMPLE' ? 'CUMPLE — Pasar a validado' : 'NO CUMPLE'"
-              [severity]="resultado === 'CUMPLE' ? 'success' : 'danger'"
-            />
-          </div>
-
-          <div class="campo">
-            <label for="observacion">Observación (opcional)</label>
-            <textarea
-              pTextarea
-              id="observacion"
-              formControlName="observacion"
-              [rows]="3"
-              [autoResize]="true"
-              placeholder="Si el expediente No Cumple, registra aquí el motivo para el docente."
-            ></textarea>
-          </div>
         </form>
 
         <footer class="pie">
-          <p-button
-            label="Cancelar"
-            severity="secondary"
-            [text]="true"
-            (onClick)="visible.set(false)"
-          />
-          <p-button
-            label="Guardar Validación"
-            icon="pi pi-check"
-            severity="success"
-            [disabled]="formulario.invalid"
-            [loading]="guardando()"
-            (onClick)="guardar()"
-          />
+          <button type="button" class="boton-secundario" (click)="visible.set(false)">Cancelar</button>
+          <button type="button" class="boton-primario" [disabled]="formulario.invalid || guardando() || (esReevaluacion() && (formulario.controls.motivo_correccion.value?.trim()?.length ?? 0) < 10)" (click)="guardar()">
+            @if (guardando()) {<i class="pi pi-spin pi-spinner" aria-hidden="true"></i>} @else {<i class="pi pi-check" aria-hidden="true"></i>}
+            {{ esReevaluacion() ? 'Guardar reevaluación' : 'Guardar Validación' }}
+          </button>
         </footer>
       }
     </aside>

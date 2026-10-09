@@ -88,6 +88,8 @@ export class ExpedienteService {
       fecha: string;
       ciudad?: string | null;
       registro_mp_numero?: string | null;
+      carta_docente_registro_numero?: string | null;
+      carta_docente_registro_fecha?: string | null;
       asunto?: string | null;
       fecha_aceptacion?: string | null;
     },
@@ -199,7 +201,7 @@ export class ExpedienteService {
     return this.api.post(`/expedientes/${id}/rendicion/doi`, payload);
   }
 
-  cerrarRendicion(id: number, payload: { fecha_informe: string }): Observable<unknown> {
+  cerrarRendicion(id: number, payload: { fecha_informe: string; doi?: string | null }): Observable<unknown> {
     return this.api.post(`/expedientes/${id}/rendicion/cerrar`, payload);
   }
 }

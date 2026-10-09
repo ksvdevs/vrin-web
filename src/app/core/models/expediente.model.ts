@@ -69,6 +69,8 @@ export interface Expediente {
   codigo: string;
   estado: EstadoExpediente;
   carta_docente_numero: string;
+  carta_docente_registro_numero: string | null;
+  carta_docente_registro_fecha: string | null;
   carta_docente_fecha: string;
   documentos_completos: boolean;
   docente_id: number;
@@ -83,6 +85,8 @@ export interface Expediente {
 
 export interface ExpedientePayload {
   carta_docente_numero: string;
+  carta_docente_registro_numero: string;
+  carta_docente_registro_fecha: string;
   carta_docente_fecha: string;
   docente_id: number;
   facultad_id: number;
@@ -153,6 +157,8 @@ export interface Paginado<T> {
 // Respuesta de POST /articulos/ocr (extracción IA de la carta escaneada).
 export interface OcrDatosCarta {
   carta_docente_numero?: string | null;
+  carta_docente_registro_numero?: string | null;
+  carta_docente_registro_fecha?: string | null;
   carta_docente_fecha?: string | null;
   titulo?: string | null;
   revista?: string | null;

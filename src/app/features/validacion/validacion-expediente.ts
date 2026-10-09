@@ -1,10 +1,8 @@
-import { Component, computed, inject, input, model, output, signal } from '@angular/core';
+import { Component, computed, effect, inject, input, model, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
-import { Button } from 'primeng/button';
 import { MessageService } from 'primeng/api';
 import { Select } from 'primeng/select';
-import { Tag } from 'primeng/tag';
 import { Textarea } from 'primeng/textarea';
 
 import type { ExpedienteDetalle } from '../../core/models/expediente-detalle.model';
@@ -24,7 +22,7 @@ const REQUISITOS: Requisito[] = [
 
 @Component({
   selector: 'app-validacion-expediente',
-  imports: [Button, ReactiveFormsModule, Select, Tag, Textarea],
+  imports: [ReactiveFormsModule, Select, Textarea],
   templateUrl: './validacion-expediente.html',
   styleUrl: './validacion-expediente.scss',
 })
@@ -36,6 +34,9 @@ export class ValidacionExpediente {
   readonly visible = model(false);
   readonly expediente = input<ExpedienteDetalle | null>(null);
   readonly guardado = output<void>();
+  protected readonly esReevaluacion = computed(() =>
+    ['VALIDADO_CALIDAD', 'NO_CUMPLE'].includes(this.expediente()?.estado ?? ''),
+  );
 
   protected readonly guardando = signal(false);
 
@@ -49,7 +50,22 @@ export class ValidacionExpediente {
     docente_ordinario_contratado: [null as boolean | null, Validators.required],
     afiliacion_universidad: [null as boolean | null, Validators.required],
     observacion: [''],
+    motivo_correccion: ['', Validators.maxLength(500)],
   });
+
+  constructor() {
+    effect(() => {
+      if (!this.visible()) return;
+      const anterior = this.esReevaluacion() ? this.expediente()?.validacion_calidad : null;
+      this.formulario.reset({
+        carta_aceptacion: anterior?.checklist?.['carta_aceptacion'] ?? null,
+        docente_ordinario_contratado: anterior?.checklist?.['docente_ordinario_contratado'] ?? null,
+        afiliacion_universidad: anterior?.checklist?.['afiliacion_universidad'] ?? null,
+        observacion: '',
+        motivo_correccion: '',
+      });
+    });
+  }
 
   protected readonly requisitos = REQUISITOS;
 
@@ -70,10 +86,12 @@ export class ValidacionExpediente {
   }
 
   protected guardar(): void {
-    if (this.formulario.invalid || this.guardando()) {
+    const motivo = this.formulario.controls.motivo_correccion.value?.trim() ?? '';
+    if (this.formulario.invalid || this.guardando() || (this.esReevaluacion() && motivo.length < 10)) {
       this.formulario.markAllAsTouched();
       return;
-    }    const expediente = this.expediente();
+    }
+    const expediente = this.expediente();
     if (!expediente) {
       return;
     }
@@ -88,6 +106,7 @@ export class ValidacionExpediente {
           afiliacion_universidad: valores.afiliacion_universidad === true,
         },
         observacion: valores.observacion?.trim() || null,
+        motivo_correccion: this.esReevaluacion() ? motivo : null,
       })
       .subscribe({
         next: () => {

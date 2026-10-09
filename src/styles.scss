@@ -27,6 +27,66 @@ textarea {
   outline-offset: 3px;
 }
 
+// The date input and calendar button share the same outlined control everywhere.
+:is(.campo, .filtro-fecha) .p-datepicker.sgr-datepicker {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  min-height: 58px;
+  overflow: hidden;
+  border: 1px solid #dbe5ef;
+  border-radius: 10px;
+  background: #fff;
+  box-shadow: 0 1px 2px rgb(24 54 83 / 5%);
+}
+
+:is(.campo, .filtro-fecha) .p-datepicker.sgr-datepicker:focus-within {
+  border-color: #7ea5e8;
+  box-shadow: 0 0 0 3px rgb(39 101 245 / 12%);
+}
+
+:is(.campo, .filtro-fecha) .p-datepicker.sgr-datepicker .p-datepicker-input {
+  flex: 1 1 auto;
+  width: 1%;
+  min-width: 0;
+  height: 56px;
+  min-height: 56px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: #38536c;
+  font-size: 14px;
+}
+
+:is(.campo, .filtro-fecha) .p-datepicker.sgr-datepicker .p-datepicker-dropdown {
+  flex: 0 0 58px;
+  width: 58px;
+  height: 56px;
+  border: 0;
+  border-left: 1px solid #dbe5ef;
+  border-radius: 0;
+  background: #f4f7fb;
+  color: #38536c;
+}
+
+:is(.campo, .filtro-fecha) .p-datepicker.sgr-datepicker .p-datepicker-dropdown:hover {
+  background: #e9f0f8;
+}
+
+:is(.campo, .filtro-fecha) .p-datepicker.sgr-datepicker .p-datepicker-dropdown svg {
+  width: 17px;
+  height: 17px;
+}
+
+.registro-overlay {
+  .ayuda-docente { color: #526b82; font-size: 10px; line-height: 1.4; }
+  .coincidencias-docente { display: flex; flex-direction: column; max-height: 130px; overflow-y: auto; border: 1px solid #d9e5ed; border-radius: 8px; }
+  .coincidencias-docente button { padding: 9px 11px; border: 0; border-bottom: 1px solid #edf1f5; background: #fff; color: #284866; font-size: 10px; text-align: left; cursor: pointer; }
+  .coincidencias-docente button:hover { background: #eef4ff; }
+}
+
 .expediente-opciones.p-menu {
   min-width: 144px;
   border: 1px solid #e4ebf4;

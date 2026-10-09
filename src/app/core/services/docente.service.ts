@@ -15,6 +15,10 @@ export class DocenteService {
       : this.api.get<Docente[]>('/docentes');
   }
 
+  buscarPorNombre(q: string): Observable<Docente[]> {
+    return this.api.get<Docente[]>('/docentes', { q: q.trim(), solo_nombre: 1 });
+  }
+
   crear(payload: DocentePayload): Observable<Docente> {
     return this.api.post<Docente>('/docentes', payload);
   }

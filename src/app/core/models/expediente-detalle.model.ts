@@ -47,6 +47,8 @@ export interface ExpedienteDetalle {
   etapa_actual: number;
   documentos_completos: boolean;
   carta_docente_numero: string;
+  carta_docente_registro_numero: string | null;
+  carta_docente_registro_fecha: string | null;
   carta_docente_fecha: string;
   registro_mp_numero: string | null;
   cerrado_at: string | null;
@@ -131,4 +133,5 @@ export interface ValidacionPayload {
     afiliacion_universidad: boolean;
   };
   observacion?: string | null;
+  motivo_correccion?: string | null;
 }

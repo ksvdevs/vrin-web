@@ -96,6 +96,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected readonly archivoComprobanteSeleccionado = signal<File | null>(null);
   protected readonly vistaComprobanteVisible = signal(false);
   protected readonly urlComprobante = signal<SafeResourceUrl | null>(null);
+  protected readonly urlImagenComprobante = signal<string | null>(null);
   protected readonly errorComprobante = signal(false);
   protected readonly retirandoComprobante = signal<number | null>(null);
   private blobComprobante?: string;
@@ -132,9 +133,17 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private intentosPolling = 0;
   private pasoInicializado = false;
 
-  protected readonly paso0Ok = computed(() => (this.detalle()?.etapa_actual ?? 1) > 1 || this.detalle()?.validacion_calidad?.resultado === 'CUMPLE');
-  protected readonly paso1Ok = computed(() => this.detalle()?.carta_vrin?.estado === 'EMITIDA');
-  protected readonly paso2Ok = computed(() => !!this.detalle()?.resolucion);
+  protected readonly paso0Ok = computed(() =>
+    ['VALIDADO_CALIDAD', 'EN_ESPERA_OPP', 'DISPONIBILIDAD_CONFIRMADA', 'SIN_DISPONIBILIDAD', 'RESOLUCION_EMITIDA', 'POR_RENDIR', 'RENDICION_VENCIDA', 'RENDIDO'].includes(this.detalle()?.estado ?? ''),
+  );
+  protected readonly paso1Ok = computed(() =>
+    this.detalle()?.carta_vrin?.estado === 'EMITIDA'
+      || ['EN_ESPERA_OPP', 'DISPONIBILIDAD_CONFIRMADA', 'SIN_DISPONIBILIDAD', 'RESOLUCION_EMITIDA', 'POR_RENDIR', 'RENDICION_VENCIDA', 'RENDIDO'].includes(this.detalle()?.estado ?? ''),
+  );
+  protected readonly paso2Ok = computed(() =>
+    this.detalle()?.resolucion?.estado === 'EMITIDA'
+      || ['RESOLUCION_EMITIDA', 'POR_RENDIR', 'RENDICION_VENCIDA', 'RENDIDO'].includes(this.detalle()?.estado ?? ''),
+  );
   protected readonly paso3Ok = computed(() => this.detalle()?.estado === 'RENDIDO');
 
   protected pasoCompletado(index: number): boolean {
@@ -153,8 +162,32 @@ export class VistaExpediente implements OnInit, OnDestroy {
 
   protected readonly indiceActivoVisible = signal<number>(0);
 
+  protected pasoDisponible(index: number): boolean {
+    if (!this.detalle()) return false;
+    return [true, this.paso0Ok(), this.paso1Ok(), this.paso2Ok()][index] ?? false;
+  }
+
+  protected etiquetaPaso(index: number): string {
+    const detalle = this.detalle();
+    if (!detalle) return '';
+    if (index === 0) {
+      if (detalle.estado === 'NO_CUMPLE') return 'No cumple';
+      if (detalle.estado === 'OBSERVADO') return 'Observado';
+      return this.paso0Ok() ? 'Validado' : 'Pendiente de Calidad';
+    }
+    if (!this.pasoDisponible(index)) return 'Bloqueado';
+    if (index === 1) return this.paso1Ok() ? 'Generada' : 'En elaboración';
+    if (index === 2) {
+      if (detalle.estado === 'SIN_DISPONIBILIDAD') return 'Sin disponibilidad';
+      return this.paso2Ok() ? 'Generada' : 'En elaboración';
+    }
+    if (this.paso3Ok()) return 'Rendida';
+    if (detalle.estado === 'RENDICION_VENCIDA') return 'Vencida';
+    return detalle.rendicion ? 'Por rendir' : 'Pendiente';
+  }
+
   protected cambiarPaso(index: number): void {
-    if (Number.isInteger(index) && index >= 0 && index <= 3) {
+    if (Number.isInteger(index) && this.pasoDisponible(index)) {
       this.indiceActivoVisible.set(index);
     }
   }
@@ -218,9 +251,18 @@ export class VistaExpediente implements OnInit, OnDestroy {
     (this.detalle()?.archivos ?? []).filter((a) => a.tipo === 'CARTA_OPP'),
   );
 
+  protected readonly puedeReevaluar = computed(() => {
+    const expediente = this.detalle();
+    return this.auth.usuarioActual()?.rol_codigo === 'CALIDAD'
+      && ['VALIDADO_CALIDAD', 'NO_CUMPLE'].includes(expediente?.estado ?? '')
+      && expediente?.validacion_calidad !== null
+      && expediente?.carta_vrin === null
+      && !(expediente?.documentos_generados ?? []).some((documento) => documento.tipo === 'CARTA_VRIN');
+  });
+
   protected readonly puedeEditarExpediente = computed(() =>
     ['SECRETARIA', 'ADMINISTRADOR_GENERAL'].includes(this.auth.usuarioActual()?.rol_codigo ?? '')
-      && this.detalle()?.estado !== 'RENDIDO',
+      && ['OBSERVADO', 'EN_REVISION_CALIDAD'].includes(this.detalle()?.estado ?? ''),
   );
 
   protected readonly puedeGestionarRendicion = computed(() =>
@@ -253,8 +295,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
     numero_completo: ['', [Validators.required, Validators.pattern(/^(?:CARTA\s+N[°º]?\s*)?0*[1-9]\d*-(?:20[2-9]\d|2100)(?:-VRIN-UNAMBA)?$/i)]],
     fecha: [new Date() as Date | null, Validators.required],
     asunto: ['', [Validators.required, Validators.maxLength(255)]],
-    registro_mp_numero: ['', [Validators.required, Validators.maxLength(30)]],
-    fecha_aceptacion: [null as Date | null, Validators.required]
+    carta_docente_registro_numero: ['', [Validators.required, Validators.maxLength(80)]],
+    carta_docente_registro_fecha: [null as Date | null, Validators.required],
   });
 
   protected readonly oppForm = this.fb.group({
@@ -286,6 +328,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
 
   protected readonly rendicionForm = this.fb.group({
     fecha_informe: [new Date() as Date | null, Validators.required],
+    doi: ['', Validators.maxLength(255)],
   });
 
   constructor() {
@@ -324,11 +367,17 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.expedienteService.obtener(id).subscribe({
       next: (detalle) => {
         this.detalle.set(detalle);
+        if (this.pasoInicializado && !this.pasoDisponible(this.indiceActivoVisible())) {
+          this.indiceActivoVisible.set([3, 2, 1, 0].find((paso) => this.pasoDisponible(paso)) ?? 0);
+        }
         const fechaMinima = detalle.rendicion?.fecha_desembolso;
         const fechaInforme = this.rendicionForm.controls.fecha_informe.value;
         const fechaInformeIso = this.iso(fechaInforme);
         if (fechaMinima && (!fechaInformeIso || fechaInformeIso < fechaMinima)) {
           this.rendicionForm.controls.fecha_informe.setValue(new Date(`${fechaMinima}T00:00:00`));
+        }
+        if (!this.rendicionForm.controls.doi.dirty) {
+          this.rendicionForm.controls.doi.setValue(detalle.articulo?.doi ?? '', { emitEvent: false });
         }
         if (detalle.estado === 'RESOLUCION_EMITIDA' && this.desembolsoForm.controls.monto_desembolsado.value === null) {
           this.desembolsoForm.controls.monto_desembolsado.setValue(detalle.respuesta_opp?.monto_aprobado ?? detalle.articulo?.monto_solicitado ?? null);
@@ -337,9 +386,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
           if (!this.pasoInicializado) {
             const pasoQuery = this.route.snapshot.queryParamMap.get('paso');
             const paso = pasoQuery === null ? NaN : Number(pasoQuery);
-            this.cambiarPaso(Number.isInteger(paso) && paso >= 0 && paso <= 3
-              ? paso
-              : this.pasoSugerido(detalle));
+            this.cambiarPaso(this.pasoDisponible(paso) ? paso : this.pasoSugerido(detalle));
             this.pasoInicializado = true;
             this.restablecerDatosCarta(detalle);
             this.restablecerDatosResolucion(detalle);
@@ -388,6 +435,10 @@ export class VistaExpediente implements OnInit, OnDestroy {
   }
 
   private pasoSugerido(detalle: ExpedienteDetalle): number {
+    if (this.auth.usuarioActual()?.rol_codigo === 'CALIDAD'
+      && ['VALIDADO_CALIDAD', 'NO_CUMPLE'].includes(detalle.estado)) {
+      return 0;
+    }
     if (['VALIDADO_CALIDAD', 'EN_ESPERA_OPP'].includes(detalle.estado)) {
       return 1;
     }
@@ -411,9 +462,9 @@ export class VistaExpediente implements OnInit, OnDestroy {
       numero_completo: detalle.carta_vrin ? `CARTA N° ${this.numeroCartaFormateado(detalle.carta_vrin.numero, detalle.carta_vrin.anio)}-VRIN-UNAMBA` : '',
       fecha: detalle.carta_vrin?.fecha ? new Date(`${detalle.carta_vrin.fecha}T00:00:00`) : new Date(),
       asunto: detalle.carta_vrin?.asunto ?? `Solicito financiamiento para publicación en revista indexada para el docente ${detalle.docente?.nombre_completo ?? ''}`.trim(),
-      registro_mp_numero: detalle.registro_mp_numero ?? '',
-      fecha_aceptacion: detalle.articulo?.fecha_aceptacion
-        ? new Date(`${detalle.articulo.fecha_aceptacion}T00:00:00`) : null,
+      carta_docente_registro_numero: detalle.carta_docente_registro_numero ?? detalle.registro_mp_numero ?? '',
+      carta_docente_registro_fecha: detalle.carta_docente_registro_fecha
+        ? new Date(`${detalle.carta_docente_registro_fecha}T00:00:00`) : null,
     });
   }
 
@@ -575,8 +626,9 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.cartaVrinService.preview(detalle.id, {
       numero: Number(match?.[1]), anio: Number(match?.[2]),
       fecha: this.iso(valores.fecha), ciudad: detalle.carta_vrin?.ciudad ?? 'Abancay',
-      registro_mp_numero: valores.registro_mp_numero?.trim(), asunto: valores.asunto?.trim(),
-      fecha_aceptacion: this.iso(valores.fecha_aceptacion),
+      carta_docente_registro_numero: valores.carta_docente_registro_numero?.trim(),
+      carta_docente_registro_fecha: this.iso(valores.carta_docente_registro_fecha),
+      asunto: valores.asunto?.trim(),
     }).subscribe({
       next: blob => {
         if (solicitud !== this.solicitudVista) return;
@@ -617,12 +669,12 @@ export class VistaExpediente implements OnInit, OnDestroy {
         anio: anio,
         fecha: this.iso(valores.fecha) ?? '',
         ciudad: 'Abancay',
-        registro_mp_numero: valores.registro_mp_numero?.trim() || null,
+        carta_docente_registro_numero: valores.carta_docente_registro_numero?.trim() || null,
+        carta_docente_registro_fecha: this.iso(valores.carta_docente_registro_fecha) ?? null,
         asunto: valores.asunto?.trim() || null,
-        fecha_aceptacion: this.iso(valores.fecha_aceptacion),
       };
     const operacion = this.editandoCarta()
-      ? this.cartaVrinService.actualizar(detalle.id, { ...payload, fecha_aceptacion: payload.fecha_aceptacion ?? null, version_actual: this.versionEditando ?? 0 })
+      ? this.cartaVrinService.actualizar(detalle.id, { ...payload, version_actual: this.versionEditando ?? 0 })
       : this.expedienteService.generarCarta(detalle.id, payload);
     operacion
       .subscribe({
@@ -1306,8 +1358,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
     }
     input.value = '';
     const extension = archivo.name.split('.').pop()?.toLowerCase() ?? '';
-    if (!['pdf'].includes(extension)) {
-      this.mensajes.add({ severity: 'error', summary: 'Archivo no permitido', detail: 'El comprobante debe ser PDF.' });
+    if (!['pdf', 'jpg', 'jpeg', 'png'].includes(extension)) {
+      this.mensajes.add({ severity: 'error', summary: 'Archivo no permitido', detail: 'El comprobante debe ser PDF, JPG o PNG.' });
       return;
     }
     if (archivo.size > 25 * 1024 * 1024) {
@@ -1333,7 +1385,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
           tipo: 'COMPROBANTE_RENDICION',
           etapa: 4,
           nombre_original: guardado.nombre_original,
-          mime: guardado.mime ?? 'application/pdf',
+          mime: guardado.mime ?? archivo.type,
           tamano_bytes: guardado.tamano_bytes ?? archivo.size,
           sha256: guardado.sha256 ?? null,
           created_at: new Date().toISOString(),
@@ -1360,15 +1412,29 @@ export class VistaExpediente implements OnInit, OnDestroy {
     if (!detalle) return;
     this.vistaComprobanteVisible.set(true);
     this.urlComprobante.set(null);
+    this.urlImagenComprobante.set(null);
     this.errorComprobante.set(false);
     this.archivoService.obtenerBlob(detalle.id, archivo.id).subscribe({
       next: (blob) => {
         if (this.blobComprobante) URL.revokeObjectURL(this.blobComprobante);
         this.blobComprobante = URL.createObjectURL(blob);
-        this.urlComprobante.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobComprobante));
+        if (this.esImagenComprobante(archivo)) {
+          this.urlImagenComprobante.set(this.blobComprobante);
+        } else {
+          this.urlComprobante.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobComprobante));
+        }
       },
       error: () => this.errorComprobante.set(true),
     });
+  }
+
+  protected etiquetaComprobante(archivo: ArchivoDetalle): string {
+    const extension = archivo.nombre_original.split('.').pop()?.toLowerCase();
+    return extension === 'png' ? 'PNG' : extension === 'jpg' || extension === 'jpeg' ? 'JPG' : 'PDF';
+  }
+
+  protected esImagenComprobante(archivo: ArchivoDetalle): boolean {
+    return ['JPG', 'PNG'].includes(this.etiquetaComprobante(archivo));
   }
 
   protected retirarComprobante(archivo: ArchivoDetalle): void {
@@ -1423,7 +1489,10 @@ export class VistaExpediente implements OnInit, OnDestroy {
       accept: () => {
         this.cerrandoRendicion.set(true);
         this.expedienteService
-          .cerrarRendicion(detalle.id, { fecha_informe: this.iso(fecha) ?? '' })
+          .cerrarRendicion(detalle.id, {
+            fecha_informe: this.iso(fecha) ?? '',
+            doi: this.rendicionForm.controls.doi.value?.trim() || null,
+          })
           .subscribe({
             next: () => {
               this.cerrandoRendicion.set(false);

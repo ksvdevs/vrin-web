@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { NEVER, of, throwError } from 'rxjs';
@@ -11,18 +12,21 @@ import { CartaVrinService } from '../../../core/services/carta-vrin.service';
 import { DocumentoService } from '../../../core/services/documento.service';
 import { ExpedienteService } from '../../../core/services/expediente.service';
 import { ResolucionService } from '../../../core/services/resolucion.service';
+import { ValidacionExpediente } from '../../validacion/validacion-expediente';
 import { VistaExpediente } from './expediente';
 
 describe('Etapas de carta VRIN y resolución', () => {
   let fixture: ComponentFixture<VistaExpediente>;
   let detalle: ExpedienteDetalle;
   let pasoQuery: string | null;
+  let rolActual: string;
   const cartas = { sugerencia: () => of({ siguiente_numero: 67 }), actualizar: vi.fn(), preview: vi.fn() };
   const resoluciones = { sugerencia: () => of({ siguiente_numero: 13 }), preview: vi.fn() };
   const documentos = { obtenerBlob: vi.fn() };
   const archivos = { obtenerBlob: vi.fn() };
   const api = {
     obtener: vi.fn(),
+    validar: vi.fn(),
     generarCarta: vi.fn(),
     registrarRespuestaOpp: vi.fn(),
     actualizarRespuestaOpp: vi.fn(),
@@ -43,10 +47,11 @@ describe('Etapas de carta VRIN y resolución', () => {
     cartas.preview.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
     resoluciones.preview.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
     pasoQuery = null;
+    rolActual = 'SECRETARIA';
     detalle = {
       id: 1, codigo: 'ART-2026-000001', modulo: 'ARTICULOS', estado: 'VALIDADO_CALIDAD',
       etapa: 1, etapa_actual: 1, badge: { label: 'Validado', severity: 'success' },
-      documentos_completos: true, carta_docente_numero: '017-2026', carta_docente_fecha: '2026-10-01',
+      documentos_completos: true, carta_docente_numero: '017-2026', carta_docente_registro_numero: '1392-2026', carta_docente_registro_fecha: '2026-10-02', carta_docente_fecha: '2026-10-01',
       registro_mp_numero: null, cerrado_at: null, fecha_registro: '01/10/2026',
       docente: {
         id: 1, nombre_completo: 'Docente de prueba', dni: '12345678', grado: 'Dr.', tipo_contrato: 'NOMBRADO',
@@ -82,7 +87,7 @@ describe('Etapas de carta VRIN y resolución', () => {
         } } },
         { provide: ExpedienteService, useValue: api },
         { provide: CartaVrinService, useValue: cartas },
-        { provide: AuthService, useValue: { usuarioActual: () => ({ rol_codigo: 'SECRETARIA' }) } },
+        { provide: AuthService, useValue: { usuarioActual: () => ({ rol_codigo: rolActual }) } },
         { provide: ResolucionService, useValue: resoluciones },
         { provide: ArchivoService, useValue: archivos },
         { provide: DocumentoService, useValue: documentos },
@@ -111,10 +116,101 @@ describe('Etapas de carta VRIN y resolución', () => {
     return encontrado!;
   }
 
+  it.each([
+    ['EN_REVISION_CALIDAD', [false, true, true, true]],
+    ['NO_CUMPLE', [false, true, true, true]],
+    ['VALIDADO_CALIDAD', [false, false, true, true]],
+    ['EN_ESPERA_OPP', [false, false, false, true]],
+    ['DISPONIBILIDAD_CONFIRMADA', [false, false, false, true]],
+    ['RESOLUCION_EMITIDA', [false, false, false, false]],
+  ] as const)('bloquea los pasos futuros en %s', async (estado, bloqueados) => {
+    detalle.estado = estado;
+    pasoQuery = '3';
+    await abrir();
+
+    const pasos = Array.from(fixture.nativeElement.querySelectorAll('.pasos-solicitud button')) as HTMLButtonElement[];
+    expect(pasos.map((paso) => paso.disabled)).toEqual([...bloqueados]);
+    for (const indice of [1, 2, 3]) {
+      if (bloqueados[indice]) {
+        const actual = fixture.componentInstance['indiceActivoVisible']();
+        fixture.componentInstance['cambiarPaso'](indice);
+        expect(fixture.componentInstance['indiceActivoVisible']()).toBe(actual);
+      }
+    }
+  });
+
+  it('muestra Reevaluar solo a Calidad en el detalle evaluado y oculta el historial', async () => {
+    rolActual = 'CALIDAD';
+    detalle.estado = 'NO_CUMPLE';
+    detalle.validacion_calidad = { resultado: 'NO_CUMPLE', checklist: { carta_aceptacion: false }, observacion: 'Falta carta', validado_at: '2026-10-09 09:00', validado_por: 'Calidad' };
+    await abrir();
+
+    expect(fixture.nativeElement.querySelector('.estado-registro')?.textContent?.trim()).toBe('No cumple');
+    expect(fixture.nativeElement.textContent).not.toContain('Historial de evaluaciones');
+    boton('Reevaluar').click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance['drawerValidacion']()).toBe(true);
+    expect(fixture.componentInstance['pasoDisponible'](1)).toBe(false);
+  });
+
+  it('abre el paso 1 con Reevaluar cuando Calidad consulta un expediente que cumple', async () => {
+    rolActual = 'CALIDAD';
+    detalle.validacion_calidad = { resultado: 'CUMPLE', checklist: { carta_aceptacion: true }, observacion: null, validado_at: '2026-10-09 09:00', validado_por: 'Calidad' };
+    await abrir();
+
+    expect(fixture.componentInstance['indiceActivoVisible']()).toBe(0);
+    expect(boton('Reevaluar')).toBeDefined();
+  });
+
+  it('envía la nueva evaluación con motivo sin mostrar el historial', async () => {
+    rolActual = 'CALIDAD';
+    detalle.estado = 'NO_CUMPLE';
+    detalle.validacion_calidad = {
+      resultado: 'NO_CUMPLE',
+      checklist: { carta_aceptacion: false, docente_ordinario_contratado: true, afiliacion_universidad: true },
+      observacion: 'Falta carta', validado_at: '2026-10-09 09:00', validado_por: 'Calidad',
+    };
+    api.validar.mockReturnValue(of({ estado: 'VALIDADO_CALIDAD', validacion: {} }));
+    await abrir();
+    boton('Reevaluar').click();
+    fixture.detectChanges();
+    await fixture.whenStable();
+
+    const drawer = fixture.debugElement.query(By.directive(ValidacionExpediente)).componentInstance as ValidacionExpediente;
+    const formulario = drawer['formulario'];
+    expect(formulario.controls.carta_aceptacion.value).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('Motivo de la reevaluación');
+    formulario.patchValue({ carta_aceptacion: true, motivo_correccion: 'Se revisó nuevamente la carta.' });
+    drawer['guardar']();
+
+    expect(api.validar).toHaveBeenCalledWith(1, {
+      resultado: 'CUMPLE',
+      checklist: { carta_aceptacion: true, docente_ordinario_contratado: true, afiliacion_universidad: true },
+      observacion: null,
+      motivo_correccion: 'Se revisó nuevamente la carta.',
+    });
+    expect(fixture.nativeElement.textContent).not.toContain('Historial de evaluaciones');
+  });
+
+  it('oculta Reevaluar para Secretaría', async () => {
+    detalle.validacion_calidad = { resultado: 'CUMPLE', checklist: { carta_aceptacion: true }, observacion: null, validado_at: '2026-10-09 09:00', validado_por: 'Calidad' };
+    await abrir();
+    expect(fixture.nativeElement.textContent).not.toContain('Reevaluar');
+  });
+
+  it('oculta Reevaluar a Calidad después de generar la carta', async () => {
+    rolActual = 'CALIDAD';
+    esperarOpp();
+    pasoQuery = '0';
+    await abrir();
+    expect(fixture.nativeElement.textContent).not.toContain('Reevaluar');
+  });
+
   it('muestra el formulario y Guardar cambios en el paso 2, sin respuesta OPP', async () => {
     await abrir();
     expect(fixture.componentInstance['indiceActivoVisible']()).toBe(1);
-    expect(fixture.nativeElement.querySelector('#asunto_carta')).not.toBeNull();
+    expect((fixture.nativeElement.querySelector('#asunto_carta') as HTMLTextAreaElement).rows).toBe(3);
+    expect(fixture.nativeElement.textContent).not.toContain('Fecha de aceptación');
     expect(fixture.nativeElement.querySelector('#carta_opp_numero')).toBeNull();
     expect(boton('Guardar cambios')).toBeDefined();
   });
@@ -173,6 +269,44 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(api.subirArchivo).toHaveBeenCalledWith(1, archivo, 'COMPROBANTE_RENDICION', 4);
   });
 
+  it.each([
+    ['comprobante.jpg', 'image/jpeg', 'JPG'],
+    ['comprobante.png', 'image/png', 'PNG'],
+  ])('permite subir y visualizar %s como imagen', async (nombre, mime, etiqueta) => {
+    pasoQuery = '3';
+    detalle.estado = 'POR_RENDIR';
+    detalle.etapa_actual = 4;
+    detalle.rendicion = {
+      fecha_desembolso: '2026-10-07', monto_desembolsado: 1500, fecha_limite: '2026-12-30',
+      fecha_informe: null, estado: 'BORRADOR', dias_habiles_restantes: 60,
+      con_retraso: false, cerrada_at: null, cerrada_por: null,
+    };
+    api.subirArchivo.mockReturnValue(NEVER);
+    await abrir();
+
+    const input = fixture.nativeElement.querySelector('#comprobante-rendicion') as HTMLInputElement;
+    expect(input.accept).toContain('.jpg');
+    expect(input.accept).toContain('.png');
+    const archivo = new File(['imagen'], nombre, { type: mime });
+    Object.defineProperty(input, 'files', { configurable: true, value: [archivo] });
+    input.dispatchEvent(new Event('change'));
+    fixture.detectChanges();
+    boton('Subir').click();
+    expect(api.subirArchivo).toHaveBeenCalledWith(1, archivo, 'COMPROBANTE_RENDICION', 4);
+
+    detalle = { ...detalle, archivos: [{
+      id: 20, tipo: 'COMPROBANTE_RENDICION', etapa: 4, nombre_original: nombre,
+      mime, tamano_bytes: archivo.size, sha256: null, created_at: '2026-10-09',
+    }] };
+    api.obtener.mockReturnValue(of(detalle));
+    fixture.componentInstance['cargar'](1, true);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.rendicion-lista .pdf-insignia')?.textContent).toBe(etiqueta);
+    (fixture.nativeElement.querySelector('.rendicion-lista .p-button') as HTMLButtonElement).click();
+    fixture.detectChanges();
+    expect(fixture.nativeElement.querySelector('.modal-comprobante-imagen')).not.toBeNull();
+  });
+
   it('muestra el comprobante cargado y permite cerrar con una fecha posterior al desembolso', async () => {
     pasoQuery = '3';
     detalle.estado = 'POR_RENDIR';
@@ -193,6 +327,10 @@ describe('Etapas de carta VRIN y resolución', () => {
     await abrir();
 
     expect(fixture.componentInstance['rendicionForm'].controls.fecha_informe.value?.getDate()).toBe(10);
+    const doiInput = fixture.nativeElement.querySelector('#doi_rendicion') as HTMLInputElement;
+    expect(doiInput).not.toBeNull();
+    fixture.componentInstance['rendicionForm'].controls.doi.setValue('10.1234/articulo.2026');
+    fixture.componentInstance['rendicionForm'].controls.doi.markAsDirty();
     const input = fixture.nativeElement.querySelector('#comprobante-rendicion') as HTMLInputElement;
     const archivo = new File(['PDF'], 'pago.pdf', { type: 'application/pdf' });
     Object.defineProperty(input, 'files', { configurable: true, value: [archivo] });
@@ -209,7 +347,7 @@ describe('Etapas de carta VRIN y resolución', () => {
       return confirmar;
     });
     boton('Confirmar y cerrar rendición').click();
-    expect(api.cerrarRendicion).toHaveBeenCalledWith(1, { fecha_informe: '2026-10-10' });
+    expect(api.cerrarRendicion).toHaveBeenCalledWith(1, { fecha_informe: '2026-10-10', doi: '10.1234/articulo.2026' });
   });
 
   it('mantiene los cuatro pasos completos y destaca el paso consultado al navegar', async () => {
@@ -221,12 +359,20 @@ describe('Etapas de carta VRIN y resolución', () => {
       fecha_informe: '2026-10-22', estado: 'CERRADA', dias_habiles_restantes: 0,
       con_retraso: false, cerrada_at: '2026-10-22', cerrada_por: 'Secretaría',
     };
+    detalle.articulo!.doi = '10.1234/articulo.2026';
     await abrir();
+    fixture.componentInstance['cambiarPaso'](3);
+    fixture.detectChanges();
+    expect(fixture.nativeElement.textContent).toContain('10.1234/articulo.2026');
+    fixture.componentInstance['cambiarPaso'](1);
+    fixture.detectChanges();
 
     const obtenerPasos = () => Array.from(fixture.nativeElement.querySelectorAll('.pasos-solicitud button')) as HTMLButtonElement[];
     expect(obtenerPasos()).toHaveLength(4);
     expect(obtenerPasos().every((paso) => paso.classList.contains('terminado') && !!paso.querySelector('.pi-check'))).toBe(true);
     expect(obtenerPasos()[1].classList.contains('activo-completado')).toBe(true);
+    expect(obtenerPasos().every((paso) => !paso.disabled)).toBe(true);
+    expect(fixture.nativeElement.querySelector('button[aria-label="Editar datos del expediente"]')).toBeNull();
     expect(obtenerPasos()[1].getAttribute('aria-current')).toBe('step');
     obtenerPasos()[2].click();
     fixture.detectChanges();
@@ -275,9 +421,11 @@ describe('Etapas de carta VRIN y resolución', () => {
     await abrir();
     const componente = fixture.componentInstance;
     componente['cambiarPaso'](1);
+    fixture.detectChanges();
+    expect((fixture.nativeElement.querySelector('#registro_docente') as HTMLInputElement).value).toBe('1392-2026');
+    expect(fixture.nativeElement.textContent).toContain('02/10/2026');
     componente['cartaForm'].patchValue({ numero_completo: 'CARTA Nº 0067-2026-VRIN-UNAMBA',
-      fecha: new Date(2026, 9, 5), asunto: 'Asunto de prueba', registro_mp_numero: '123-2026',
-      fecha_aceptacion: new Date(2026, 9, 2) });
+      fecha: new Date(2026, 9, 5), asunto: 'Asunto de prueba' });
     fixture.detectChanges();
     const form = fixture.nativeElement.querySelector('form') as HTMLFormElement;
     form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
@@ -287,7 +435,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     componente['generarCarta']();
     fixture.detectChanges();
     expect(api.generarCarta).toHaveBeenCalledWith(1, expect.objectContaining({
-      numero: 67, anio: 2026, asunto: 'Asunto de prueba', fecha_aceptacion: '2026-10-02',
+      numero: 67, anio: 2026, asunto: 'Asunto de prueba', carta_docente_registro_fecha: '2026-10-02',
     }));
     expect(componente['indiceActivoVisible']()).toBe(1);
     expect(boton('Volver a expedientes')).toBeDefined();
@@ -472,7 +620,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     await abrir();
     const componente = fixture.componentInstance;
     componente['editarCarta']();
-    expect(componente['cartaForm'].valid).toBe(false);
+    expect(componente['cartaForm'].valid).toBe(true);
     expect(componente['cartaForm'].controls.numero_completo.valid).toBe(true);
     componente['cartaForm'].patchValue({ asunto: 'Cambio sin guardar' });
     componente['descartarCarta']();
@@ -489,7 +637,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     await abrir();
     const componente = fixture.componentInstance;
     componente['editarCarta']();
-    componente['cartaForm'].patchValue({ asunto: 'Asunto nuevo', registro_mp_numero: '123', fecha_aceptacion: new Date(2026, 9, 2) });
+    componente['cartaForm'].patchValue({ asunto: 'Asunto nuevo' });
     componente['confirmarGenerarCarta']();
     cartas.actualizar.mockReturnValueOnce(throwError(() => new Error('Conflicto')));
     componente['generarCarta']();
@@ -512,7 +660,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     await abrir();
     const componente = fixture.componentInstance;
     componente['editarCarta']();
-    componente['cartaForm'].patchValue({ asunto: 'Mi edición', registro_mp_numero: '123', fecha_aceptacion: new Date(2026, 9, 2) });
+    componente['cartaForm'].patchValue({ asunto: 'Mi edición' });
     detalle = { ...detalle, documentos_generados: [{ ...detalle.documentos_generados[0], id: 10, version: 2 }] };
     componente['cargar'](1, true);
     cartas.actualizar.mockReturnValueOnce(throwError(() => new Error('Conflicto')));

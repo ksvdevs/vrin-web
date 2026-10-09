@@ -210,51 +210,24 @@
   }
 }
 .filtro-fecha {
-  position: relative;
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  flex: 0 0 140px;
-  height: 42px;
-  padding: 5px 10px 0;
-  border: 1px solid #dce6ee;
-  border-radius: 9px;
-  > span {
+  gap: 6px;
+  flex: 0 0 180px;
+  min-width: 0;
+  > label {
     color: #7f93a8;
-    font-size: 8px;
+    font-size: 9px;
     text-transform: uppercase;
-  }
-  > i {
-    position: absolute;
-    right: 12px;
-    bottom: 6px;
-    color: #45617a;
-    font-size: 10px;
-    pointer-events: none;
   }
 }
 :host ::ng-deep .filtro-fecha p-datepicker {
   display: block;
   width: 100%;
-  .p-datepicker {
-    display: block;
-    width: 100%;
-  }
-  .p-datepicker-input {
-    width: 100%;
-    height: 22px;
-    padding: 0 20px 0 4px;
-    border: 0;
-    box-shadow: none;
-    background: transparent;
-    color: #526d87;
-    font-size: 10px;
-  }
   .p-datepicker-input::placeholder {
     color: #a6b4c2;
   }
 }
-.filtro-fecha:focus-within,
 .filtro-rapido:focus-within {
   outline: 2px solid #2765fa;
   outline-offset: 2px;
@@ -538,10 +511,13 @@ tbody tr:hover {
   .buscador {
     flex-basis: 100%;
   }
-  .filtro-rapido,
-  .filtro-fecha {
+  .filtro-rapido {
     flex: 1 1 90px;
     min-width: 0;
+  }
+  .filtro-fecha {
+    flex: 1 1 180px;
+    min-width: 180px;
   }
   .pie-tabla {
     padding: 14px 12px;

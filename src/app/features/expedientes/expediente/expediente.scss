@@ -97,6 +97,16 @@ $violeta: #eef2ff;
   gap: 1rem;
 }
 
+.rendicion-datos-informe {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 640px) {
+  .rendicion-datos-informe {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 .campo {
   display: flex;
   flex-direction: column;
@@ -117,6 +127,11 @@ $violeta: #eef2ff;
 
   textarea {
     resize: vertical;
+  }
+
+  textarea.asunto-carta {
+    min-height: 5.5rem;
+    line-height: 1.45;
   }
 }
 

@@ -78,36 +78,38 @@
           }</select
         ><i class="pi pi-chevron-down" aria-hidden="true"></i>
       </label>
-      <label class="filtro-fecha">
-        <span>Registrado desde</span>
+      <div class="filtro-fecha">
+        <label for="registrado_desde">Registrado desde</label>
         <p-datepicker
+          inputId="registrado_desde"
           formControlName="desde"
           dateFormat="dd/mm/yy"
-          [showIcon]="false"
-          [showOnFocus]="true"
+          [showIcon]="true"
+          [showOnFocus]="false"
           appendTo="body"
           placeholder="dd/mm/aaaa"
+          class="sgr-datepicker"
           (onSelect)="aplicarFiltros()"
           (onClearClick)="aplicarFiltros()"
           aria-label="Registrado desde"
         />
-        <i class="pi pi-chevron-down" aria-hidden="true"></i>
-      </label>
-      <label class="filtro-fecha">
-        <span>Registrado hasta</span>
+      </div>
+      <div class="filtro-fecha">
+        <label for="registrado_hasta">Registrado hasta</label>
         <p-datepicker
+          inputId="registrado_hasta"
           formControlName="hasta"
           dateFormat="dd/mm/yy"
-          [showIcon]="false"
-          [showOnFocus]="true"
+          [showIcon]="true"
+          [showOnFocus]="false"
           appendTo="body"
           placeholder="dd/mm/aaaa"
+          class="sgr-datepicker"
           (onSelect)="aplicarFiltros()"
           (onClearClick)="aplicarFiltros()"
           aria-label="Registrado hasta"
         />
-        <i class="pi pi-chevron-down" aria-hidden="true"></i>
-      </label>
+      </div>
       @if (hayFiltros()) {
         <button type="button" class="limpiar-filtros" (click)="limpiarFiltros()" aria-label="Limpiar filtros">
           <i class="pi pi-times" aria-hidden="true"></i>

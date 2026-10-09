@@ -50,9 +50,9 @@
 
       <nav class="pasos-solicitud" aria-label="Etapas del expediente">
         @for (paso of pasos(); track $index) {
-          <button type="button" [class.activo]="$index === indiceActivoVisible() && !pasoCompletado($index)" [class.activo-completado]="$index === indiceActivoVisible() && pasoCompletado($index)" [class.terminado]="pasoCompletado($index)" [disabled]="guardandoCarta() || guardandoOpp() || guardandoResolucion()" (click)="cambiarPaso($index)" [attr.aria-current]="$index === indiceActivoVisible() ? 'step' : null">
-            <span class="paso-circulo">@if (pasoCompletado($index)) { <i class="pi pi-check"></i> }</span><strong>Paso {{ $index + 1 }}. {{ paso.label }}</strong>
-            <small>{{ $index === 0 ? 'Solicitud registrada' : $index === 1 && pasoCompletado(1) ? 'Generada' : $index === 2 && pasoCompletado(2) ? 'Generada' : $index === 3 ? paso3Ok() ? 'Rendida' : e.estado === 'RENDICION_VENCIDA' ? 'Vencida' : e.rendicion ? 'Por rendir' : 'Pendiente' : 'En elaboración' }}</small>
+          <button type="button" [class.activo]="$index === indiceActivoVisible() && !pasoCompletado($index)" [class.activo-completado]="$index === indiceActivoVisible() && pasoCompletado($index)" [class.terminado]="pasoCompletado($index)" [class.bloqueado]="!pasoDisponible($index)" [disabled]="!pasoDisponible($index) || guardandoCarta() || guardandoOpp() || guardandoResolucion()" (click)="cambiarPaso($index)" [attr.aria-current]="$index === indiceActivoVisible() ? 'step' : null">
+            <span class="paso-circulo">@if (pasoCompletado($index)) { <i class="pi pi-check"></i> } @else if (!pasoDisponible($index)) { <i class="pi pi-lock"></i> }</span><strong>Paso {{ $index + 1 }}. {{ paso.label }}</strong>
+            <small>{{ etiquetaPaso($index) }}</small>
           </button>
         }
       </nav>
@@ -63,10 +63,17 @@
             <div class="registro-cabecera">
               <span class="registro-icono"><i class="pi pi-file"></i></span>
               <div><h2>Registro de la solicitud</h2><p>Valida la carta y confirma los requisitos del docente.</p></div>
-              <span class="estado-registro" [class.completo]="paso0Ok()">{{ paso0Ok() ? 'Completo' : 'Pendiente' }}</span>
+              <div class="registro-acciones">
+                @if (puedeReevaluar()) {
+                  <p-button label="Reevaluar" icon="pi pi-refresh" severity="secondary" [outlined]="true" (onClick)="drawerValidacion.set(true)" />
+                }
+                <span class="estado-registro" [class.completo]="paso0Ok()" [class.no-cumple]="e.estado === 'NO_CUMPLE'">{{ e.estado === 'NO_CUMPLE' ? 'No cumple' : paso0Ok() ? 'Completo' : 'Pendiente' }}</span>
+              </div>
             </div>
             <div class="fila-datos datos-carta">
               <div class="campo"><span class="etiqueta-carta">N.º de carta</span><output class="valor-carta">{{ e.carta_docente_numero }}</output></div>
+              <div class="campo"><span class="etiqueta-carta">Registro de carta docente</span><output class="valor-carta">{{ e.carta_docente_registro_numero || '—' }}</output></div>
+              <div class="campo"><span class="etiqueta-carta">Fecha de registro</span><output class="valor-carta">{{ formatoFecha(e.carta_docente_registro_fecha) }}</output></div>
               <div class="campo"><span class="etiqueta-carta">Fecha de carta</span><output class="valor-carta">{{ formatoFecha(e.carta_docente_fecha) }}</output></div>
             </div>
             <div class="documento-solicitud">
@@ -91,7 +98,7 @@
               @if (v.observacion) { <p class="observacion-texto">{{ v.observacion }}</p> }
             } @else { <p class="pendiente">Pendiente de validación por Calidad.</p> }
           </section>
-          <div class="siguiente-solicitud"><p-button label="Siguiente" icon="pi pi-chevron-right" iconPos="right" (onClick)="cambiarPaso(1)" /></div>
+          <div class="siguiente-solicitud"><p-button label="Siguiente" icon="pi pi-chevron-right" iconPos="right" [disabled]="!pasoDisponible(1)" (onClick)="cambiarPaso(1)" /></div>
         }
         @if (indiceActivoVisible() === 1) {
           <section class="tarjeta registro-solicitud carta-opp">
@@ -134,25 +141,27 @@
                   <div class="campo">
                     <label for="fecha_carta">Fecha de carta VRIN *</label>
                     <p-datepicker inputId="fecha_carta" formControlName="fecha" dateFormat="dd/mm/yy"
-                      [showIcon]="true" [showOnFocus]="false" appendTo="body" styleClass="select-ancho" />
+                      [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" />
                   </div>
                 </div>
                 <div class="campo">
                   <label for="asunto_carta">Asunto *</label>
-                  <textarea pInputText id="asunto_carta" formControlName="asunto" rows="1" maxlength="255"></textarea>
+                  <textarea pInputText id="asunto_carta" class="asunto-carta" formControlName="asunto" rows="3" maxlength="255"></textarea>
                   @if (cartaForm.controls.asunto.touched && cartaForm.controls.asunto.invalid) {
                     <small class="error">El asunto es obligatorio (máximo 255 caracteres).</small>
                   }
                 </div>
                 <div class="fila">
                   <div class="campo">
-                    <label for="registro_mp">Registro de carta docente *</label>
-                    <input pInputText id="registro_mp" formControlName="registro_mp_numero" maxlength="30" />
+                    <label for="registro_docente">Registro de carta docente *</label>
+                    <input pInputText id="registro_docente" formControlName="carta_docente_registro_numero" maxlength="80" [readonly]="!!e.carta_docente_registro_numero" placeholder="Ingresa el registro de la carta" />
+                    @if (cartaForm.controls.carta_docente_registro_numero.touched && cartaForm.controls.carta_docente_registro_numero.invalid) { <small class="error">Indica el registro de la carta docente.</small> }
                   </div>
                   <div class="campo">
-                    <label for="fecha_acept">Fecha de aceptación *</label>
-                    <p-datepicker inputId="fecha_acept" formControlName="fecha_aceptacion" dateFormat="dd/mm/yy"
-                      [showIcon]="true" [showOnFocus]="false" appendTo="body" styleClass="select-ancho" />
+                    <label for="fecha_registro_docente">Fecha de registro de carta docente *</label>
+                    @if (e.carta_docente_registro_fecha) { <div class="valor-carta">{{ formatoFecha(e.carta_docente_registro_fecha) }}</div> }
+                    @else { <p-datepicker inputId="fecha_registro_docente" formControlName="carta_docente_registro_fecha" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" /> }
+                    @if (cartaForm.controls.carta_docente_registro_fecha.touched && cartaForm.controls.carta_docente_registro_fecha.invalid) { <small class="error">Indica la fecha de registro de la carta docente.</small> }
                   </div>
                 </div>
               </form>
@@ -160,7 +169,7 @@
               <div class="formulario carta-lectura">
                 <div class="fila"><div class="campo"><label>Número de carta VRIN <em>*</em></label><div class="valor-carta">CARTA N.° {{ numeroCartaFormateado(cv.numero, cv.anio) }}-VRIN-UNAMBA</div></div><div class="campo"><label>Fecha de carta VRIN <em>*</em></label><div class="valor-carta">{{ formatoFecha(cv.fecha) }}</div></div></div>
                 <div class="campo"><label>Asunto <em>*</em></label><div class="valor-carta">{{ cv.asunto ?? '—' }}</div></div>
-                <div class="fila"><div class="campo"><label>Registro de carta docente <em>*</em></label><div class="valor-carta">{{ e.registro_mp_numero ?? '—' }}</div></div><div class="campo"><label>Fecha de aceptación <em>*</em></label><div class="valor-carta">{{ formatoFecha(e.articulo?.fecha_aceptacion) }}</div></div></div>
+                <div class="fila"><div class="campo"><label>Registro de carta docente</label><div class="valor-carta">{{ e.carta_docente_registro_numero || e.registro_mp_numero || '—' }}</div></div><div class="campo"><label>Fecha de registro de carta docente</label><div class="valor-carta">{{ formatoFecha(e.carta_docente_registro_fecha) }}</div></div></div>
               </div>
             } @else { <p class="pendiente">La generación de la carta requiere validación de Calidad y permisos de Secretaría o Administración.</p> }
           </section>
@@ -285,7 +294,7 @@
                     [showIcon]="true"
                     [showOnFocus]="false"
                     appendTo="body"
-                    styleClass="select-ancho"
+                    class="select-ancho sgr-datepicker"
                   />
                 </div>
               </div>
@@ -314,7 +323,7 @@
                     [showIcon]="true"
                     [showOnFocus]="false"
                     appendTo="body"
-                    styleClass="select-ancho"
+                    class="select-ancho sgr-datepicker"
                   />
                 </div>
               </div>
@@ -324,7 +333,7 @@
                 <div class="fila" [formGroup]="resolucionForm">
                   <div class="campo"><label for="res_numero">Número de resolución *</label><input pInputText id="res_numero" type="number" formControlName="numero" min="1" /></div>
                   <div class="campo"><label for="res_anio">Año *</label><input pInputText id="res_anio" type="number" formControlName="anio" /></div>
-                  <div class="campo"><label for="res_fecha">Fecha de emisión VRIN *</label><p-datepicker inputId="res_fecha" formControlName="fecha_emision" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" styleClass="select-ancho" /></div>
+                  <div class="campo"><label for="res_fecha">Fecha de emisión VRIN *</label><p-datepicker inputId="res_fecha" formControlName="fecha_emision" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" /></div>
                 </div>
               }
             </form>
@@ -385,7 +394,7 @@
                 </div>
               } @else if (e.estado === 'RESOLUCION_EMITIDA' && puedeGestionarRendicion()) {
                 <form [formGroup]="desembolsoForm" (ngSubmit)="registrarDesembolso()" class="rendicion-desembolso-form">
-                  <div class="campo"><label for="fecha_desembolso">Fecha de desembolso *</label><p-datepicker inputId="fecha_desembolso" formControlName="fecha_desembolso" dateFormat="dd/mm/yy" appendTo="body" styleClass="select-ancho" /></div>
+                  <div class="campo"><label for="fecha_desembolso">Fecha de desembolso *</label><p-datepicker inputId="fecha_desembolso" formControlName="fecha_desembolso" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" /></div>
                   <div class="campo"><label for="monto_desembolsado">Monto desembolsado *</label><p-inputnumber inputId="monto_desembolsado" formControlName="monto_desembolsado" mode="currency" currency="PEN" locale="es-PE" [min]="0.01" [minFractionDigits]="2" [maxFractionDigits]="2" styleClass="numero-ancho" /></div>
                   <p-button label="Registrar y activar plazo" icon="pi pi-check" type="submit" [loading]="guardandoDesembolso()" [disabled]="desembolsoForm.invalid" />
                 </form>
@@ -399,20 +408,26 @@
               <h3 id="rendicion-informe-titulo">Informe y documentos probatorios</h3>
               @if (e.rendicion; as ren) {
                 @if (ren.estado === 'CERRADA') {
-                  <div class="campo"><span class="rendicion-etiqueta">Fecha de entrega del informe de rendición</span><output class="valor-carta">{{ formatoFecha(ren.fecha_informe) }}</output></div>
+                  <div class="fila rendicion-datos-informe">
+                    <div class="campo"><span class="rendicion-etiqueta">Fecha de entrega del informe de rendición</span><output class="valor-carta">{{ formatoFecha(ren.fecha_informe) }}</output></div>
+                    <div class="campo"><span class="rendicion-etiqueta">DOI del artículo</span><output class="valor-carta">{{ e.articulo?.doi || '—' }}</output></div>
+                  </div>
                 } @else if (puedeGestionarRendicion()) {
                   <form [formGroup]="rendicionForm" class="rendicion-informe-form" (ngSubmit)="cerrarRendicion()">
-                    <div class="campo"><label for="fecha_informe">Fecha de entrega del informe de rendición *</label><p-datepicker inputId="fecha_informe" formControlName="fecha_informe" dateFormat="dd/mm/yy" [minDate]="fechaMinimaInforme()" appendTo="body" styleClass="select-ancho" /></div>
+                    <div class="fila rendicion-datos-informe">
+                      <div class="campo"><label for="fecha_informe">Fecha de entrega del informe de rendición *</label><p-datepicker inputId="fecha_informe" formControlName="fecha_informe" dateFormat="dd/mm/yy" [minDate]="fechaMinimaInforme()" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" /></div>
+                      <div class="campo"><label for="doi_rendicion">DOI del artículo</label><input pInputText id="doi_rendicion" formControlName="doi" maxlength="255" placeholder="10.1234/ejemplo o https://doi.org/..." />@if (rendicionForm.controls.doi.touched && rendicionForm.controls.doi.invalid) { <small class="error">El DOI no puede superar los 255 caracteres.</small> }</div>
+                    </div>
                   </form>
                 }
-                <div class="rendicion-adjuntos-cabecera"><strong>Documentos probatorios adjuntos (digitalizados)</strong><small>{{ comprobantes().length }} {{ comprobantes().length === 1 ? 'archivo cargado' : 'archivos cargados' }}</small></div>
+                <div class="rendicion-adjuntos-cabecera"><strong>Documentos probatorios adjuntos (PDF, JPG o PNG)</strong><small>{{ comprobantes().length }} {{ comprobantes().length === 1 ? 'archivo cargado' : 'archivos cargados' }}</small></div>
                 @if (ren.estado !== 'CERRADA' && puedeGestionarRendicion()) {
-                  <div class="rendicion-carga"><div class="archivo-campo-opp"><label class="boton-archivo-opp" for="comprobante-rendicion">Elegir archivo</label><input id="comprobante-rendicion" class="input-archivo-opp" type="file" accept=".pdf" (change)="seleccionarComprobante($event)" /><span class="nombre-archivo-opp" aria-live="polite">{{ archivoComprobanteSeleccionado()?.name ?? 'Ningún archivo seleccionado' }}</span></div><p-button label="Subir" icon="pi pi-upload" [loading]="adjuntandoComprobante()" [disabled]="!archivoComprobanteSeleccionado() || adjuntandoComprobante()" (onClick)="subirComprobante()" /></div>
+                  <div class="rendicion-carga"><div class="archivo-campo-opp"><label class="boton-archivo-opp" for="comprobante-rendicion">Elegir archivo</label><input id="comprobante-rendicion" class="input-archivo-opp" type="file" accept=".pdf,.jpg,.jpeg,.png" (change)="seleccionarComprobante($event)" /><span class="nombre-archivo-opp" aria-live="polite">{{ archivoComprobanteSeleccionado()?.name ?? 'Ningún archivo seleccionado' }}</span></div><p-button label="Subir" icon="pi pi-upload" [loading]="adjuntandoComprobante()" [disabled]="!archivoComprobanteSeleccionado() || adjuntandoComprobante()" (onClick)="subirComprobante()" /></div>
                 }
                 @if (comprobantes().length > 0) {
                   <ul class="rendicion-lista">
                     @for (adj of comprobantes(); track adj.id) {
-                      <li><span class="pdf-insignia">PDF</span><span class="rendicion-archivo-nombre">{{ adj.nombre_original }}</span><p-button icon="pi pi-eye" [text]="true" severity="secondary" [attr.aria-label]="'Ver ' + adj.nombre_original" (onClick)="verComprobante(adj)" />@if (ren.estado !== 'CERRADA' && puedeGestionarRendicion()) { <p-button icon="pi pi-trash" [text]="true" severity="danger" [attr.aria-label]="'Retirar ' + adj.nombre_original" [loading]="retirandoComprobante() === adj.id" (onClick)="retirarComprobante(adj)" /> }</li>
+                      <li><span class="pdf-insignia" [class.imagen-insignia]="esImagenComprobante(adj)">{{ etiquetaComprobante(adj) }}</span><span class="rendicion-archivo-nombre">{{ adj.nombre_original }}</span><p-button icon="pi pi-eye" [text]="true" severity="secondary" [attr.aria-label]="'Ver ' + adj.nombre_original" (onClick)="verComprobante(adj)" />@if (ren.estado !== 'CERRADA' && puedeGestionarRendicion()) { <p-button icon="pi pi-trash" [text]="true" severity="danger" [attr.aria-label]="'Retirar ' + adj.nombre_original" [loading]="retirandoComprobante() === adj.id" (onClick)="retirarComprobante(adj)" /> }</li>
                     }
                   </ul>
                 } @else { <p class="rendicion-vacio">Aún no hay comprobantes adjuntos.</p> }
@@ -483,8 +498,8 @@
           @if (vistaBorrador()) {
             <div class="vista-dato"><span>Número de carta</span><strong>{{ cartaForm.controls.numero_completo.value }}</strong></div>
             <div class="vista-dato"><span>Fecha de emisión</span><strong>{{ fechaCartaVista(cartaForm.controls.fecha.value) }}</strong></div>
-            <div class="vista-dato"><span>Registro docente</span><strong>{{ cartaForm.controls.registro_mp_numero.value }}</strong></div>
-            <div class="vista-dato"><span>Fecha de aceptación</span><strong>{{ fechaCartaVista(cartaForm.controls.fecha_aceptacion.value) }}</strong></div>
+            <div class="vista-dato"><span>Registro docente</span><strong>{{ cartaForm.controls.carta_docente_registro_numero.value || '—' }}</strong></div>
+            <div class="vista-dato"><span>Fecha de registro</span><strong>{{ fechaCartaVista(cartaForm.controls.carta_docente_registro_fecha.value) }}</strong></div>
             <div class="vista-dato"><span>Monto solicitado</span><strong>{{ formatoSoles(e.articulo?.monto_solicitado) }}</strong></div>
             <div class="aviso-carta"><i class="pi pi-check"></i><div><strong>Documento listo</strong><p>Todos los campos obligatorios están completos.</p></div></div>
           } @else {
@@ -565,7 +580,8 @@
   </p-dialog>
 
   <p-dialog [(visible)]="vistaComprobanteVisible" [modal]="true" [style]="{ width: '850px', maxWidth: '96vw' }" header="Comprobante de rendición">
-    @if (urlComprobante(); as url) { <iframe [src]="url" title="Comprobante de rendición" class="modal-carta-iframe"></iframe> }
+    @if (urlImagenComprobante(); as url) { <img [src]="url" alt="Vista previa del comprobante" class="modal-comprobante-imagen" /> }
+    @else if (urlComprobante(); as url) { <iframe [src]="url" title="Comprobante de rendición" class="modal-carta-iframe"></iframe> }
     @else if (errorComprobante()) { <p>No se pudo mostrar el comprobante. Comprueba que el archivo siga disponible.</p> }
     @else { <p>Cargando comprobante…</p> }
   </p-dialog>
