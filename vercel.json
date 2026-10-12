@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "outputDirectory": "dist/vrin-web/browser",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://centered-christina-lady-antivirus.trycloudflare.com/api/:path*"
+    },
+    {
+      "source": "/sanctum/:path*",
+      "destination": "https://centered-christina-lady-antivirus.trycloudflare.com/sanctum/:path*"
+    },
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
+}
