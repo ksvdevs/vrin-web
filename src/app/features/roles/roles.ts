@@ -1,10 +1,13 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { ConfirmDialog } from 'primeng/confirmdialog';
+import { DatePicker } from 'primeng/datepicker';
 import { Dialog } from 'primeng/dialog';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
@@ -24,6 +27,7 @@ import { RolPayload, RolService } from '../../core/services/rol.service';
     Button,
     ConfirmDialog,
     DatePipe,
+    DatePicker,
     Dialog,
     FormsModule,
     InputText,
@@ -43,20 +47,23 @@ export class Roles implements OnInit {
   private readonly rolService = inject(RolService);
   private readonly mensajes = inject(MessageService);
   private readonly confirmacion = inject(ConfirmationService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly cambiosBusqueda = new Subject<string>();
 
   protected readonly roles = signal<Rol[]>([]);
   protected readonly cargando = signal(true);
 
-  protected registrosPorPagina = 5;
-  protected readonly opcionesRegistro = [5, 10, 20].map((n) => ({ label: String(n), value: n }));
+  protected readonly registrosPorPagina = 5;
+  protected primeraFila = 0;
   protected readonly opcionesEstado = [
-    { label: 'Activo/Inactivo', value: null },
+    { label: 'Todos', value: null },
     { label: 'Activo', value: 1 },
     { label: 'Inactivo', value: 0 },
   ];
   protected filtroNombre = '';
   protected filtroEstado: number | null = null;
-  protected readonly filtrosVisibles = signal(false);
+  protected filtroDesde: Date | null = null;
+  protected filtroHasta: Date | null = null;
 
   protected readonly dialogoVisible = signal(false);
   protected readonly rolEnEdicion = signal<Rol | null>(null);
@@ -69,15 +76,39 @@ export class Roles implements OnInit {
   });
 
   ngOnInit(): void {
+    this.cambiosBusqueda.pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
     this.cargar();
   }
 
+  protected alBuscar(nombre: string): void {
+    this.filtroNombre = nombre;
+    this.cambiosBusqueda.next(nombre);
+  }
+
+  protected textoPaginacion(): string {
+    const total = this.roles().length;
+    const visibles = Math.max(0, Math.min(this.registrosPorPagina, total - this.primeraFila));
+    return `Mostrando ${visibles} de ${total} roles`;
+  }
+
+  private fechaApi(fecha: Date | null): string | undefined {
+    if (!fecha) return undefined;
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
+  }
+
   protected cargar(): void {
+    this.primeraFila = 0;
     this.cargando.set(true);
     this.rolService
       .listar({
         nombre: this.filtroNombre.trim() || undefined,
         activo: this.filtroEstado ?? undefined,
+        desde: this.fechaApi(this.filtroDesde),
+        hasta: this.fechaApi(this.filtroHasta),
       })
       .subscribe({
         next: (roles) => {
@@ -93,12 +124,6 @@ export class Roles implements OnInit {
           });
         },
       });
-  }
-
-  protected limpiarFiltros(): void {
-    this.filtroNombre = '';
-    this.filtroEstado = null;
-    this.cargar();
   }
 
   protected abrirNuevo(): void {

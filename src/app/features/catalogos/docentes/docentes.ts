@@ -1,16 +1,15 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { RouterLink } from '@angular/router';
-import { Subject, Subscription, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { FormsModule } from '@angular/forms';
 
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { ConfirmDialog } from 'primeng/confirmdialog';
-import { InputText } from 'primeng/inputtext';
+import { Select } from 'primeng/select';
 import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
 
-import { Docente, DocentePayload } from '../../../core/models/docente.model';
+import { Docente, DocentePayload, GRADOS, TIPOS_CONTRATO } from '../../../core/models/docente.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { DocenteService } from '../../../core/services/docente.service';
 import { DocenteFormulario } from '../../../shared/docente-formulario/docente-formulario';
@@ -21,8 +20,8 @@ import { DocenteFormulario } from '../../../shared/docente-formulario/docente-fo
     Button,
     ConfirmDialog,
     DocenteFormulario,
-    InputText,
-    RouterLink,
+    FormsModule,
+    Select,
     TableModule,
     Tag,
     Toast,
@@ -30,7 +29,7 @@ import { DocenteFormulario } from '../../../shared/docente-formulario/docente-fo
   templateUrl: './docentes.html',
   styleUrl: './docentes.scss',
 })
-export class Docentes implements OnInit, OnDestroy {
+export class Docentes implements OnInit {
   protected readonly auth = inject(AuthService);
   private readonly docenteService = inject(DocenteService);
   private readonly mensajes = inject(MessageService);
@@ -41,28 +40,60 @@ export class Docentes implements OnInit, OnDestroy {
   protected readonly docentes = signal<Docente[]>([]);
   protected readonly cargando = signal(true);
   protected readonly busqueda = signal('');
+  protected readonly filtroEstado = signal<boolean | null>(null);
+  protected readonly filtroContrato = signal<string | null>(null);
+  protected readonly filtroGrado = signal<string | null>(null);
+  protected readonly opcionesEstado = [
+    { label: 'Todos', value: null },
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
+  protected readonly opcionesContrato = [
+    { label: 'Todos', value: null },
+    ...TIPOS_CONTRATO.map((tipo) => ({ label: tipo, value: tipo })),
+  ];
+  protected readonly opcionesGrado = [
+    { label: 'Todos', value: null },
+    ...GRADOS.map((grado) => ({ label: grado, value: grado })),
+  ];
+  protected readonly registrosPorPagina = 5;
+  protected primeraFila = 0;
+  protected readonly docentesFiltrados = computed(() => {
+    const terminos = this.busqueda().trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+    const estado = this.filtroEstado();
+    const contrato = this.filtroContrato();
+    const grado = this.filtroGrado();
+
+    return this.docentes().filter((docente) => {
+      const texto = `${docente.dni} ${docente.apellido_paterno} ${docente.apellido_materno ?? ''} ${docente.nombres}`.toLocaleLowerCase();
+      return terminos.every((termino) => texto.includes(termino))
+        && (estado === null || docente.activo === estado)
+        && (contrato === null || docente.tipo_contrato === contrato)
+        && (grado === null || docente.grado === grado);
+    });
+  });
 
   protected readonly dialogoVisible = signal(false);
   protected readonly docenteEnEdicion = signal<Docente | null>(null);
 
-  private readonly busqueda$ = new Subject<string>();
-  private suscripcionBusqueda?: Subscription;
-
   ngOnInit(): void {
     this.auth.verificarSesion().subscribe();
-    this.suscripcionBusqueda = this.busqueda$
-      .pipe(debounceTime(300), distinctUntilChanged())
-      .subscribe((q) => this.cargarDocentes(q));
-    this.cargarDocentes('');
-  }
-
-  ngOnDestroy(): void {
-    this.suscripcionBusqueda?.unsubscribe();
+    this.cargarDocentes();
   }
 
   protected alBuscar(termino: string): void {
     this.busqueda.set(termino);
-    this.busqueda$.next(termino);
+    this.reiniciarPagina();
+  }
+
+  protected reiniciarPagina(): void {
+    this.primeraFila = 0;
+  }
+
+  protected textoPaginacion(): string {
+    const total = this.docentesFiltrados().length;
+    const visibles = Math.max(0, Math.min(this.registrosPorPagina, total - this.primeraFila));
+    return `Mostrando ${visibles} de ${total} docentes`;
   }
 
   protected abrirNuevo(): void {
@@ -76,7 +107,7 @@ export class Docentes implements OnInit, OnDestroy {
   }
 
   protected alGuardarDocente(): void {
-    this.cargarDocentes(this.busqueda());
+    this.cargarDocentes();
   }
 
   protected confirmarCambioEstado(docente: Docente): void {
@@ -118,7 +149,7 @@ export class Docentes implements OnInit, OnDestroy {
           summary: 'Docente eliminado',
           detail: `${docente.apellido_paterno}, ${docente.nombres}`,
         });
-        this.cargarDocentes(this.busqueda());
+        this.cargarDocentes();
       },
       error: (error) => {
         this.mensajes.add({
@@ -140,7 +171,7 @@ export class Docentes implements OnInit, OnDestroy {
             summary: docente.activo ? 'Docente desactivado' : 'Docente activado',
             detail: `${docente.apellido_paterno}, ${docente.nombres}`,
           });
-          this.cargarDocentes(this.busqueda());
+          this.cargarDocentes();
         },
         error: (error) => {
           this.mensajes.add({
@@ -166,11 +197,12 @@ export class Docentes implements OnInit, OnDestroy {
     };
   }
 
-  private cargarDocentes(q: string): void {
+  private cargarDocentes(): void {
     this.cargando.set(true);
-    this.docenteService.listar(q).subscribe({
+    this.docenteService.listar().subscribe({
       next: (docentes) => {
         this.docentes.set(docentes);
+        this.primeraFila = 0;
         this.cargando.set(false);
       },
       error: () => {

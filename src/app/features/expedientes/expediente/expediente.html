@@ -1,4 +1,4 @@
-<main class="detalle-page" [class.paso-solicitud]="indiceActivoVisible() <= 3" [class.paso-carta-vrin]="indiceActivoVisible() === 1" [class.paso-resolucion]="indiceActivoVisible() === 2" [class.paso-rendicion]="indiceActivoVisible() === 3">
+<main class="detalle-page sgr-page" [class.paso-solicitud]="indiceActivoVisible() <= 3" [class.paso-carta-vrin]="indiceActivoVisible() === 1" [class.paso-resolucion]="indiceActivoVisible() === 2" [class.paso-rendicion]="indiceActivoVisible() === 3">
   <p-toast />
   <p-confirmdialog />
 
@@ -9,21 +9,16 @@
   />
 
   @if (detalle(); as e) {
-    <header class="barra">
-      <div class="titulo">
-        <p-button
-          icon="pi pi-arrow-left"
-          severity="secondary"
-          [text]="true"
-          [rounded]="true"
-          routerLink="/expedientes"
-          ariaLabel="Volver a la bandeja"
-        />
+    <header class="barra sgr-page-header">
+      <div class="titulo sgr-page-title">
+        <a class="volver-expedientes" routerLink="/expedientes" aria-label="Volver a expedientes" title="Volver a expedientes">
+          <i class="pi pi-chevron-left" aria-hidden="true"></i>
+        </a>
         <div>
           <div class="linea-principal">
             <h1>Artículo científico</h1>
           </div>
-          <p class="subtitulo">{{ e.codigo }} · Ingresado el {{ e.fecha_registro }}</p>
+          <p class="subtitulo">{{ e.codigo }} · Ingresado el {{ fechaRegistroLarga(e.fecha_registro) }}</p>
         </div>
       </div>
       <div class="cabecera-acciones">
@@ -41,7 +36,7 @@
           <p-button
             label="Validar Requisitos"
             icon="pi pi-check-square"
-            styleClass="bg-teal-500 border-none hover:bg-teal-600 text-white"
+            styleClass="sgr-primary-button"
             (onClick)="drawerValidacion.set(true)"
           />
         }
@@ -110,18 +105,27 @@
               @if (docCartaGenerada()) { <span class="estado-registro" [class.completo]="!editandoCarta()">{{ editandoCarta() ? 'Editando' : 'Generada' }}</span> }
             </div>
             @if (docCartaGenerada(); as doc) {
+              @if (driveConectado() === false && puedeConectarDrive()) {
+                <div class="aviso-carta aviso-version">
+                  <i class="pi pi-cloud"></i>
+                  <div><strong>Conectar Google Drive</strong><p>Autoriza la cuenta institucional una vez para guardar las cartas en la carpeta al descargarlas.</p></div>
+                  <p-button label="Conectar Drive" icon="pi pi-external-link" severity="secondary" [outlined]="true" (onClick)="conectarDrive()" />
+                  <p-button label="Comprobar conexión" severity="secondary" [text]="true" (onClick)="consultarEstadoDrive()" />
+                </div>
+              }
               <div class="documentos-cabecera"><div><strong>Documentos generados</strong><small>{{ versionesCarta().length }} {{ versionesCarta().length === 1 ? 'documento asociado' : 'versiones asociadas' }} al expediente</small></div><span class="vigente">VIGENTE</span></div>
               <div class="archivo-solicitud documento-generado">
-                <span class="word-insignia">DOCX</span><div class="archivo-info"><strong>{{ e.codigo.toLowerCase() }}_carta_vrin_v{{ doc.version }}.docx</strong><small>Versión {{ doc.version }} · Generada el {{ doc.generado_at }} · Vista previa en PDF</small></div>
+                <span class="word-insignia">DOCX</span><div class="archivo-info"><strong>{{ doc.nombre_archivo || 'CARTA_VRIN_v' + doc.version + '.docx' }}</strong><small>Versión {{ doc.version }} · Generada el {{ doc.generado_at }} · {{ doc.drive_file_id ? 'Guardada en Drive' : 'Pendiente de Drive' }}</small></div>
                 <div class="documento-acciones">
                   <p-button label="Ver carta" icon="pi pi-eye" severity="secondary" [outlined]="true" (onClick)="verVersionCarta(doc)" />
-                  <p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar carta en Word (.docx)" (onClick)="descargarDocGenerado(doc)" />
+                  <p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar carta en Word y guardar en Google Drive" [loading]="sincronizandoDriveId() === doc.id" (onClick)="descargarDocGenerado(doc)" />
+                  <p-button icon="pi pi-external-link" severity="secondary" [outlined]="true" ariaLabel="Abrir carpeta de cartas en Google Drive" (onClick)="abrirCarpetaCartasDrive()" />
                 </div>
               </div>
               @if (versionesCarta().length > 1) {
                 <details class="historial-cartas"><summary>Ver historial de versiones</summary>
                   @for (version of versionesCarta(); track version.id) {
-                    @if (!version.es_vigente) { <div class="archivo-solicitud"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>Carta OPP · Versión {{ version.version }}</strong><small>{{ version.generado_at }} · Versión anterior</small></div><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver versión anterior en PDF" (onClick)="verVersionCarta(version)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" [attr.aria-label]="'Descargar versión ' + version.version + ' en Word (.docx)'" (onClick)="descargarDocGenerado(version)" /></div> }
+                    @if (!version.es_vigente) { <div class="archivo-solicitud"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>{{ version.nombre_archivo || 'CARTA_VRIN_v' + version.version + '.docx' }}</strong><small>{{ version.generado_at }} · {{ version.drive_file_id ? 'Guardada en Drive' : 'Pendiente de Drive' }}</small></div><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver versión anterior en PDF" (onClick)="verVersionCarta(version)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" [attr.aria-label]="'Descargar versión ' + version.version + ' en Word y guardar en Google Drive'" [loading]="sincronizandoDriveId() === version.id" (onClick)="descargarDocGenerado(version)" /><p-button icon="pi pi-external-link" severity="secondary" [outlined]="true" ariaLabel="Abrir carpeta de cartas en Google Drive" (onClick)="abrirCarpetaCartasDrive()" /></div> }
                   }
                 </details>
               }
@@ -176,7 +180,7 @@
           <div class="acciones-carta-opp">
             @if (puedeGenerarCarta() || editandoCarta()) {
               <p-button [label]="editandoCarta() ? 'Cancelar edición' : 'Descartar'" severity="secondary" [outlined]="true" [disabled]="guardandoCarta()" (onClick)="descartarCarta()" />
-              <p-button label="Guardar cambios" icon="pi pi-eye" iconPos="right" [disabled]="guardandoCarta()" (onClick)="confirmarGenerarCarta()" />
+              <p-button label="Vista previa y guardar" icon="pi pi-eye" iconPos="right" [disabled]="guardandoCarta() || cargandoVersionCarta()" (onClick)="confirmarGenerarCarta()" />
             } @else {
               <p-button label="Volver a expedientes" icon="pi pi-chevron-left" severity="secondary" [outlined]="true" routerLink="/expedientes" />
               @if (docCartaGenerada(); as doc) {
@@ -193,9 +197,17 @@
           <section class="tarjeta registro-solicitud resolucion-principal">
             <div class="registro-cabecera"><span class="registro-icono"><i class="pi pi-book"></i></span><div><h2>{{ editandoOpp() ? 'Editar información de la resolución' : docResolucionGenerada() ? 'Resolución VRIN' : 'Preparar resolución VRIN' }}</h2><p>{{ editandoOpp() ? 'Actualiza los datos y revisa la nueva versión antes de reemplazar el documento vigente.' : docResolucionGenerada() ? 'Consulta y administra la resolución generada para este expediente.' : 'Carga la respuesta de OPP, valida la disponibilidad y completa los datos de la resolución.' }}</p></div>@if (docResolucionGenerada()) { <span class="estado-registro" [class.completo]="!editandoOpp()">{{ editandoOpp() ? 'Editando' : 'Generada' }}</span> }</div>
             @if (docResolucionGenerada(); as doc) {
+              @if (driveConectado() === false && puedeConectarDrive()) {
+                <div class="aviso-carta aviso-version">
+                  <i class="pi pi-cloud"></i>
+                  <div><strong>Conectar Google Drive</strong><p>Autoriza la cuenta institucional para guardar las resoluciones al descargarlas.</p></div>
+                  <p-button label="Conectar Drive" icon="pi pi-external-link" severity="secondary" [outlined]="true" (onClick)="conectarDrive()" />
+                  <p-button label="Comprobar conexión" severity="secondary" [text]="true" (onClick)="consultarEstadoDrive()" />
+                </div>
+              }
               <div class="documentos-cabecera"><div><strong>Resoluciones generadas</strong><small>{{ versionesResolucion().length }} {{ versionesResolucion().length === 1 ? 'versión asociada' : 'versiones asociadas' }} al expediente</small></div><span class="vigente">VIGENTE</span></div>
-              <div class="archivo-solicitud documento-generado"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>Resolución · Versión {{ doc.version }}.docx</strong><small>Generada el {{ doc.generado_at }} · Vista previa en PDF</small></div><div class="documento-acciones"><p-button label="Ver resolución" icon="pi pi-eye" severity="secondary" [outlined]="true" (onClick)="verResolucionGenerada(doc)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar resolución en Word (.docx)" (onClick)="descargarDocResolucion('docx', doc)" /></div></div>
-              @if (versionesResolucion().length > 1) { <details class="historial-cartas"><summary>Ver historial de versiones</summary>@for (version of versionesResolucion(); track version.id) { @if (!version.es_vigente) { <div class="archivo-solicitud"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>Resolución · Versión {{ version.version }}.docx</strong><small>{{ version.generado_at }} · Versión anterior</small></div><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver resolución anterior" (onClick)="verResolucionGenerada(version)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar resolución anterior en Word (.docx)" (onClick)="descargarDocResolucion('docx', version)" /></div> } } </details> }
+              <div class="archivo-solicitud documento-generado"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>{{ doc.nombre_archivo || 'Resolución · Versión ' + doc.version + '.docx' }}</strong><small>Generada el {{ doc.generado_at }} · {{ doc.drive_file_id ? 'Guardada en Drive' : 'Pendiente de Drive' }}</small></div><div class="documento-acciones"><p-button label="Ver resolución" icon="pi pi-eye" severity="secondary" [outlined]="true" (onClick)="verResolucionGenerada(doc)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar resolución en Word (.docx)" [loading]="sincronizandoDriveId() === doc.id" (onClick)="descargarDocResolucion('docx', doc)" /><p-button icon="pi pi-external-link" severity="secondary" [outlined]="true" ariaLabel="Abrir carpeta de resoluciones en Google Drive" (onClick)="abrirCarpetaResolucionesDrive()" /></div></div>
+              @if (versionesResolucion().length > 1) { <details class="historial-cartas"><summary>Ver historial de versiones</summary>@for (version of versionesResolucion(); track version.id) { @if (!version.es_vigente) { <div class="archivo-solicitud"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>{{ version.nombre_archivo || 'Resolución · Versión ' + version.version + '.docx' }}</strong><small>{{ version.generado_at }} · {{ version.drive_file_id ? 'Guardada en Drive' : 'Pendiente de Drive' }}</small></div><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver resolución anterior" (onClick)="verResolucionGenerada(version)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar resolución anterior en Word (.docx)" [loading]="sincronizandoDriveId() === version.id" (onClick)="descargarDocResolucion('docx', version)" /><p-button icon="pi pi-external-link" severity="secondary" [outlined]="true" ariaLabel="Abrir carpeta de resoluciones en Google Drive" (onClick)="abrirCarpetaResolucionesDrive()" /></div> } } </details> }
               <div class="aviso-carta"><i class="pi pi-check"></i><div><strong>La resolución ya fue generada</strong><p>El documento vigente y las versiones anteriores están disponibles en este expediente.</p></div></div>
               @if (editandoOpp()) { <div class="aviso-carta aviso-version"><i class="pi pi-clock"></i><div><strong>Se creará una nueva versión</strong><p>La resolución vigente se conservará en el historial.</p></div></div> }
             }
@@ -513,7 +525,7 @@
             <iframe [src]="url" title="Carta para OPP" class="pdf-carta-opp"></iframe>
           } @else {
             <div class="pdf-pendiente" role="status">
-              @if (cargandoVersionCarta()) { <i class="pi pi-spin pi-spinner"></i><p>Cargando documento…</p> }
+              @if (cargandoVersionCarta()) { <i class="pi pi-spin pi-spinner"></i><p>Preparando el PDF de la carta…</p> }
               @else if (errorVersionCarta()) { <p>{{ vistaBorrador() ? mensajeErrorPreview() : 'No se pudo cargar el PDF.' }}</p><p-button label="Reintentar" (onClick)="vistaBorrador() ? confirmarGenerarCarta() : verVersionCarta(documentoVista()!)" /> }
               @else if (esperaVistaCartaAgotada()) { <p>La vista en PDF sigue sin estar disponible. Puedes descargar la carta en Word o volver a comprobarla.</p><p-button label="Volver a comprobar" (onClick)="reintentarVistaCarta()" /> }
               @else { <p>La vista en PDF se está preparando. La carta en Word ya está disponible para descargar.</p><p-button label="Actualizar" (onClick)="reintentarVistaCarta()" /> }
@@ -528,7 +540,7 @@
         <div>@if (vistaBorrador()) {
           <p-button label="Volver a editar" icon="pi pi-pencil" severity="secondary" [outlined]="true" [disabled]="guardandoCarta()" (onClick)="vistaCartaVrinVisible.set(false)" />
           <p-button [label]="editandoCarta() ? 'Generar y guardar nueva versión' : 'Generar y guardar carta'" icon="pi pi-file" [loading]="guardandoCarta()" [disabled]="cargandoVersionCarta() || errorVersionCarta() || !urlVersionCarta()" (onClick)="generarCarta()" />
-        } @else { @if (documentoVista(); as version) { <p-button label="Descargar Word (.docx)" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="descargarDocGenerado(version)" /> } <p-button label="Cerrar" severity="secondary" [outlined]="true" (onClick)="vistaCartaVrinVisible.set(false)" /> }</div>
+        } @else { @if (documentoVista(); as version) { <p-button label="Descargar Word y guardar en Drive" icon="pi pi-download" severity="secondary" [outlined]="true" [loading]="sincronizandoDriveId() === version.id" (onClick)="descargarDocGenerado(version)" /><p-button label="Abrir carpeta en Drive" icon="pi pi-external-link" severity="secondary" [outlined]="true" (onClick)="abrirCarpetaCartasDrive()" /> } <p-button label="Cerrar" severity="secondary" [outlined]="true" (onClick)="vistaCartaVrinVisible.set(false)" /> }</div>
       </div>
     </ng-template>
   </p-dialog>
@@ -554,7 +566,7 @@
       </div>
     </div>
     <ng-template #footer><div class="vista-footer"><small>La resolución se emitirá usando la plantilla vigente de Resolución.</small><div>
-      @if (vistaResolucionGenerada()) { <p-button label="Descargar Word" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="descargarDocResolucion('docx')" /><p-button label="Cerrar" severity="secondary" [outlined]="true" (onClick)="vistaResolucionVisible.set(false)" /> }
+      @if (vistaResolucionGenerada()) { <p-button label="Descargar Word y guardar en Drive" icon="pi pi-download" severity="secondary" [outlined]="true" [loading]="sincronizandoDriveId() === documentoResolucionVista()?.id" (onClick)="descargarDocResolucion('docx')" /><p-button label="Abrir carpeta en Drive" icon="pi pi-external-link" severity="secondary" [outlined]="true" (onClick)="abrirCarpetaResolucionesDrive()" /><p-button label="Cerrar" severity="secondary" [outlined]="true" (onClick)="vistaResolucionVisible.set(false)" /> }
       @else { <p-button label="Volver a revisar" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="vistaResolucionVisible.set(false)" /><p-button [label]="docResolucionGenerada() ? 'Generar y guardar nueva versión' : 'Generar y guardar resolución'" icon="pi pi-book" [loading]="guardandoResolucion()" [disabled]="!urlVistaResolucion() || cargandoVistaResolucion()" (onClick)="generarResolucion()" /> }
     </div></div></ng-template>
   </p-dialog>

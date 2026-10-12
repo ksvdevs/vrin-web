@@ -134,22 +134,37 @@
   overflow: hidden;
 }
 .barra-filtros {
+  display: grid;
+  grid-template-columns: minmax(220px, 2.6fr) minmax(170px, 1fr) repeat(2, minmax(180px, 1.2fr)) auto;
+  align-items: end;
+  gap: 12px;
+  min-height: 108px;
+  padding: 22px 20px 24px;
+}
+.filtro-campo {
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 16px;
-  min-height: 71px;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+.filtro-campo > label {
+  height: 12px;
+  color: #7f93a8;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 12px;
+  text-transform: uppercase;
+  white-space: nowrap;
 }
 .buscador {
   display: flex;
   align-items: center;
   gap: 12px;
-  width: 430px;
-  max-width: 40%;
+  width: 100%;
   height: 42px;
-  padding: 0 14px;
+  padding: 0 16px;
   border: 1px solid #dce6ee;
-  border-radius: 9px;
+  border-radius: 11px;
   background: #fbfcfd;
   color: #8398ab;
   i {
@@ -177,56 +192,63 @@
 .filtro-rapido {
   position: relative;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
-  flex: 0 0 140px;
+  align-items: center;
+  width: 100%;
   height: 42px;
   border: 1px solid #dce6ee;
-  border-radius: 9px;
-  padding: 5px 10px 0;
-  > span {
-    color: #7f93a8;
-    font-size: 8px;
-    text-transform: uppercase;
-  }
+  border-radius: 11px;
+  background: #fff;
   select {
     width: 100%;
-    flex: 1;
-    padding: 0 20px 0 4px;
+    min-width: 0;
+    height: 40px;
+    padding: 0 36px 0 16px;
     appearance: none;
     border: 0;
+    border-radius: 11px;
     background: transparent;
     color: #526d87;
-    font-size: 10px;
+    font-size: 12px;
     cursor: pointer;
   }
   i {
     position: absolute;
-    right: 12px;
-    bottom: 6px;
+    right: 16px;
     font-size: 10px;
     pointer-events: none;
     color: #45617a;
   }
 }
 .filtro-fecha {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  flex: 0 0 180px;
   min-width: 0;
-  > label {
-    color: #7f93a8;
-    font-size: 9px;
-    text-transform: uppercase;
-  }
 }
-:host ::ng-deep .filtro-fecha p-datepicker {
-  display: block;
+:host ::ng-deep .lista-page .filtro-fecha .p-datepicker.sgr-datepicker {
+  display: flex;
   width: 100%;
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  border-radius: 11px;
+  box-shadow: none;
+  .p-datepicker-input {
+    height: 42px;
+    min-height: 42px;
+    padding: 0 15px;
+    font-size: 12px;
+  }
   .p-datepicker-input::placeholder {
     color: #a6b4c2;
   }
+  .p-datepicker-dropdown {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    border-left: 0;
+    border-radius: 0 11px 11px 0;
+    background: transparent;
+  }
+  .p-datepicker-dropdown:hover { background: #f4f7fb; }
+  .p-datepicker-dropdown svg { width: 14px; height: 14px; }
 }
 .filtro-rapido:focus-within {
   outline: 2px solid #2765fa;
@@ -235,8 +257,8 @@
 .limpiar-filtros {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 42px;
+  height: 42px;
   border: 0;
   border-radius: 7px;
   background: #eaf1ff;
@@ -286,20 +308,20 @@ table {
   width: 26.7%;
 }
 th {
-  height: 40px;
-  padding: 0 14px;
+  height: 46px;
+  padding: 0 18px;
   background: #f6f8fa;
   border-block: 1px solid #eaf0f4;
   text-align: left;
   color: #6e859a;
-  font-size: 9px;
+  font-size: 10px;
   letter-spacing: 0.35px;
   font-weight: 600;
   text-transform: uppercase;
 }
 td {
   height: 83.5px;
-  padding: 12px 14px;
+  padding: 12px 18px;
   border-bottom: 1px solid #edf1f5;
   font-size: 11px;
   vertical-align: middle;
@@ -462,12 +484,10 @@ tbody tr:hover {
     flex-wrap: wrap;
   }
   .barra-filtros {
-    flex-wrap: wrap;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
-  .buscador {
-    flex: 1 1 250px;
-    max-width: none;
-  }
+  .filtro-busqueda { grid-column: 1 / -1; }
+  .limpiar-filtros { justify-self: end; }
 }
 @media (max-width: 760px) {
   .lista-page {
@@ -505,20 +525,11 @@ tbody tr:hover {
     flex: 1 1 140px;
   }
   .barra-filtros {
+    grid-template-columns: 1fr;
     padding: 12px;
     gap: 8px;
   }
-  .buscador {
-    flex-basis: 100%;
-  }
-  .filtro-rapido {
-    flex: 1 1 90px;
-    min-width: 0;
-  }
-  .filtro-fecha {
-    flex: 1 1 180px;
-    min-width: 180px;
-  }
+  .filtro-busqueda { grid-column: auto; }
   .pie-tabla {
     padding: 14px 12px;
     flex-wrap: wrap;

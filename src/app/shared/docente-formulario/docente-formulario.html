@@ -116,12 +116,13 @@
     <p-button
       label="Cancelar"
       severity="secondary"
-      [text]="true"
+      styleClass="sgr-secondary-button"
       (onClick)="visible.set(false)"
     />
     <p-button
       [label]="docente() ? 'Guardar cambios' : 'Registrar'"
       icon="pi pi-check"
+      styleClass="sgr-primary-button"
       [loading]="guardando()"
       (onClick)="guardar()"
     />

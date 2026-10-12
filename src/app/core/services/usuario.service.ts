@@ -5,9 +5,12 @@ import { Usuario } from '../models/usuario.model';
 import { ApiService } from './api.service';
 
 export interface FiltrosUsuario {
+  busqueda?: string;
   nombre?: string;
   email?: string;
   activo?: number;
+  desde?: string;
+  hasta?: string;
 }
 
 export interface UsuarioPayload {
@@ -26,6 +29,9 @@ export class UsuarioService {
 
   listar(filtros: FiltrosUsuario = {}): Observable<Usuario[]> {
     const params: Record<string, string | number> = {};
+    if (filtros.busqueda) {
+      params['busqueda'] = filtros.busqueda;
+    }
     if (filtros.nombre) {
       params['nombre'] = filtros.nombre;
     }
@@ -34,6 +40,12 @@ export class UsuarioService {
     }
     if (filtros.activo !== undefined && filtros.activo !== null) {
       params['activo'] = filtros.activo;
+    }
+    if (filtros.desde) {
+      params['desde'] = filtros.desde;
+    }
+    if (filtros.hasta) {
+      params['hasta'] = filtros.hasta;
     }
     return this.api.get<Usuario[]>('/usuarios', params);
   }

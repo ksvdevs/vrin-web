@@ -1,10 +1,13 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
+import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
 import { ConfirmDialog } from 'primeng/confirmdialog';
+import { DatePicker } from 'primeng/datepicker';
 import { Dialog } from 'primeng/dialog';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
@@ -25,6 +28,7 @@ import { UsuarioPayload, UsuarioService } from '../../core/services/usuario.serv
     Button,
     ConfirmDialog,
     DatePipe,
+    DatePicker,
     Dialog,
     FormsModule,
     InputText,
@@ -44,22 +48,24 @@ export class Usuarios implements OnInit {
   private readonly rolService = inject(RolService);
   private readonly mensajes = inject(MessageService);
   private readonly confirmacion = inject(ConfirmationService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly cambiosBusqueda = new Subject<string>();
 
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly cargando = signal(true);
   protected readonly roles = signal<Rol[]>([]);
 
-  protected registrosPorPagina = 5;
-  protected readonly opcionesRegistro = [5, 10, 20].map((n) => ({ label: String(n), value: n }));
+  protected readonly registrosPorPagina = 5;
+  protected primeraFila = 0;
   protected readonly opcionesEstado = [
-    { label: 'Activo/Inactivo', value: null },
+    { label: 'Todos', value: null },
     { label: 'Activo', value: 1 },
     { label: 'Inactivo', value: 0 },
   ];
-  protected filtroNombre = '';
-  protected filtroEmail = '';
+  protected filtroBusqueda = '';
   protected filtroEstado: number | null = null;
-  protected readonly filtrosVisibles = signal(false);
+  protected filtroDesde: Date | null = null;
+  protected filtroHasta: Date | null = null;
 
   protected readonly dialogoVisible = signal(false);
   protected readonly detalleVisible = signal(false);
@@ -80,6 +86,8 @@ export class Usuarios implements OnInit {
   });
 
   ngOnInit(): void {
+    this.cambiosBusqueda.pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.cargar());
     this.cargar();
     this.rolService.listar({ activo: 1 }).subscribe({
       next: (roles) => this.roles.set(roles),
@@ -87,13 +95,34 @@ export class Usuarios implements OnInit {
     });
   }
 
+  protected alBuscar(busqueda: string): void {
+    this.filtroBusqueda = busqueda;
+    this.cambiosBusqueda.next(busqueda);
+  }
+
+  protected textoPaginacion(): string {
+    const total = this.usuarios().length;
+    const visibles = Math.max(0, Math.min(this.registrosPorPagina, total - this.primeraFila));
+    return `Mostrando ${visibles} de ${total} usuarios`;
+  }
+
+  private fechaApi(fecha: Date | null): string | undefined {
+    if (!fecha) return undefined;
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
+  }
+
   protected cargar(): void {
+    this.primeraFila = 0;
     this.cargando.set(true);
     this.usuarioService
       .listar({
-        nombre: this.filtroNombre.trim() || undefined,
-        email: this.filtroEmail.trim() || undefined,
+        busqueda: this.filtroBusqueda.trim() || undefined,
         activo: this.filtroEstado ?? undefined,
+        desde: this.fechaApi(this.filtroDesde),
+        hasta: this.fechaApi(this.filtroHasta),
       })
       .subscribe({
         next: (usuarios) => {
@@ -109,13 +138,6 @@ export class Usuarios implements OnInit {
           });
         },
       });
-  }
-
-  protected limpiarFiltros(): void {
-    this.filtroNombre = '';
-    this.filtroEmail = '';
-    this.filtroEstado = null;
-    this.cargar();
   }
 
   protected abrirNuevo(): void {

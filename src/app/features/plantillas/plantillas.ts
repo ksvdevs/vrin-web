@@ -1,8 +1,9 @@
 import { Component, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { RouterLink } from '@angular/router';
+import { DatePipe } from '@angular/common';
+import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { Button } from 'primeng/button';
+import { DatePicker } from 'primeng/datepicker';
 import { Dialog } from 'primeng/dialog';
 import { InputText } from 'primeng/inputtext';
 import { MessageService } from 'primeng/api';
@@ -24,7 +25,7 @@ const MAX_TAMANO = 25 * 1024 * 1024;
 
 @Component({
   selector: 'app-plantillas',
-  imports: [Button, Dialog, InputText, ReactiveFormsModule, RouterLink, Select, TableModule, Tag, Toast],
+  imports: [Button, DatePipe, DatePicker, Dialog, FormsModule, InputText, ReactiveFormsModule, Select, TableModule, Tag, Toast],
   templateUrl: './plantillas.html',
   styleUrl: './plantillas.scss',
 })
@@ -36,6 +37,31 @@ export class Plantillas implements OnInit {
 
   protected readonly plantillas = signal<Plantilla[]>([]);
   protected readonly cargando = signal(true);
+  protected readonly registrosPorPagina = 5;
+  protected primeraFila = 0;
+  protected readonly opcionesEstado = [
+    { label: 'Todos', value: null },
+    { label: 'Activa', value: 'ACTIVO' },
+    { label: 'Inactiva', value: 'INACTIVO' },
+  ];
+  protected readonly filtroBusqueda = signal('');
+  protected readonly filtroEstado = signal<'ACTIVO' | 'INACTIVO' | null>(null);
+  protected readonly filtroDesde = signal<Date | null>(null);
+  protected readonly filtroHasta = signal<Date | null>(null);
+  protected readonly plantillasFiltradas = computed(() => {
+    const busqueda = this.filtroBusqueda().trim().toLocaleLowerCase();
+    const estado = this.filtroEstado();
+    const desde = this.fechaLocal(this.filtroDesde());
+    const hasta = this.fechaLocal(this.filtroHasta());
+
+    return this.plantillas().filter((plantilla) => {
+      const fecha = plantilla.created_at?.slice(0, 10) ?? '';
+      return (!busqueda || `${plantilla.codigo} ${plantilla.nombre}`.toLocaleLowerCase().includes(busqueda))
+        && (!estado || plantilla.estado === estado)
+        && (!desde || fecha >= desde)
+        && (!hasta || fecha <= hasta);
+    });
+  });
   protected readonly dialogoSubida = signal(false);
   protected readonly subiendo = signal(false);
   protected readonly archivoSeleccionado = signal<File | null>(null);
@@ -53,11 +79,30 @@ export class Plantillas implements OnInit {
     this.cargar();
   }
 
+  protected reiniciarPagina(): void {
+    this.primeraFila = 0;
+  }
+
+  protected textoPaginacion(): string {
+    const total = this.plantillasFiltradas().length;
+    const visibles = Math.max(0, Math.min(this.registrosPorPagina, total - this.primeraFila));
+    return `Mostrando ${visibles} de ${total} plantillas`;
+  }
+
+  private fechaLocal(fecha: Date | null): string | null {
+    if (!fecha) return null;
+    const anio = fecha.getFullYear();
+    const mes = String(fecha.getMonth() + 1).padStart(2, '0');
+    const dia = String(fecha.getDate()).padStart(2, '0');
+    return `${anio}-${mes}-${dia}`;
+  }
+
   protected cargar(): void {
     this.cargando.set(true);
     this.plantillaService.listar().subscribe({
       next: (plantillas) => {
         this.plantillas.set(plantillas);
+        this.primeraFila = 0;
         this.cargando.set(false);
       },
       error: () => {

@@ -10,10 +10,9 @@
       [class.completado]="paso.completado"
       [class.fallido]="paso.fallido"
       [class.actual]="paso.actual"
-      [class.marcado]="paso.marcado"
     >
       <span class="indicador">
-        @if (paso.completado || paso.marcado) {
+        @if (paso.completado) {
           <i class="pi pi-check"></i>
         } @else if (paso.fallido) {
           <i class="pi pi-times"></i>

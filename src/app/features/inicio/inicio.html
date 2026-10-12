@@ -1,9 +1,11 @@
-<div class="panel">
-  <header class="panel-heading">
-    <div>
-      <span class="eyebrow">Resumen institucional</span>
-      <h1>Panel de control</h1>
-      <p>Seguimiento general de artículos financiados y actividad administrativa.</p>
+<div class="panel sgr-page">
+  <header class="panel-heading sgr-page-header">
+    <div class="sgr-page-title">
+      <span class="sgr-page-icon"><i class="pi pi-th-large" aria-hidden="true"></i></span>
+      <div>
+        <h1>Panel de control</h1>
+        <p>Seguimiento general de artículos financiados y actividad administrativa.</p>
+      </div>
     </div>
     <button class="report-outline" type="button" (click)="descargarReporte()" [disabled]="descargando()">
       <i class="pi pi-download" aria-hidden="true"></i> Descargar reporte
@@ -36,7 +38,7 @@
       </article>
       <article class="metric-card">
         <span class="metric-label">Monto financiado</span>
-        <strong>S/ {{ datos.monto_financiado | number:'1.0-0' }}</strong>
+        <strong>S/ {{ datos.monto_financiado | number:'1.2-2' }}</strong>
         <small>Desembolsado en {{ anio() }}</small>
         <span class="metric-icon gold"><i class="pi pi-wallet" aria-hidden="true"></i></span>
       </article>

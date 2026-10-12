@@ -31,6 +31,8 @@ export interface DocumentoGeneradoDetalle {
   id: number;
   tipo: 'CARTA_VRIN' | 'RESOLUCION';
   version: number;
+  nombre_archivo?: string;
+  drive_file_id?: string | null;
   pdf_path: string | null;
   es_vigente: boolean;
   generado_at: string;

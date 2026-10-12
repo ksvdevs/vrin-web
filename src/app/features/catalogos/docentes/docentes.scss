@@ -1,88 +1,145 @@
-.docentes-page {
-  min-height: 100vh;
-  padding: 1.5rem;
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
+:host { display: block; }
 
-.barra {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 1rem;
-  flex-wrap: wrap;
-}
-
-.titulo {
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-
-  h1 {
-    margin: 0;
-    font-size: 1.5rem;
-  }
-
-  .subtitulo {
-    margin: 0;
-    font-size: 0.85rem;
-    color: var(--p-text-muted-color);
-  }
-}
-
-.filtros {
-  display: flex;
-  gap: 0.75rem;
-
-  .buscador {
-    width: 100%;
-    max-width: 28rem;
-  }
-}
-
-.acciones {
-  width: 1%;
-  white-space: nowrap;
-  text-align: right;
-}
-
-.vacio {
-  text-align: center;
-  color: var(--p-text-muted-color);
-}
-
-.formulario {
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-}
-
-.fila {
+.docentes-page .filtros-docentes {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  grid-template-columns: minmax(220px, 3fr) minmax(180px, 1.4fr) repeat(2, minmax(130px, 1fr));
+  align-items: end;
+  gap: 12px;
+  min-height: 108px;
+  padding: 22px 20px 24px;
+  border-bottom: 1px solid #eaf0f4;
 }
-
-.campo {
+.docentes-page .filtro-docentes { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.docentes-page .filtro-docentes > label {
+  height: 12px;
+  color: #7f93a8;
+  font-size: 9px;
+  font-weight: 500;
+  line-height: 12px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.docentes-page .buscador-docentes {
   display: flex;
-  flex-direction: column;
-  gap: 0.35rem;
-
-  label {
-    font-weight: 600;
-    font-size: 0.9rem;
-  }
-
-  input {
-    width: 100%;
-  }
-
-  .error {
-    color: var(--p-red-500);
-  }
+  align-items: center;
+  gap: 12px;
+  height: 42px;
+  min-height: 42px;
+  padding: 0 16px;
+  border: 1px solid #dce6ee;
+  border-radius: 11px;
+  background: #fbfcfd;
+  color: #8398ab;
+}
+.docentes-page .buscador-docentes:focus-within { outline: 2px solid #2765fa; outline-offset: 2px; }
+.docentes-page .buscador-docentes input {
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: #17365b;
+  font-size: 12px;
+}
+.docentes-page .buscador-docentes input::placeholder { color: #b3bfca; }
+:host ::ng-deep .docentes-page .filtro-docentes p-select {
+  display: flex;
+  align-items: center;
+  flex-wrap: nowrap;
+  width: 100%;
+}
+:host ::ng-deep .docentes-page .select-filtro-docentes.p-select {
+  width: 100%;
+  height: 42px;
+  min-height: 42px;
+  max-height: 42px;
+  border: 1px solid #dce6ee;
+  border-radius: 11px;
+  background: #fff;
+  box-shadow: none;
+}
+:host ::ng-deep .docentes-page .select-filtro-docentes .p-select-label {
+  display: flex;
+  align-items: center;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding: 0 12px 0 16px;
+  color: #526d87;
+  font-size: 12px;
+  white-space: nowrap;
+}
+:host ::ng-deep .docentes-page .select-filtro-docentes .p-select-dropdown {
+  display: grid;
+  place-items: center;
+  flex: 0 0 40px;
+  height: 40px;
+  color: #35556f;
 }
 
-:host ::ng-deep .select-ancho {
-  width: 100%;
+:host ::ng-deep .docentes-page .sgr-table .p-datatable-thead > tr > th {
+  height: 46px;
+  padding-inline: 18px;
+  font-size: 10px;
+  text-align: left;
+}
+:host ::ng-deep .docentes-page .sgr-table .p-datatable-thead > tr > th:last-child { text-align: right; }
+:host ::ng-deep .docentes-page .sgr-table .p-datatable-tbody > tr > td {
+  height: 75px;
+  padding: 12px 18px;
+}
+.docentes-page .col-acciones { width: 128px; white-space: nowrap; text-align: right; }
+.docentes-page .acciones-docente { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
+.docentes-page .acciones-docente .accion { color: #6d90b5; }
+.docentes-page .acciones-docente .accion i { font-size: 14px; }
+.docentes-page .vacio { padding: 28px 14px; text-align: center; color: #7e93a8; }
+
+:host ::ng-deep .docentes-page .sgr-table .p-paginator {
+  min-height: 59px;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  padding: 14px 18px;
+  border-top: 1px solid #edf1f5;
+  background: #fff;
+}
+:host ::ng-deep .docentes-page .sgr-table .p-paginator-current {
+  height: auto;
+  margin-right: auto;
+  padding: 0;
+  color: #899caf;
+  font-size: 10px;
+}
+:host ::ng-deep .docentes-page .sgr-table .p-paginator-pages { display: flex; gap: 5px; }
+:host ::ng-deep .docentes-page .sgr-table :is(.p-paginator-prev, .p-paginator-next, .p-paginator-page) {
+  width: 28px;
+  min-width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid #e2eaf1;
+  border-radius: 7px;
+  background: #fff;
+  color: #8398ab;
+  font-size: 10px;
+}
+:host ::ng-deep .docentes-page .sgr-table :is(.p-paginator-prev, .p-paginator-next) .p-icon { width: 10px; height: 10px; }
+:host ::ng-deep .docentes-page .sgr-table .p-paginator-page.p-paginator-page-selected {
+  border-color: #22528f;
+  background: #22528f;
+  color: #fff;
+}
+:host ::ng-deep .docentes-page .sgr-table :is(.p-paginator-first, .p-paginator-last) { display: none; }
+:host ::ng-deep .docentes-page .sgr-table :is(.p-paginator-prev, .p-paginator-next).p-disabled { opacity: .5; }
+
+@media (max-width: 1050px) {
+  .docentes-page .filtros-docentes { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .docentes-page .filtro-busqueda { grid-column: 1 / -1; }
+}
+@media (max-width: 640px) {
+  .docentes-page .filtros-docentes { grid-template-columns: 1fr; padding: 16px 12px; }
+  .docentes-page .filtro-busqueda { grid-column: auto; }
+  :host ::ng-deep .docentes-page .sgr-table .p-paginator { flex-wrap: wrap; }
+  :host ::ng-deep .docentes-page .sgr-table .p-paginator-current { flex-basis: 100%; }
 }

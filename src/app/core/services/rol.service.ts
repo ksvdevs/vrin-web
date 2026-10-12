@@ -7,6 +7,8 @@ import { ApiService } from './api.service';
 export interface FiltrosRol {
   nombre?: string;
   activo?: number;
+  desde?: string;
+  hasta?: string;
 }
 
 export interface RolPayload {
@@ -26,6 +28,12 @@ export class RolService {
     }
     if (filtros.activo !== undefined && filtros.activo !== null) {
       params['activo'] = filtros.activo;
+    }
+    if (filtros.desde) {
+      params['desde'] = filtros.desde;
+    }
+    if (filtros.hasta) {
+      params['hasta'] = filtros.hasta;
     }
     return this.api.get<Rol[]>('/roles', params);
   }

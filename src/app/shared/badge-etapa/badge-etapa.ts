@@ -8,7 +8,6 @@ interface PasoEtapa {
   completado: boolean;
   fallido: boolean;
   actual: boolean;
-  marcado: boolean;
 }
 
 @Component({
@@ -59,8 +58,6 @@ export class BadgeEtapa {
         completado,
         fallido,
         actual: indice === etapa && !completado && !fallido,
-        marcado:
-          this.compacto() && indice === 4 && ['POR_RENDIR', 'RENDIDO'].includes(this.estado()),
       };
     });
   });

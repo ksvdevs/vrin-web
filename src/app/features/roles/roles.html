@@ -1,10 +1,10 @@
 <p-toast />
 <p-confirmdialog />
 
-<div class="roles-page">
-  <div class="panel encabezado">
-    <div class="titulo">
-      <div class="titulo-icono">
+<div class="roles-page sgr-page sgr-management">
+  <header class="encabezado sgr-page-header">
+    <div class="titulo sgr-page-title">
+      <div class="titulo-icono sgr-page-icon">
         <i class="pi pi-box"></i>
       </div>
       <div>
@@ -12,92 +12,104 @@
         <p class="subtitulo">Administra los permisos y accesos del sistema.</p>
       </div>
     </div>
-    <div class="encabezado-acciones">
+    <div class="encabezado-acciones sgr-header-actions">
       <p-button
         icon="pi pi-refresh"
         [text]="true"
         [rounded]="true"
         severity="secondary"
+        styleClass="sgr-secondary-button"
         (onClick)="cargar()"
         aria-label="Recargar"
       />
-      <p-button 
-        label="Filtrar" 
-        icon="pi pi-filter" 
-        styleClass="btn-filtrar" 
-        (onClick)="filtrosVisibles.set(!filtrosVisibles())" 
-      />
-      <p-button label="+ Nuevo" styleClass="btn-teal" (onClick)="abrirNuevo()" />
+      <p-button label="Nuevo rol" icon="pi pi-plus" styleClass="sgr-primary-button" (onClick)="abrirNuevo()" />
     </div>
-  </div>
+  </header>
 
-  @if (filtrosVisibles()) {
-    <div class="panel filtros">
-      <div class="filtro filtro-select">
-        <label>Registro</label>
-        <p-select
-          [options]="opcionesRegistro"
-          [(ngModel)]="registrosPorPagina"
-          optionLabel="label"
-          optionValue="value"
-          styleClass="select-filtro"
-        />
+  <section class="sgr-panel tabla-panel" aria-label="Lista de roles">
+    <div class="filtros-roles" role="group" aria-label="Filtros de roles">
+      <div class="filtro-roles filtro-busqueda">
+        <label for="roles-busqueda">Nombre del rol</label>
+        <div class="buscador-roles">
+          <i class="pi pi-search" aria-hidden="true"></i>
+          <input
+            id="roles-busqueda"
+            type="search"
+            [ngModel]="filtroNombre"
+            (ngModelChange)="alBuscar($event)"
+            placeholder="Buscar por nombre del rol..."
+          />
+        </div>
       </div>
-      <div class="filtro">
-        <label>Nombre del Rol</label>
-        <input
-          pInputText
-          [(ngModel)]="filtroNombre"
-          (keyup.enter)="cargar()"
-          placeholder="Buscar por nombre"
-        />
-      </div>
-      <div class="filtro filtro-select">
-        <label>Estado</label>
+      <div class="filtro-roles filtro-estado">
+        <label for="roles-estado">Estado</label>
         <p-select
+          inputId="roles-estado"
           [options]="opcionesEstado"
           [(ngModel)]="filtroEstado"
           (onChange)="cargar()"
           optionLabel="label"
           optionValue="value"
-          styleClass="select-filtro"
+          class="select-estado-roles"
         />
       </div>
-      <div class="filtro-acciones">
-        <p-button label="Aplicar" icon="pi pi-check" styleClass="btn-teal" (onClick)="cargar()" />
-      <p-button
-        icon="pi pi-filter-slash"
-        [text]="true"
-        severity="secondary"
-        (onClick)="limpiarFiltros()"
-        aria-label="Limpiar filtros"
-      />
+      <div class="filtro-roles filtro-fecha-roles">
+        <label for="roles-desde">Registrado desde</label>
+        <p-datepicker
+          inputId="roles-desde"
+          [(ngModel)]="filtroDesde"
+          dateFormat="dd/mm/yy"
+          [showIcon]="true"
+          [showOnFocus]="false"
+          [showClear]="true"
+          appendTo="body"
+          placeholder="dd/mm/aaaa"
+          class="fecha-roles"
+          (onSelect)="cargar()"
+          (onClearClick)="cargar()"
+        />
+      </div>
+      <div class="filtro-roles filtro-fecha-roles">
+        <label for="roles-hasta">Registrado hasta</label>
+        <p-datepicker
+          inputId="roles-hasta"
+          [(ngModel)]="filtroHasta"
+          dateFormat="dd/mm/yy"
+          [showIcon]="true"
+          [showOnFocus]="false"
+          [showClear]="true"
+          appendTo="body"
+          placeholder="dd/mm/aaaa"
+          class="fecha-roles"
+          (onSelect)="cargar()"
+          (onClearClick)="cargar()"
+        />
+      </div>
     </div>
-  </div>
-  }
-
-  <div class="panel tabla-panel">
     <p-table
+      class="sgr-table"
       [value]="roles()"
       [loading]="cargando()"
       [paginator]="true"
       [rows]="registrosPorPagina"
+      [first]="primeraFila"
+      (onPage)="primeraFila = $event.first"
       [showCurrentPageReport]="true"
-      currentPageReportTemplate="Mostrando registros del {first} al {last} de un total de {totalRecords} registro(s)"
+      [currentPageReportTemplate]="textoPaginacion()"
       [tableStyle]="{ 'min-width': '50rem' }"
     >
       <ng-template #header>
         <tr>
-          <th>ESTADO</th>
-          <th>NOMBRE</th>
-          <th>FECHA DE REGISTRO</th>
-          <th class="col-acciones">Acciones</th>
+          <th scope="col">Estado</th>
+          <th scope="col">Nombre</th>
+          <th scope="col">Fecha de registro</th>
+          <th scope="col" class="col-acciones">Acciones</th>
         </tr>
       </ng-template>
       <ng-template #body let-r>
         <tr>
           <td>
-            <div style="display: flex; align-items: center; gap: 0.5rem">
+            <div class="estado-en-tabla">
               <p-toggleswitch [(ngModel)]="r.activo" (onChange)="cambiarEstado(r)" />
               <p-tag
                 [value]="r.activo ? 'Activo' : 'Inactivo'"
@@ -105,15 +117,22 @@
               />
             </div>
           </td>
-          <td class="celda-nombre">{{ r.nombre }}</td>
+          <td class="celda-nombre">
+            <strong>{{ r.nombre }}</strong>
+            @if (r.descripcion) {
+              <small>{{ r.descripcion }}</small>
+            }
+          </td>
           <td>{{ r.created_at ? (r.created_at | date: 'dd/MM/yyyy') : '—' }}</td>
           <td class="col-acciones">
-            <button type="button" class="accion" (click)="abrirEdicion(r)" aria-label="Editar">
-              <i class="pi pi-pencil"></i>
-            </button>
-            <button type="button" class="accion" (click)="confirmarEliminar(r)" aria-label="Eliminar">
-              <i class="pi pi-trash"></i>
-            </button>
+            <div class="acciones-rol">
+              <button type="button" class="accion" (click)="abrirEdicion(r)" [attr.aria-label]="'Editar ' + r.nombre" [title]="'Editar ' + r.nombre">
+                <i class="pi pi-pencil" aria-hidden="true"></i>
+              </button>
+              <button type="button" class="accion" (click)="confirmarEliminar(r)" [attr.aria-label]="'Eliminar ' + r.nombre" [title]="'Eliminar ' + r.nombre">
+                <i class="pi pi-trash" aria-hidden="true"></i>
+              </button>
+            </div>
           </td>
         </tr>
       </ng-template>
@@ -123,7 +142,7 @@
         </tr>
       </ng-template>
     </p-table>
-  </div>
+  </section>
 </div>
 
 <p-dialog
@@ -143,10 +162,10 @@
       <textarea pTextarea id="r-descripcion" formControlName="descripcion" rows="4"></textarea>
     </div>
 
-    <div class="campo" style="flex-direction: row; align-items: center; justify-content: space-between; margin-top: 0.5rem; border: 1px solid #e2e8f0; padding: 1rem; border-radius: 8px; background-color: #f8fafc;">
-      <label for="r-activo" style="margin: 0; font-size: 0.95rem;">Estado del Rol</label>
-      <div style="display: flex; align-items: center; gap: 0.75rem">
-        <span [style.color]="formulario.get('activo')?.value ? '#0d9488' : '#64748b'" style="font-weight: 600; font-size: 0.9rem;">
+    <div class="campo estado-switch">
+      <label for="r-activo">Estado del Rol</label>
+      <div class="estado-control">
+        <span class="estado-texto" [class.activo]="formulario.get('activo')?.value">
           {{ formulario.get('activo')?.value ? 'Activo' : 'Inactivo' }}
         </span>
         <p-toggleswitch formControlName="activo" inputId="r-activo" />
@@ -159,13 +178,13 @@
       <p-button
         label="Cancelar"
         severity="secondary"
-        styleClass="btn-cancelar"
+        styleClass="sgr-secondary-button"
         (onClick)="dialogoVisible.set(false)"
       />
       <p-button
         label="Guardar"
         icon="pi pi-save"
-        styleClass="btn-teal"
+        styleClass="sgr-primary-button"
         [loading]="guardando()"
         (onClick)="guardar()"
       />

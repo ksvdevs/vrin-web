@@ -2,7 +2,7 @@ import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
-import { NEVER, of, throwError } from 'rxjs';
+import { NEVER, of, Subject, throwError } from 'rxjs';
 import { vi } from 'vitest';
 
 import { ExpedienteDetalle } from '../../../core/models/expediente-detalle.model';
@@ -22,7 +22,7 @@ describe('Etapas de carta VRIN y resolución', () => {
   let rolActual: string;
   const cartas = { sugerencia: () => of({ siguiente_numero: 67 }), actualizar: vi.fn(), preview: vi.fn() };
   const resoluciones = { sugerencia: () => of({ siguiente_numero: 13 }), preview: vi.fn() };
-  const documentos = { obtenerBlob: vi.fn() };
+  const documentos = { obtenerBlob: vi.fn(), estadoDrive: vi.fn(), autorizarDrive: vi.fn(), subirADrive: vi.fn() };
   const archivos = { obtenerBlob: vi.fn() };
   const api = {
     obtener: vi.fn(),
@@ -43,6 +43,8 @@ describe('Etapas de carta VRIN y resolución', () => {
     vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:carta-vrin');
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     documentos.obtenerBlob.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
+    documentos.estadoDrive.mockReturnValue(of({ connected: true, folder_url: 'https://drive.google.com/drive/folders/carpeta-prueba' }));
+    documentos.subirADrive.mockReturnValue(of({ id: 'archivo-drive-123', url: 'https://drive.google.com/file/d/archivo-drive-123/view', already_synced: false }));
     archivos.obtenerBlob.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
     cartas.preview.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
     resoluciones.preview.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
@@ -206,13 +208,13 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Reevaluar');
   });
 
-  it('muestra el formulario y Guardar cambios en el paso 2, sin respuesta OPP', async () => {
+  it('muestra el formulario y la vista previa en el paso 2, sin respuesta OPP', async () => {
     await abrir();
     expect(fixture.componentInstance['indiceActivoVisible']()).toBe(1);
     expect((fixture.nativeElement.querySelector('#asunto_carta') as HTMLTextAreaElement).rows).toBe(3);
     expect(fixture.nativeElement.textContent).not.toContain('Fecha de aceptación');
     expect(fixture.nativeElement.querySelector('#carta_opp_numero')).toBeNull();
-    expect(boton('Guardar cambios')).toBeDefined();
+    expect(boton('Vista previa y guardar')).toBeDefined();
   });
 
   it('permite pasar de la carta emitida a la respuesta OPP en Resolución', async () => {
@@ -326,7 +328,9 @@ describe('Etapas de carta VRIN y resolución', () => {
     api.cerrarRendicion.mockReturnValue(of({ estado: 'RENDIDO' }));
     await abrir();
 
-    expect(fixture.componentInstance['rendicionForm'].controls.fecha_informe.value?.getDate()).toBe(10);
+    expect(fixture.componentInstance['rendicionForm'].controls.fecha_informe.value!.getTime())
+      .toBeGreaterThanOrEqual(new Date(2026, 9, 10).getTime());
+    fixture.componentInstance['rendicionForm'].controls.fecha_informe.setValue(new Date(2026, 9, 10));
     const doiInput = fixture.nativeElement.querySelector('#doi_rendicion') as HTMLInputElement;
     expect(doiInput).not.toBeNull();
     fixture.componentInstance['rendicionForm'].controls.doi.setValue('10.1234/articulo.2026');
@@ -507,6 +511,8 @@ describe('Etapas de carta VRIN y resolución', () => {
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     (fixture.nativeElement.querySelector('button[aria-label="Descargar resolución en Word (.docx)"]') as HTMLButtonElement).click();
     expect(documentos.obtenerBlob).toHaveBeenCalledWith(1, 10, 'docx', false);
+    expect(documentos.subirADrive).toHaveBeenCalledWith(1, 10);
+    expect(fixture.componentInstance['detalle']()?.documentos_generados[0].drive_file_id).toBe('archivo-drive-123');
   });
 
   it('usa la IA de la carta OPP para proponer datos editables antes de guardar', async () => {
@@ -582,26 +588,82 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(archivos.obtenerBlob).toHaveBeenCalledWith(1, 2);
   });
 
-  it('descarga la versión elegida en DOCX aunque su vista PDF siga pendiente', async () => {
+  it('abre la carpeta de Drive desde una carta anterior sin descargar el DOCX', async () => {
     esperarOpp();
     pasoQuery = '1';
     detalle.documentos_generados = [
       { id: 10, tipo: 'CARTA_VRIN', version: 2, pdf_path: 'carta-v2.pdf', es_vigente: true, generado_at: '2026-10-07', plantilla: null },
-      { id: 9, tipo: 'CARTA_VRIN', version: 1, pdf_path: null, es_vigente: false, generado_at: '2026-10-06', plantilla: null },
+      { id: 9, tipo: 'CARTA_VRIN', version: 1, nombre_archivo: 'CARTA_VRIN_067-2026_v1.docx', pdf_path: null, es_vigente: false, generado_at: '2026-10-06', plantilla: null },
     ];
     await abrir();
-    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+    const abrirDrive = vi.spyOn(window, 'open').mockImplementation(() => null);
+    const botonDrive = fixture.nativeElement.querySelector('.historial-cartas button[aria-label="Abrir carpeta de cartas en Google Drive"]') as HTMLButtonElement;
+    expect(botonDrive).not.toBeNull();
+    botonDrive.click();
+    expect(abrirDrive).toHaveBeenCalledWith(
+      'https://drive.google.com/drive/folders/1Ps3pNZnwYAqUUlNGcWrVjuvnPxvXoRO8',
+      '_blank',
+      'noopener,noreferrer',
+    );
+    expect(documentos.obtenerBlob).not.toHaveBeenCalledWith(1, 9, 'docx', true);
+    abrirDrive.mockRestore();
+  });
+
+  it('descarga la carta anterior con su número y versión para subirla a Drive', async () => {
+    esperarOpp();
+    pasoQuery = '1';
+    detalle.documentos_generados = [
+      { id: 10, tipo: 'CARTA_VRIN', version: 2, pdf_path: 'carta-v2.pdf', es_vigente: true, generado_at: '2026-10-07', plantilla: null },
+      { id: 9, tipo: 'CARTA_VRIN', version: 1, nombre_archivo: 'CARTA_VRIN_067-2026_v1.docx', pdf_path: null, es_vigente: false, generado_at: '2026-10-06', plantilla: null },
+    ];
+    await abrir();
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      expect(this.download).toBe('CARTA_VRIN_067-2026_v1.docx');
+    });
     fixture.componentInstance['descargarDocGenerado'](detalle.documentos_generados[1]);
     expect(documentos.obtenerBlob).toHaveBeenCalledWith(1, 9, 'docx', true);
+    expect(documentos.subirADrive).toHaveBeenCalledWith(1, 9);
     expect(click).toHaveBeenCalledOnce();
+    expect(detalle.documentos_generados[1].drive_file_id).toBeUndefined();
+    expect(fixture.componentInstance['detalle']()?.documentos_generados[1].drive_file_id).toBe('archivo-drive-123');
     click.mockRestore();
+  });
+
+  it('reutiliza el PDF precargado al ver la carta vigente', async () => {
+    esperarOpp();
+    pasoQuery = '1';
+    detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
+      nombre_archivo: 'CARTA_VRIN_067-2026_v1.docx', pdf_path: 'carta.pdf',
+      es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
+    await abrir();
+    expect(documentos.obtenerBlob).toHaveBeenCalledTimes(1);
+    fixture.componentInstance['verVersionCarta'](detalle.documentos_generados[0]);
+    expect(documentos.obtenerBlob).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance['urlVersionCarta']()).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('CARTA_VRIN_067-2026_v1.docx');
+  });
+
+  it('espera la descarga en curso sin solicitar el PDF dos veces', async () => {
+    esperarOpp();
+    pasoQuery = '1';
+    detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
+      pdf_path: 'carta.pdf', es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
+    const descarga = new Subject<Blob>();
+    documentos.obtenerBlob.mockReturnValue(descarga.asObservable());
+    await abrir();
+    fixture.componentInstance['verVersionCarta'](detalle.documentos_generados[0]);
+    expect(documentos.obtenerBlob).toHaveBeenCalledTimes(1);
+    expect(fixture.componentInstance['cargandoVersionCarta']()).toBe(true);
+    descarga.next(new Blob(['PDF'], { type: 'application/pdf' }));
+    expect(fixture.componentInstance['cargandoVersionCarta']()).toBe(false);
+    expect(fixture.componentInstance['urlVersionCarta']()).not.toBeNull();
   });
 
   it('permite reintentar la descarga de una versión sin perder la selección', async () => {
     esperarOpp();
     pasoQuery = '1';
     detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
-      pdf_path: 'carta.pdf', es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
+      pdf_path: null, es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
     await abrir();
     documentos.obtenerBlob.mockReturnValueOnce(throwError(() => new Error('Error de red')));
     fixture.componentInstance['verVersionCarta'](detalle.documentos_generados[0]);

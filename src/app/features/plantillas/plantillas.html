@@ -1,16 +1,9 @@
-<main class="plantillas-page">
+<main class="plantillas-page sgr-page sgr-management">
   <p-toast />
 
-  <header class="barra">
-    <div class="titulo">
-      <p-button
-        icon="pi pi-arrow-left"
-        severity="secondary"
-        [text]="true"
-        [rounded]="true"
-        routerLink="/"
-        ariaLabel="Volver al inicio"
-      />
+  <header class="sgr-page-header">
+    <div class="sgr-page-title">
+      <span class="sgr-page-icon"><i class="pi pi-objects-column" aria-hidden="true"></i></span>
       <div>
         <h1>Gestor de plantillas documentales</h1>
         <p class="subtitulo">
@@ -19,16 +12,83 @@
         </p>
       </div>
     </div>
-    @if (esAdmin()) {
-      <p-button
-        label="Subir plantilla"
-        icon="pi pi-upload"
-        (onClick)="dialogoSubida.set(true)"
-      />
-    }
+    <div class="sgr-header-actions">
+      @if (esAdmin()) {
+        <p-button label="Subir plantilla" icon="pi pi-upload" styleClass="sgr-primary-button" (onClick)="dialogoSubida.set(true)" />
+      }
+    </div>
   </header>
 
-  <p-table [value]="plantillas()" [loading]="cargando()" [tableStyle]="{ 'min-width': '50rem' }">
+  <section class="sgr-panel" aria-label="Lista de plantillas">
+  <div class="filtros-plantillas" role="group" aria-label="Filtros de plantillas">
+    <div class="filtro-plantillas filtro-busqueda">
+      <label for="plantillas-busqueda">Nombre o código</label>
+      <div class="buscador-plantillas">
+        <i class="pi pi-search" aria-hidden="true"></i>
+        <input
+          id="plantillas-busqueda"
+          type="search"
+          [ngModel]="filtroBusqueda()"
+          (ngModelChange)="filtroBusqueda.set($event); reiniciarPagina()"
+          placeholder="Buscar por nombre o código..."
+        />
+      </div>
+    </div>
+    <div class="filtro-plantillas">
+      <label for="plantillas-estado">Estado</label>
+      <p-select
+        inputId="plantillas-estado"
+        [options]="opcionesEstado"
+        [ngModel]="filtroEstado()"
+        (ngModelChange)="filtroEstado.set($event); reiniciarPagina()"
+        optionLabel="label"
+        optionValue="value"
+        class="select-estado-plantillas"
+      />
+    </div>
+    <div class="filtro-plantillas">
+      <label for="plantillas-desde">Registrado desde</label>
+      <p-datepicker
+        inputId="plantillas-desde"
+        [ngModel]="filtroDesde()"
+        (ngModelChange)="filtroDesde.set($event); reiniciarPagina()"
+        dateFormat="dd/mm/yy"
+        [showIcon]="true"
+        [showOnFocus]="false"
+        [showClear]="true"
+        appendTo="body"
+        placeholder="dd/mm/aaaa"
+        class="fecha-plantillas"
+      />
+    </div>
+    <div class="filtro-plantillas">
+      <label for="plantillas-hasta">Registrado hasta</label>
+      <p-datepicker
+        inputId="plantillas-hasta"
+        [ngModel]="filtroHasta()"
+        (ngModelChange)="filtroHasta.set($event); reiniciarPagina()"
+        dateFormat="dd/mm/yy"
+        [showIcon]="true"
+        [showOnFocus]="false"
+        [showClear]="true"
+        appendTo="body"
+        placeholder="dd/mm/aaaa"
+        class="fecha-plantillas"
+      />
+    </div>
+  </div>
+  <p-table
+    class="sgr-table"
+    [value]="plantillasFiltradas()"
+    [loading]="cargando()"
+    [paginator]="true"
+    [rows]="registrosPorPagina"
+    [first]="primeraFila"
+    (onPage)="primeraFila = $event.first"
+    [showCurrentPageReport]="true"
+    [currentPageReportTemplate]="textoPaginacion()"
+    [tableStyle]="{ 'min-width': '64rem' }"
+  >
     <ng-template #header>
       <tr>
         <th>CÓDIGO</th>
@@ -40,7 +100,7 @@
         <th>ADVERTENCIAS</th>
         <th>FECHA</th>
         @if (esAdmin()) {
-          <th class="acciones">ACCIONES</th>
+          <th class="col-acciones">ACCIONES</th>
         }
       </tr>
     </ng-template>
@@ -66,30 +126,33 @@
             <span class="tokens-ok">—</span>
           }
         </td>
-        <td>{{ p.created_at?.slice(0, 10) ?? '—' }}</td>
+        <td>{{ p.created_at ? (p.created_at | date: 'dd/MM/yyyy') : '—' }}</td>
         @if (esAdmin()) {
-          <td class="acciones">
-            <p-button
-              [label]="p.estado === 'ACTIVO' ? 'Desactivar' : 'Activar'"
-              [severity]="p.estado === 'ACTIVO' ? 'danger' : 'success'"
-              [text]="true"
-              size="small"
-              (onClick)="alternarEstado(p)"
-            />
+          <td class="col-acciones">
+            <button
+              type="button"
+              class="accion"
+              (click)="alternarEstado(p)"
+              [attr.aria-label]="(p.estado === 'ACTIVO' ? 'Desactivar ' : 'Activar ') + p.nombre"
+              [title]="(p.estado === 'ACTIVO' ? 'Desactivar ' : 'Activar ') + p.nombre"
+            >
+              <i [class]="p.estado === 'ACTIVO' ? 'pi pi-ban' : 'pi pi-check'" aria-hidden="true"></i>
+            </button>
           </td>
         }
       </tr>
     </ng-template>
     <ng-template #emptymessage>
       <tr>
-        <td colspan="9" class="vacio">
+        <td [attr.colspan]="esAdmin() ? 9 : 8" class="vacio">
           @if (!cargando()) {
-            No hay plantillas registradas.
+            No se encontraron plantillas.
           }
         </td>
       </tr>
     </ng-template>
   </p-table>
+  </section>
 
   <p-dialog
     header="Subir plantilla DOCX"
@@ -143,11 +206,11 @@
       </p>
     </form>
     <ng-template #footer>
-      <p-button label="Cancelar" severity="secondary" [text]="true" (onClick)="dialogoSubida.set(false)" />
+      <p-button label="Cancelar" severity="secondary" styleClass="sgr-secondary-button" (onClick)="dialogoSubida.set(false)" />
       <p-button
         label="Subir"
         icon="pi pi-upload"
-        severity="success"
+        styleClass="sgr-primary-button"
         [loading]="subiendo()"
         (onClick)="subir()"
       />

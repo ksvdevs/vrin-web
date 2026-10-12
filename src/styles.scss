@@ -32,7 +32,8 @@ textarea {
   display: flex;
   width: 100%;
   min-width: 0;
-  min-height: 58px;
+  min-height: 42px;
+  height: 42px;
   overflow: hidden;
   border: 1px solid #dbe5ef;
   border-radius: 10px;
@@ -49,8 +50,8 @@ textarea {
   flex: 1 1 auto;
   width: 1%;
   min-width: 0;
-  height: 56px;
-  min-height: 56px;
+  height: 42px;
+  min-height: 42px;
   padding: 0 16px;
   border: 0;
   border-radius: 0;
@@ -61,9 +62,9 @@ textarea {
 }
 
 :is(.campo, .filtro-fecha) .p-datepicker.sgr-datepicker .p-datepicker-dropdown {
-  flex: 0 0 58px;
-  width: 58px;
-  height: 56px;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
   border: 0;
   border-left: 1px solid #dbe5ef;
   border-radius: 0;
@@ -110,4 +111,332 @@ textarea {
   .p-menu-item-label {
     font-size: 10px;
   }
+}
+
+// Shared presentation used by the expediente list and the rest of the system.
+.sgr-page {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  padding-top: 54px;
+  margin-inline: -8px;
+  color: #17365b;
+}
+
+.sgr-page-header {
+  min-height: 94px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  padding: 22px;
+  background: #fff;
+  border: 1px solid #e2eaf1;
+  border-radius: 16px;
+  box-shadow: 0 5px 18px #17365b03;
+}
+
+.sgr-page-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-width: 0;
+
+  h1 {
+    margin: 0 0 5px;
+    color: #22559a;
+    font-size: 20px;
+    font-weight: 650;
+    letter-spacing: -.65px;
+  }
+
+  p {
+    margin: 0;
+    color: #8b9bae;
+    font-size: 12px;
+    line-height: 1.5;
+  }
+}
+
+.sgr-page-icon {
+  flex: 0 0 48px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: #eaf1ff;
+  color: #22559a;
+  font-size: 21px;
+}
+
+.sgr-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.sgr-panel {
+  min-width: 0;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid #e2eaf1;
+  border-radius: 16px;
+  box-shadow: 0 5px 18px #17365b03;
+}
+
+.sgr-toolbar {
+  min-height: 71px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+}
+
+.sgr-search {
+  width: min(430px, 100%);
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 14px;
+  border: 1px solid #dce6ee;
+  border-radius: 9px;
+  background: #fbfcfd;
+  color: #8398ab;
+
+  input,
+  input.p-inputtext {
+    flex: 1;
+    min-width: 0;
+    width: 100%;
+    height: 40px;
+    padding: 0;
+    border: 0;
+    border-radius: 0;
+    outline: 0;
+    background: transparent;
+    box-shadow: none;
+    color: #17365b;
+    font-size: 12px;
+  }
+
+  input::placeholder { color: #a6b4c2; }
+
+  &:focus-within {
+    outline: 2px solid #2765fa;
+    outline-offset: 2px;
+  }
+}
+
+.p-datatable.sgr-table {
+  border: 0;
+
+  .p-datatable-table-container { overflow-x: auto; }
+
+  .p-datatable-thead > tr > th {
+    height: 46px;
+    padding: 0 18px;
+    border-block: 1px solid #eaf0f4;
+    background: #f6f8fa;
+    color: #6e859a;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: .35px;
+    text-align: left;
+    text-transform: uppercase;
+  }
+
+  .p-datatable-thead > tr > th.col-acciones,
+  .p-datatable-thead > tr > th.acciones { text-align: right; }
+
+  .p-datatable-tbody > tr > td {
+    padding: 16px 18px;
+    border-bottom: 1px solid #edf1f5;
+    background: #fff;
+    color: #17365b;
+    font-size: 12px;
+    vertical-align: middle;
+  }
+
+  .p-datatable-tbody > tr:hover > td { background: #fcfdff; }
+
+  .p-paginator {
+    min-height: 59px;
+    justify-content: flex-end;
+    border-top: 1px solid #edf1f5;
+    background: #fff;
+    color: #899caf;
+    font-size: 11px;
+  }
+
+  .p-paginator-page.p-paginator-page-selected {
+    background: #22528f;
+    color: #fff;
+  }
+}
+
+.sgr-management .filtros {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 14px 16px;
+}
+
+.sgr-management .filtro {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 145px;
+
+  label {
+    color: #7f93a8;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+  }
+
+  input.p-inputtext,
+  .p-select {
+    width: 100%;
+    min-height: 42px;
+    border: 1px solid #dce6ee;
+    border-radius: 9px;
+    background: #fbfcfd;
+    color: #526d87;
+    font-size: 12px;
+  }
+}
+
+.sgr-management .filtro-acciones {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.sgr-management .tabla-panel { overflow: hidden; }
+.sgr-management .celda-nombre,
+.sgr-management .celda-usuario { font-weight: 600; }
+.sgr-management .col-acciones { white-space: nowrap; text-align: right; }
+.sgr-management .vacio { padding: 28px 14px; text-align: center; color: #7e93a8; }
+.sgr-management .accion {
+  width: 30px;
+  height: 32px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: transparent;
+  color: #5d7ca0;
+  cursor: pointer;
+
+  &:hover { background: #eaf1ff; color: #22559a; }
+}
+
+.estado-switch {
+  display: flex;
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 8px;
+  padding: 16px;
+  border: 1px solid #e2eaf1;
+  border-radius: 9px;
+  background: #f6f8fa;
+}
+
+.estado-control { display: flex; align-items: center; gap: 12px; }
+.estado-texto { color: #7f93a8; font-size: 12px; font-weight: 600; }
+.estado-texto.activo { color: #22559a; }
+
+.p-button.sgr-primary-button {
+  min-height: 40px;
+  padding: 0 16px;
+  border: 1px solid #3765a0;
+  border-radius: 10px;
+  background: #22528f;
+  box-shadow: 0 7px 13px #22528f29;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+
+  &:hover:not(:disabled) { background: #1c457a; border-color: #1c457a; }
+}
+
+.p-button.sgr-secondary-button {
+  min-height: 40px;
+  padding: 0 15px;
+  border: 1px solid #cedde9;
+  border-radius: 9px;
+  background: #fff;
+  color: #35556f;
+  font-size: 12px;
+  font-weight: 600;
+
+  &:hover:not(:disabled) { background: #f8fbff; border-color: #b6cade; }
+}
+
+:is(.sgr-page, .p-dialog) :is(input.p-inputtext, textarea.p-inputtextarea, textarea.p-textarea, .p-select, .p-inputnumber-input) {
+  border: 1px solid #dce6ee;
+  border-radius: 9px;
+  background: #fff;
+  color: #284866;
+  font-size: 12px;
+  box-shadow: none;
+}
+
+.sgr-page .sgr-search input.p-inputtext {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+:is(.sgr-page, .p-dialog) :is(input.p-inputtext, textarea.p-inputtextarea, textarea.p-textarea, .p-inputnumber-input):focus,
+:is(.sgr-page, .p-dialog) .p-select.p-focus {
+  border-color: #7ea5e8;
+  box-shadow: 0 0 0 3px #2765fa1f;
+}
+
+.p-dialog {
+  max-width: calc(100vw - 24px);
+  border: 1px solid #e2eaf1;
+  border-radius: 16px;
+  overflow: hidden;
+  box-shadow: 0 20px 48px #17365b26;
+
+  .p-dialog-header {
+    color: #22559a;
+    font-size: 17px;
+    font-weight: 650;
+  }
+
+  .p-dialog-footer { border-top: 1px solid #edf1f5; }
+
+  .campo label { color: #526b82; font-size: 11px; font-weight: 600; }
+}
+
+.filtro-fecha .p-datepicker.sgr-datepicker,
+.filtro-fecha .p-datepicker.sgr-datepicker .p-datepicker-input,
+.filtro-fecha .p-datepicker.sgr-datepicker .p-datepicker-dropdown {
+  min-height: 42px;
+  height: 42px;
+}
+
+@media (max-width: 760px) {
+  .sgr-page { padding-top: 24px; margin-inline: 0; gap: 16px; }
+  .sgr-page-header { padding: 18px; gap: 16px; }
+  .sgr-page-title { gap: 12px; }
+  .sgr-page-title h1 { font-size: 18px; }
+  .sgr-page-title p { font-size: 11px; }
+  .sgr-page-icon { flex-basis: 38px; width: 38px; height: 38px; font-size: 18px; }
+  .sgr-header-actions { width: 100%; }
+  .sgr-toolbar { padding: 12px; }
+  .sgr-search { width: 100%; }
 }

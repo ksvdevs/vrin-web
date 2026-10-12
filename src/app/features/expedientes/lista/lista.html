@@ -59,26 +59,32 @@
       (ngSubmit)="aplicarFiltros()"
       aria-label="Buscar y filtrar expedientes"
     >
-      <label class="buscador">
-        <i class="pi pi-search" aria-hidden="true"></i>
-        <input
-          type="search"
-          formControlName="busqueda"
-          maxlength="200"
-          aria-label="Buscar por código, docente o artículo"
-          placeholder="Buscar por código, docente o artículo..."
-        />
-      </label>
-      <label class="filtro-rapido"
-        ><span>Estado</span>
-        <select formControlName="estado" (change)="aplicarFiltros()" aria-label="Estado">
-          <option [ngValue]="null">Todos</option>
-          @for (estado of opcionesEstado; track estado.value) {
-            <option [ngValue]="estado.value">{{ estado.label }}</option>
-          }</select
-        ><i class="pi pi-chevron-down" aria-hidden="true"></i>
-      </label>
-      <div class="filtro-fecha">
+      <div class="filtro-campo filtro-busqueda">
+        <label for="expedientes-busqueda">Buscar expediente</label>
+        <div class="buscador">
+          <i class="pi pi-search" aria-hidden="true"></i>
+          <input
+            id="expedientes-busqueda"
+            type="search"
+            formControlName="busqueda"
+            maxlength="200"
+            placeholder="Buscar por código, docente o artículo..."
+          />
+        </div>
+      </div>
+      <div class="filtro-campo filtro-estado">
+        <label for="expedientes-estado">Estado</label>
+        <div class="filtro-rapido">
+          <select id="expedientes-estado" formControlName="estado" (change)="aplicarFiltros()">
+            <option [ngValue]="null">Todos</option>
+            @for (estado of opcionesEstado; track estado.value) {
+              <option [ngValue]="estado.value">{{ estado.label }}</option>
+            }
+          </select>
+          <i class="pi pi-chevron-down" aria-hidden="true"></i>
+        </div>
+      </div>
+      <div class="filtro-campo filtro-fecha">
         <label for="registrado_desde">Registrado desde</label>
         <p-datepicker
           inputId="registrado_desde"
@@ -94,7 +100,7 @@
           aria-label="Registrado desde"
         />
       </div>
-      <div class="filtro-fecha">
+      <div class="filtro-campo filtro-fecha">
         <label for="registrado_hasta">Registrado hasta</label>
         <p-datepicker
           inputId="registrado_hasta"

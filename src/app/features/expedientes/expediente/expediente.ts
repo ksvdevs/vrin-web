@@ -52,6 +52,8 @@ import { Dialog } from 'primeng/dialog';
   styleUrl: './expediente.scss',
 })
 export class VistaExpediente implements OnInit, OnDestroy {
+  private readonly carpetaCartasDriveUrl = 'https://drive.google.com/drive/folders/1Ps3pNZnwYAqUUlNGcWrVjuvnPxvXoRO8';
+  private readonly carpetaResolucionesDriveUrl = 'https://drive.google.com/drive/folders/1hw-xlYrDmCvKFTL6tDC9aYCeikzBeA--';
   private readonly route = inject(ActivatedRoute);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
@@ -70,6 +72,9 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected readonly urlCarta = signal<SafeResourceUrl | null>(null);
   protected readonly urlDocGenerado = signal<SafeResourceUrl | null>(null);
   protected readonly errorVistaCarta = signal(false);
+  protected readonly driveConectado = signal<boolean | null>(null);
+  protected readonly sincronizandoDriveId = signal<number | null>(null);
+  protected readonly puedeConectarDrive = computed(() => this.auth.usuarioActual()?.rol_codigo === 'ADMINISTRADOR_GENERAL');
   protected readonly esperaVistaCartaAgotada = signal(false);
   protected readonly urlDocResolucion = signal<SafeResourceUrl | null>(null);
   protected readonly drawerValidacion = signal(false);
@@ -128,6 +133,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private blobUrlDocResolucion?: string;
   private expedienteId?: number;
   private docGeneradoCargadoId?: number;
+  private docGeneradoEnCargaId?: number;
   private docResolucionCargadoId?: number;
   private pollingId?: ReturnType<typeof setInterval>;
   private intentosPolling = 0;
@@ -357,7 +363,15 @@ export class VistaExpediente implements OnInit, OnDestroy {
       return;
     }
     this.expedienteId = id;
+    this.consultarEstadoDrive();
     this.cargar(id);
+  }
+
+  protected consultarEstadoDrive(): void {
+    this.documentoService.estadoDrive().subscribe({
+      next: ({ connected }) => this.driveConectado.set(connected),
+      error: () => this.driveConectado.set(null),
+    });
   }
 
   private cargar(id: number, silencioso = false, desdePolling = false): void {
@@ -550,6 +564,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private prepararVistaDocGenerado(detalle: ExpedienteDetalle): void {
     const doc = detalle.documentos_generados?.find((d) => d.tipo === 'CARTA_VRIN' && d.es_vigente);
     if (!doc || doc.id !== this.docGeneradoCargadoId) {
+      this.docGeneradoEnCargaId = undefined;
       this.urlDocGenerado.set(null);
       this.errorVistaCarta.set(false);
       if (this.blobUrlDocGenerado) {
@@ -562,19 +577,30 @@ export class VistaExpediente implements OnInit, OnDestroy {
       return;
     }
     this.docGeneradoCargadoId = doc.id;
+    this.docGeneradoEnCargaId = doc.id;
     this.documentoService.obtenerBlob(detalle.id, doc.id, 'pdf').subscribe({
       next: (blob) => {
         if (this.docCartaGenerada()?.id !== doc.id) return;
+        this.docGeneradoEnCargaId = undefined;
         if (this.blobUrlDocGenerado) {
           URL.revokeObjectURL(this.blobUrlDocGenerado);
         }
         this.blobUrlDocGenerado = URL.createObjectURL(blob);
         this.urlDocGenerado.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlDocGenerado));
+        if (this.documentoVista()?.id === doc.id && !this.vistaBorrador() && this.vistaCartaVrinVisible()) {
+          this.urlVersionCarta.set(this.urlDocGenerado());
+          this.cargandoVersionCarta.set(false);
+        }
         this.esperaVistaCartaAgotada.set(false);
       },
       error: () => {
         if (this.docCartaGenerada()?.id === doc.id) {
+          this.docGeneradoEnCargaId = undefined;
           this.errorVistaCarta.set(true);
+          if (this.documentoVista()?.id === doc.id && !this.vistaBorrador() && this.vistaCartaVrinVisible()) {
+            this.cargandoVersionCarta.set(false);
+            this.errorVersionCarta.set(true);
+          }
         }
       },
     });
@@ -722,6 +748,15 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.documentoVista.set(doc);
     this.vistaBorrador.set(false);
     this.vistaCartaVrinVisible.set(true);
+    if (doc.id === this.docGeneradoCargadoId && this.urlDocGenerado()) {
+      this.urlVersionCarta.set(this.urlDocGenerado());
+      this.cargandoVersionCarta.set(false);
+      return;
+    }
+    if (doc.id === this.docGeneradoEnCargaId) {
+      this.cargandoVersionCarta.set(true);
+      return;
+    }
     this.cargandoVersionCarta.set(true);
     this.documentoService.obtenerBlob(detalle.id, doc.id, 'pdf').subscribe({
       next: blob => {
@@ -976,11 +1011,12 @@ export class VistaExpediente implements OnInit, OnDestroy {
         const url = URL.createObjectURL(blob);
         const enlace = document.createElement('a');
         enlace.href = url;
-        enlace.download = `${detalle.codigo}_carta_vrin_v${doc.version}.docx`.toLowerCase();
+        enlace.download = doc.nombre_archivo || `CARTA_VRIN_v${doc.version}.docx`;
         document.body.appendChild(enlace);
         enlace.click();
         enlace.remove();
         URL.revokeObjectURL(url);
+        this.sincronizarDocumentoDrive(detalle.id, doc);
       },
       error: () => {
         this.mensajes.add({
@@ -990,6 +1026,49 @@ export class VistaExpediente implements OnInit, OnDestroy {
         });
       },
     });
+  }
+
+  private sincronizarDocumentoDrive(expedienteId: number, doc: DocumentoGeneradoDetalle): void {
+    if (this.sincronizandoDriveId() === doc.id) return;
+    const esResolucion = doc.tipo === 'RESOLUCION';
+    const tipo = esResolucion ? 'Resolución' : 'Carta';
+    this.sincronizandoDriveId.set(doc.id);
+    this.documentoService.subirADrive(expedienteId, doc.id).subscribe({
+      next: ({ id }) => {
+        this.sincronizandoDriveId.set(null);
+        this.driveConectado.set(true);
+        this.detalle.update((actual) => actual ? {
+          ...actual,
+          documentos_generados: actual.documentos_generados.map((version) =>
+            version.id === doc.id ? { ...version, drive_file_id: id } : version),
+        } : actual);
+        this.mensajes.add({ severity: 'success', summary: `${tipo} guardada en Drive`,
+          detail: `${doc.nombre_archivo || `La ${tipo.toLowerCase()}`} está en la carpeta de Google Drive.` });
+      },
+      error: (error) => {
+        this.sincronizandoDriveId.set(null);
+        if (error?.status === 503) this.driveConectado.set(false);
+        this.mensajes.add({ severity: 'warn', summary: `${tipo} descargada; Drive pendiente`,
+          detail: error?.error?.message ?? `No se pudo guardar la ${tipo.toLowerCase()} en Google Drive.` });
+      },
+    });
+  }
+
+  protected conectarDrive(): void {
+    if (!this.puedeConectarDrive()) return;
+    this.documentoService.autorizarDrive().subscribe({
+      next: ({ authorization_url }) => window.location.assign(authorization_url),
+      error: (error) => this.mensajes.add({ severity: 'error', summary: 'No se pudo conectar Drive',
+        detail: error?.error?.message ?? 'Revisa la configuración de Google en Laravel.' }),
+    });
+  }
+
+  protected abrirCarpetaCartasDrive(): void {
+    window.open(this.carpetaCartasDriveUrl, '_blank', 'noopener,noreferrer');
+  }
+
+  protected abrirCarpetaResolucionesDrive(): void {
+    window.open(this.carpetaResolucionesDriveUrl, '_blank', 'noopener,noreferrer');
   }
 
   protected numeroCartaFormateado(numero: number | string, anio: number | string): string {
@@ -1109,6 +1188,17 @@ export class VistaExpediente implements OnInit, OnDestroy {
     }
     const [anio, mes, dia] = fecha.slice(0, 10).split('-');
     return anio && mes && dia ? `${dia}/${mes}/${anio}` : fecha;
+  }
+
+  protected fechaRegistroLarga(fecha: string): string {
+    const partes = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(fecha);
+    if (!partes) return fecha;
+    const dia = Number(partes[1]);
+    const mes = Number(partes[2]);
+    const anio = Number(partes[3]);
+    const valor = new Date(anio, mes - 1, dia);
+    if (valor.getFullYear() !== anio || valor.getMonth() !== mes - 1 || valor.getDate() !== dia) return fecha;
+    return new Intl.DateTimeFormat('es-PE', { day: 'numeric', month: 'long', year: 'numeric' }).format(valor);
   }
 
   protected etiquetaEstado(estado: EstadoExpediente): string {
@@ -1231,11 +1321,12 @@ export class VistaExpediente implements OnInit, OnDestroy {
         a.href = url;
         const resol = detalle.resolucion as unknown as { numero?: number; anio?: number } | undefined;
         const nombreBase = `Resolucion_${resol?.numero ?? '000'}_${resol?.anio ?? '2026'}_v${doc.version}`;
-        a.download = `${nombreBase}.${formato}`;
+        a.download = formato === 'docx' ? (doc.nombre_archivo || `${nombreBase}.docx`) : `${nombreBase}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+        if (formato === 'docx') this.sincronizarDocumentoDrive(detalle.id, doc);
       },
       error: () => {
         this.mensajes.add({
