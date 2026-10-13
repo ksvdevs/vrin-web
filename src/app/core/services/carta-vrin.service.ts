@@ -11,6 +11,10 @@ export class CartaVrinService {
     return this.api.postBlob(`/expedientes/${expedienteId}/carta-vrin/preview`, payload);
   }
 
+  previewPdf(expedienteId: number, payload: unknown): Observable<Blob> {
+    return this.api.postBlob(`/expedientes/${expedienteId}/carta-vrin/preview?formato=pdf`, payload);
+  }
+
   actualizar(expedienteId: number, payload: Record<string, string | number | null>): Observable<unknown> {
     return this.api.put(`/expedientes/${expedienteId}/carta-vrin`, payload);
   }

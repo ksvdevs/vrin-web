@@ -1,5 +1,7 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
@@ -15,6 +17,7 @@ import { DocenteService } from '../../../core/services/docente.service';
 import { DocenteFormulario } from '../../../shared/docente-formulario/docente-formulario';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-docentes',
   imports: [
     Button,
@@ -34,11 +37,14 @@ export class Docentes implements OnInit {
   private readonly docenteService = inject(DocenteService);
   private readonly mensajes = inject(MessageService);
   private readonly confirmacion = inject(ConfirmationService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly cambiosBusqueda = new Subject<string>();
 
   protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol_codigo === 'ADMINISTRADOR_GENERAL');
 
   protected readonly docentes = signal<Docente[]>([]);
   protected readonly cargando = signal(true);
+  protected readonly total = signal(0);
   protected readonly busqueda = signal('');
   protected readonly filtroEstado = signal<boolean | null>(null);
   protected readonly filtroContrato = signal<string | null>(null);
@@ -56,44 +62,37 @@ export class Docentes implements OnInit {
     { label: 'Todos', value: null },
     ...GRADOS.map((grado) => ({ label: grado, value: grado })),
   ];
-  protected readonly registrosPorPagina = 5;
+  protected readonly registrosPorPagina = 15;
   protected primeraFila = 0;
-  protected readonly docentesFiltrados = computed(() => {
-    const terminos = this.busqueda().trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-    const estado = this.filtroEstado();
-    const contrato = this.filtroContrato();
-    const grado = this.filtroGrado();
-
-    return this.docentes().filter((docente) => {
-      const texto = `${docente.dni} ${docente.apellido_paterno} ${docente.apellido_materno ?? ''} ${docente.nombres}`.toLocaleLowerCase();
-      return terminos.every((termino) => texto.includes(termino))
-        && (estado === null || docente.activo === estado)
-        && (contrato === null || docente.tipo_contrato === contrato)
-        && (grado === null || docente.grado === grado);
-    });
-  });
 
   protected readonly dialogoVisible = signal(false);
   protected readonly docenteEnEdicion = signal<Docente | null>(null);
 
   ngOnInit(): void {
     this.auth.verificarSesion().subscribe();
-    this.cargarDocentes();
+    this.cambiosBusqueda
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.reiniciarPagina());
+    this.cargar(1);
   }
 
   protected alBuscar(termino: string): void {
     this.busqueda.set(termino);
-    this.reiniciarPagina();
+    this.cambiosBusqueda.next(termino);
   }
 
   protected reiniciarPagina(): void {
     this.primeraFila = 0;
+    this.cargar(1);
+  }
+
+  protected alCambiarPagina(evento: { first?: number | null }): void {
+    this.primeraFila = evento.first ?? 0;
+    this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
   }
 
   protected textoPaginacion(): string {
-    const total = this.docentesFiltrados().length;
-    const visibles = Math.max(0, Math.min(this.registrosPorPagina, total - this.primeraFila));
-    return `Mostrando ${visibles} de ${total} docentes`;
+    return `Mostrando ${this.docentes().length} de ${this.total()} docentes`;
   }
 
   protected abrirNuevo(): void {
@@ -107,7 +106,7 @@ export class Docentes implements OnInit {
   }
 
   protected alGuardarDocente(): void {
-    this.cargarDocentes();
+    this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
   }
 
   protected confirmarCambioEstado(docente: Docente): void {
@@ -149,7 +148,7 @@ export class Docentes implements OnInit {
           summary: 'Docente eliminado',
           detail: `${docente.apellido_paterno}, ${docente.nombres}`,
         });
-        this.cargarDocentes();
+        this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
       },
       error: (error) => {
         this.mensajes.add({
@@ -171,7 +170,7 @@ export class Docentes implements OnInit {
             summary: docente.activo ? 'Docente desactivado' : 'Docente activado',
             detail: `${docente.apellido_paterno}, ${docente.nombres}`,
           });
-          this.cargarDocentes();
+          this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
         },
         error: (error) => {
           this.mensajes.add({
@@ -197,23 +196,34 @@ export class Docentes implements OnInit {
     };
   }
 
-  private cargarDocentes(): void {
+  private cargar(pagina: number): void {
     this.cargando.set(true);
-    this.docenteService.listar().subscribe({
-      next: (docentes) => {
-        this.docentes.set(docentes);
-        this.primeraFila = 0;
-        this.cargando.set(false);
-      },
-      error: () => {
-        this.cargando.set(false);
-        this.mensajes.add({
-          severity: 'error',
-          summary: 'Sin conexión',
-          detail: 'No se pudo obtener la lista de docentes.',
-        });
-      },
-    });
+    const estado = this.filtroEstado();
+    this.docenteService
+      .listar(
+        {
+          busqueda: this.busqueda().trim() || undefined,
+          activo: estado === null ? undefined : estado ? 1 : 0,
+          tipo_contrato: this.filtroContrato() ?? undefined,
+          grado: this.filtroGrado() ?? undefined,
+        },
+        pagina,
+      )
+      .subscribe({
+        next: (respuesta) => {
+          this.docentes.set(respuesta.data);
+          this.total.set(respuesta.total);
+          this.cargando.set(false);
+        },
+        error: () => {
+          this.cargando.set(false);
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'Sin conexión',
+            detail: 'No se pudo obtener la lista de docentes.',
+          });
+        },
+      });
   }
 
   private detalleError(error: unknown): string {

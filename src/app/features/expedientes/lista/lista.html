@@ -164,16 +164,16 @@
               </td>
             </tr>
           } @else {
-            @for (fila of filas(); track fila.id) {
+            @for (fila of filasVista(); track fila.id) {
               <tr>
                 <td>
                   <a class="codigo" [routerLink]="['/expedientes', fila.id]">{{ fila.codigo }}</a
-                  ><small class="fecha">{{ fechaCorta(fila.fecha_registro) }}</small>
+                  ><small class="fecha">{{ fila.fechaCorta }}</small>
                 </td>
                 <td>
                   <div class="docente">
                     <span class="avatar-docente" aria-hidden="true">{{
-                      iniciales(fila.docente.nombre_completo)
+                      fila.inicialesDocente
                     }}</span>
                     <div>
                       <strong>{{ fila.docente.nombre_completo }}</strong
@@ -270,3 +270,4 @@
 
   <p-confirmdialog [style]="{ width: '450px', maxWidth: '95vw' }" />
 </section>
+<router-outlet (deactivate)="alCerrarRegistro()" />

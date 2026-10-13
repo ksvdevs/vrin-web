@@ -1,15 +1,44 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Observable } from 'rxjs';
 
+import type { RespuestaPaginada } from '../models/paginacion.model';
 import type { Plantilla, SeleccionPlantilla, TipoDocumento } from '../models/plantilla.model';
 import { ApiService } from './api.service';
+
+export interface FiltrosPlantilla {
+  busqueda?: string;
+  estado?: 'ACTIVO' | 'INACTIVO';
+  desde?: string;
+  hasta?: string;
+  tipo_documento_id?: number;
+}
 
 @Injectable({ providedIn: 'root' })
 export class PlantillaService {
   private readonly api = inject(ApiService);
 
-  listar(tipoDocumentoId?: number): Observable<Plantilla[]> {
-    return this.api.get<Plantilla[]>('/plantillas', tipoDocumentoId ? { tipo_documento_id: tipoDocumentoId } : undefined);
+  listar(
+    filtros: FiltrosPlantilla = {},
+    pagina = 1,
+    porPagina = 15,
+  ): Observable<RespuestaPaginada<Plantilla>> {
+    const params: Record<string, string | number> = { page: pagina, per_page: porPagina };
+    if (filtros.busqueda) {
+      params['busqueda'] = filtros.busqueda;
+    }
+    if (filtros.estado) {
+      params['estado'] = filtros.estado;
+    }
+    if (filtros.desde) {
+      params['desde'] = filtros.desde;
+    }
+    if (filtros.hasta) {
+      params['hasta'] = filtros.hasta;
+    }
+    if (filtros.tipo_documento_id) {
+      params['tipo_documento_id'] = filtros.tipo_documento_id;
+    }
+    return this.api.get<RespuestaPaginada<Plantilla>>('/plantillas', params);
   }
 
   subir(datos: {

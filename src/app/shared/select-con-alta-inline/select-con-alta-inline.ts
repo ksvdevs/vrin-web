@@ -1,4 +1,4 @@
-import { Component, computed, forwardRef, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, forwardRef, inject, input, output, signal } from '@angular/core';
 import { ControlValueAccessor, FormsModule, NG_VALUE_ACCESSOR } from '@angular/forms';
 import { Observable } from 'rxjs';
 
@@ -14,6 +14,7 @@ export interface OpcionAltaInline {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-select-con-alta-inline',
   imports: [Button, Dialog, FormsModule, InputText, Select],
   providers: [

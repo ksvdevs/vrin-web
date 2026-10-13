@@ -1,4 +1,4 @@
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
@@ -22,6 +22,7 @@ import { RolService } from '../../core/services/rol.service';
 import { UsuarioPayload, UsuarioService } from '../../core/services/usuario.service';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-usuarios',
   standalone: true,
   imports: [
@@ -53,9 +54,10 @@ export class Usuarios implements OnInit {
 
   protected readonly usuarios = signal<Usuario[]>([]);
   protected readonly cargando = signal(true);
+  protected readonly total = signal(0);
   protected readonly roles = signal<Rol[]>([]);
 
-  protected readonly registrosPorPagina = 5;
+  protected readonly registrosPorPagina = 15;
   protected primeraFila = 0;
   protected readonly opcionesEstado = [
     { label: 'Todos', value: null },
@@ -100,10 +102,13 @@ export class Usuarios implements OnInit {
     this.cambiosBusqueda.next(busqueda);
   }
 
+  protected alCambiarPagina(evento: { first?: number | null }): void {
+    this.primeraFila = evento.first ?? 0;
+    this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
+  }
+
   protected textoPaginacion(): string {
-    const total = this.usuarios().length;
-    const visibles = Math.max(0, Math.min(this.registrosPorPagina, total - this.primeraFila));
-    return `Mostrando ${visibles} de ${total} usuarios`;
+    return `Mostrando ${this.usuarios().length} de ${this.total()} usuarios`;
   }
 
   private fechaApi(fecha: Date | null): string | undefined {
@@ -114,19 +119,23 @@ export class Usuarios implements OnInit {
     return `${anio}-${mes}-${dia}`;
   }
 
-  protected cargar(): void {
-    this.primeraFila = 0;
+  protected cargar(pagina = 1): void {
+    this.primeraFila = (pagina - 1) * this.registrosPorPagina;
     this.cargando.set(true);
     this.usuarioService
-      .listar({
-        busqueda: this.filtroBusqueda.trim() || undefined,
-        activo: this.filtroEstado ?? undefined,
-        desde: this.fechaApi(this.filtroDesde),
-        hasta: this.fechaApi(this.filtroHasta),
-      })
+      .listar(
+        {
+          busqueda: this.filtroBusqueda.trim() || undefined,
+          activo: this.filtroEstado ?? undefined,
+          desde: this.fechaApi(this.filtroDesde),
+          hasta: this.fechaApi(this.filtroHasta),
+        },
+        pagina,
+      )
       .subscribe({
-        next: (usuarios) => {
-          this.usuarios.set(usuarios);
+        next: (respuesta) => {
+          this.usuarios.set(respuesta.data);
+          this.total.set(respuesta.total);
           this.cargando.set(false);
         },
         error: () => {

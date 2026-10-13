@@ -102,9 +102,7 @@
       </button>
       <p-menu
         #menu
-        [model]="[
-          { label: 'Cerrar sesión', icon: 'pi pi-sign-out', command: cerrarSesion.bind(this) },
-        ]"
+        [model]="menuUsuario"
         [popup]="true"
         appendTo="body"
       />

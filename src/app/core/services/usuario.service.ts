@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { Observable } from 'rxjs';
 
+import { RespuestaPaginada } from '../models/paginacion.model';
 import { Usuario } from '../models/usuario.model';
 import { ApiService } from './api.service';
 
@@ -27,8 +28,8 @@ export interface UsuarioPayload {
 export class UsuarioService {
   private readonly api = inject(ApiService);
 
-  listar(filtros: FiltrosUsuario = {}): Observable<Usuario[]> {
-    const params: Record<string, string | number> = {};
+  listar(filtros: FiltrosUsuario = {}, pagina = 1): Observable<RespuestaPaginada<Usuario>> {
+    const params: Record<string, string | number> = { page: pagina };
     if (filtros.busqueda) {
       params['busqueda'] = filtros.busqueda;
     }
@@ -47,7 +48,7 @@ export class UsuarioService {
     if (filtros.hasta) {
       params['hasta'] = filtros.hasta;
     }
-    return this.api.get<Usuario[]>('/usuarios', params);
+    return this.api.get<RespuestaPaginada<Usuario>>('/usuarios', params);
   }
 
   crear(payload: UsuarioPayload): Observable<Usuario> {

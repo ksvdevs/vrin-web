@@ -1,12 +1,6 @@
 import { Routes } from '@angular/router';
 
 import { authGuard, guestGuard } from './core/guards/auth.guard';
-import { Docentes } from './features/catalogos/docentes/docentes';
-import { Inicio } from './features/inicio/inicio';
-import { RegistroExpediente } from './features/expedientes/registro/registro-expediente';
-import { ListaExpedientes } from './features/expedientes/lista/lista';
-import { VistaExpediente } from './features/expedientes/expediente/expediente';
-import { Plantillas } from './features/plantillas/plantillas';
 
 import { LayoutComponent } from './shared/layout/layout';
 
@@ -17,13 +11,18 @@ export const routes: Routes = [
     component: LayoutComponent, 
     canActivate: [authGuard],
     children: [
-      { path: '', component: Inicio },
-      { path: 'catalogos/docentes', component: Docentes },
-      { path: 'expedientes', component: ListaExpedientes },
-      { path: 'expedientes/nuevo', component: RegistroExpediente },
-      { path: 'expedientes/:id/editar', component: RegistroExpediente },
-      { path: 'expedientes/:id', component: VistaExpediente },
-      { path: 'plantillas', component: Plantillas },
+      { path: '', loadComponent: () => import('./features/inicio/inicio').then(m => m.Inicio) },
+      { path: 'catalogos/docentes', loadComponent: () => import('./features/catalogos/docentes/docentes').then(m => m.Docentes) },
+      {
+        path: 'expedientes',
+        loadComponent: () => import('./features/expedientes/lista/lista').then(m => m.ListaExpedientes),
+        children: [
+          { path: 'nuevo', loadComponent: () => import('./features/expedientes/registro/registro-expediente').then(m => m.RegistroExpediente) },
+          { path: ':id/editar', loadComponent: () => import('./features/expedientes/registro/registro-expediente').then(m => m.RegistroExpediente) },
+        ],
+      },
+      { path: 'expedientes/:id', loadComponent: () => import('./features/expedientes/expediente/expediente').then(m => m.VistaExpediente) },
+      { path: 'plantillas', loadComponent: () => import('./features/plantillas/plantillas').then(m => m.Plantillas) },
       { path: 'usuarios', loadComponent: () => import('./features/usuarios/usuarios').then(m => m.Usuarios) },
       { path: 'roles', loadComponent: () => import('./features/roles/roles').then(m => m.Roles) },
     ]

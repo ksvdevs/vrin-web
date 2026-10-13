@@ -1,8 +1,8 @@
-import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { debounceTime, distinctUntilChanged, forkJoin, Subscription } from 'rxjs';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
-import { Router, RouterLink } from '@angular/router';
+import { Router, RouterLink, RouterOutlet } from '@angular/router';
 
 import { DatePicker } from 'primeng/datepicker';
 import { ConfirmationService, MessageService, type MenuItem } from 'primeng/api';
@@ -27,6 +27,7 @@ import { ConfirmDialog } from 'primeng/confirmdialog';
 import { ValidacionExpediente } from '../../validacion/validacion-expediente';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-lista-expedientes',
   imports: [
     BadgeEtapa,
@@ -35,6 +36,7 @@ import { ValidacionExpediente } from '../../validacion/validacion-expediente';
     FormsModule,
     ReactiveFormsModule,
     RouterLink,
+    RouterOutlet,
     Menu,
     Toast,
     ValidacionExpediente,
@@ -54,6 +56,11 @@ export class ListaExpedientes implements OnInit {
   private cargaActual?: Subscription;
 
   protected readonly filas = signal<ExpedienteFila[]>([]);
+  protected readonly filasVista = computed(() => this.filas().map((fila) => ({
+    ...fila,
+    fechaCorta: this.fechaCorta(fila.fecha_registro),
+    inicialesDocente: this.iniciales(fila.docente.nombre_completo),
+  })));
   protected readonly cargando = signal(false);
   protected readonly total = signal(0);
   protected readonly primeraFila = signal(0);
@@ -104,6 +111,10 @@ export class ListaExpedientes implements OnInit {
     this.cargar(1);
   }
 
+  protected alCerrarRegistro(): void {
+    this.cargar(this.paginaActual());
+  }
+
   // HU-41 — plantillas activas por tipo + selección vigente (solo admin).
   private cargarSeleccionPlantillas(): void {
     const usuarioId = this.auth.usuarioActual()?.id;
@@ -116,11 +127,11 @@ export class ListaExpedientes implements OnInit {
       this.seleccionResolucionId.set(cache.resolucionId);
     }
     this.actualizandoPlantillas.set(true);
-    forkJoin({ plantillas: this.plantillaService.listar(), selecciones: this.seleccionService.listarVigentes() })
+    forkJoin({ plantillas: this.plantillaService.listar({ estado: 'ACTIVO' }, 1, 100), selecciones: this.seleccionService.listarVigentes() })
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
         next: ({ plantillas, selecciones }) => {
-          const cartas = plantillas.filter(p => p.estado === 'ACTIVO' && p.tipo_documento?.codigo === 'CARTA');
-          const resoluciones = plantillas.filter(p => p.estado === 'ACTIVO' && p.tipo_documento?.codigo === 'RESOLUCION');
+          const cartas = plantillas.data.filter(p => p.tipo_documento?.codigo === 'CARTA');
+          const resoluciones = plantillas.data.filter(p => p.tipo_documento?.codigo === 'RESOLUCION');
           const cartaId = selecciones.find(s => s.tipo_documento?.codigo === 'CARTA')?.plantilla?.id ?? null;
           const resolucionId = selecciones.find(s => s.tipo_documento?.codigo === 'RESOLUCION')?.plantilla?.id ?? null;
           this.plantillasCarta.set(cartas);

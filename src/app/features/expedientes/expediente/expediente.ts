@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { ActivatedRoute, Router, RouterLink } from '@angular/router';
 import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
@@ -33,6 +33,7 @@ import { ValidacionExpediente } from '../../validacion/validacion-expediente';
 import { Dialog } from 'primeng/dialog';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-vista-expediente',
   imports: [
     BadgeEtapa,
@@ -68,10 +69,14 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private readonly confirmacion = inject(ConfirmationService);
 
   protected readonly detalle = signal<ExpedienteDetalle | null>(null);
+  protected readonly checklistVista = computed(() => {
+    const checklist = this.detalle()?.validacion_calidad?.checklist;
+    return checklist ? this.checklistItems(checklist) : [];
+  });
   protected readonly cargando = signal(true);
   protected readonly urlCarta = signal<SafeResourceUrl | null>(null);
+  protected readonly cargandoCartaDocente = signal(false);
   protected readonly urlDocGenerado = signal<SafeResourceUrl | null>(null);
-  protected readonly errorVistaCarta = signal(false);
   protected readonly driveConectado = signal<boolean | null>(null);
   protected readonly sincronizandoDriveId = signal<number | null>(null);
   protected readonly puedeConectarDrive = computed(() => this.auth.usuarioActual()?.rol_codigo === 'ADMINISTRADOR_GENERAL');
@@ -115,8 +120,11 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected readonly urlVersionCarta = signal<SafeResourceUrl | null>(null);
   protected readonly cargandoVersionCarta = signal(false);
   protected readonly errorVersionCarta = signal(false);
+  protected readonly borradorWordListo = signal(false);
+  protected readonly errorPdfBorrador = signal(false);
   protected readonly mensajeErrorPreview = signal('No se pudo preparar la vista previa de la plantilla.');
   private blobVersionCarta?: string;
+  private blobBorradorCarta?: string;
   private solicitudVista = 0;
   protected readonly versionesCarta = computed(() => (this.detalle()?.documentos_generados ?? [])
     .filter(d => d.tipo === 'CARTA_VRIN').sort((a, b) => b.version - a.version));
@@ -133,7 +141,6 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private blobUrlDocResolucion?: string;
   private expedienteId?: number;
   private docGeneradoCargadoId?: number;
-  private docGeneradoEnCargaId?: number;
   private docResolucionCargadoId?: number;
   private pollingId?: ReturnType<typeof setInterval>;
   private intentosPolling = 0;
@@ -407,9 +414,6 @@ export class VistaExpediente implements OnInit, OnDestroy {
           }
           this.cargando.set(false);
         }
-        this.prepararVistaCarta(detalle);
-        this.prepararVistaDocGenerado(detalle);
-        this.prepararVistaDocResolucion(detalle);
         const documentoAbierto = this.documentoVista();
         if (this.vistaCartaVrinVisible() && !this.vistaBorrador() && documentoAbierto && !documentoAbierto.pdf_path) {
           const versionActualizada = detalle.documentos_generados.find((doc) => doc.id === documentoAbierto.id);
@@ -561,76 +565,12 @@ export class VistaExpediente implements OnInit, OnDestroy {
     });
   }
 
-  private prepararVistaDocGenerado(detalle: ExpedienteDetalle): void {
-    const doc = detalle.documentos_generados?.find((d) => d.tipo === 'CARTA_VRIN' && d.es_vigente);
-    if (!doc || doc.id !== this.docGeneradoCargadoId) {
-      this.docGeneradoEnCargaId = undefined;
-      this.urlDocGenerado.set(null);
-      this.errorVistaCarta.set(false);
-      if (this.blobUrlDocGenerado) {
-        URL.revokeObjectURL(this.blobUrlDocGenerado);
-        this.blobUrlDocGenerado = undefined;
-      }
-      this.docGeneradoCargadoId = undefined;
-    }
-    if (!doc || doc.pdf_path === null || doc.id === this.docGeneradoCargadoId) {
-      return;
-    }
-    this.docGeneradoCargadoId = doc.id;
-    this.docGeneradoEnCargaId = doc.id;
-    this.documentoService.obtenerBlob(detalle.id, doc.id, 'pdf').subscribe({
-      next: (blob) => {
-        if (this.docCartaGenerada()?.id !== doc.id) return;
-        this.docGeneradoEnCargaId = undefined;
-        if (this.blobUrlDocGenerado) {
-          URL.revokeObjectURL(this.blobUrlDocGenerado);
-        }
-        this.blobUrlDocGenerado = URL.createObjectURL(blob);
-        this.urlDocGenerado.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlDocGenerado));
-        if (this.documentoVista()?.id === doc.id && !this.vistaBorrador() && this.vistaCartaVrinVisible()) {
-          this.urlVersionCarta.set(this.urlDocGenerado());
-          this.cargandoVersionCarta.set(false);
-        }
-        this.esperaVistaCartaAgotada.set(false);
-      },
-      error: () => {
-        if (this.docCartaGenerada()?.id === doc.id) {
-          this.docGeneradoEnCargaId = undefined;
-          this.errorVistaCarta.set(true);
-          if (this.documentoVista()?.id === doc.id && !this.vistaBorrador() && this.vistaCartaVrinVisible()) {
-            this.cargandoVersionCarta.set(false);
-            this.errorVersionCarta.set(true);
-          }
-        }
-      },
-    });
-  }
-
   protected reintentarVistaCarta(): void {
     if (this.expedienteId === undefined) return;
     this.docGeneradoCargadoId = undefined;
-    this.errorVistaCarta.set(false);
     this.esperaVistaCartaAgotada.set(false);
     this.detenerPolling();
     this.cargar(this.expedienteId, true);
-  }
-
-  private prepararVistaDocResolucion(detalle: ExpedienteDetalle): void {
-    const doc = detalle.documentos_generados?.filter((d) => d.tipo === 'RESOLUCION' && d.es_vigente)[0];
-    if (!doc || doc.pdf_path === null || doc.id === this.docResolucionCargadoId) {
-      return;
-    }
-    this.docResolucionCargadoId = doc.id;
-    this.documentoService.obtenerBlob(detalle.id, doc.id, 'pdf').subscribe({
-      next: (blob) => {
-        if (this.blobUrlDocResolucion) {
-          URL.revokeObjectURL(this.blobUrlDocResolucion);
-        }
-        this.blobUrlDocResolucion = URL.createObjectURL(blob);
-        this.urlDocResolucion.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlDocResolucion));
-      },
-      error: () => {},
-    });
   }
 
   protected confirmarGenerarCarta(): void {
@@ -643,29 +583,33 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.vistaCartaVrinVisible.set(true);
     this.cargandoVersionCarta.set(true);
     this.errorVersionCarta.set(false);
+    this.errorPdfBorrador.set(false);
+    this.borradorWordListo.set(false);
     this.urlVersionCarta.set(null);
+    if (this.blobVersionCarta) URL.revokeObjectURL(this.blobVersionCarta);
+    this.blobVersionCarta = undefined;
+    if (this.blobBorradorCarta) URL.revokeObjectURL(this.blobBorradorCarta);
+    this.blobBorradorCarta = undefined;
     const detalle = this.detalle();
     if (!detalle) return;
     const valores = this.cartaForm.getRawValue();
     const match = valores.numero_completo?.match(/(\d+)-(\d{4})/);
     const solicitud = ++this.solicitudVista;
-    this.cartaVrinService.preview(detalle.id, {
+    const payload = {
       numero: Number(match?.[1]), anio: Number(match?.[2]),
       fecha: this.iso(valores.fecha), ciudad: detalle.carta_vrin?.ciudad ?? 'Abancay',
       carta_docente_registro_numero: valores.carta_docente_registro_numero?.trim(),
       carta_docente_registro_fecha: this.iso(valores.carta_docente_registro_fecha),
       asunto: valores.asunto?.trim(),
-    }).subscribe({
+    };
+    this.cartaVrinService.preview(detalle.id, payload).subscribe({
       next: blob => {
         if (solicitud !== this.solicitudVista) return;
-        if (this.blobVersionCarta) URL.revokeObjectURL(this.blobVersionCarta);
-        this.blobVersionCarta = URL.createObjectURL(blob);
-        this.urlVersionCarta.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobVersionCarta));
-        this.cargandoVersionCarta.set(false);
+        this.blobBorradorCarta = URL.createObjectURL(blob);
+        this.borradorWordListo.set(true);
       },
       error: async (error) => {
         if (solicitud !== this.solicitudVista) return;
-        this.cargandoVersionCarta.set(false);
         this.errorVersionCarta.set(true);
         let mensaje = 'No se pudo preparar la vista previa de la plantilla.';
         try {
@@ -675,11 +619,35 @@ export class VistaExpediente implements OnInit, OnDestroy {
         if (solicitud === this.solicitudVista) this.mensajeErrorPreview.set(mensaje);
       },
     });
+    this.cartaVrinService.previewPdf(detalle.id, payload).subscribe({
+      next: blob => {
+        if (solicitud !== this.solicitudVista) return;
+        this.blobVersionCarta = URL.createObjectURL(blob);
+        this.urlVersionCarta.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobVersionCarta));
+        this.cargandoVersionCarta.set(false);
+      },
+      error: () => {
+        if (solicitud !== this.solicitudVista) return;
+        this.errorPdfBorrador.set(true);
+        this.cargandoVersionCarta.set(false);
+      },
+    });
+  }
+
+  protected descargarBorradorCarta(): void {
+    if (!this.vistaBorrador() || !this.blobBorradorCarta) return;
+    const enlace = document.createElement('a');
+    enlace.href = this.blobBorradorCarta;
+    const numero = this.cartaForm.controls.numero_completo.value?.match(/(\d+-\d{4})/)?.[1] ?? 'borrador';
+    enlace.download = `CARTA_VRIN_${numero}_borrador.docx`;
+    document.body.appendChild(enlace);
+    enlace.click();
+    enlace.remove();
   }
 
   protected generarCarta(): void {
     const detalle = this.detalle();
-    if (!detalle || this.guardandoCarta() || this.cartaForm.invalid || (this.vistaBorrador() && !this.urlVersionCarta())) {
+    if (!detalle || this.guardandoCarta() || this.cartaForm.invalid || (this.vistaBorrador() && !this.borradorWordListo())) {
       return;
     }
     const valores = this.cartaForm.getRawValue();
@@ -706,6 +674,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
       .subscribe({
         next: (respuesta) => {
           this.guardandoCarta.set(false);
+          this.cargandoVersionCarta.set(false);
           this.editandoCarta.set(false);
           this.vistaCartaVrinVisible.set(false);
           this.indiceActivoVisible.set(1);
@@ -753,10 +722,6 @@ export class VistaExpediente implements OnInit, OnDestroy {
       this.cargandoVersionCarta.set(false);
       return;
     }
-    if (doc.id === this.docGeneradoEnCargaId) {
-      this.cargandoVersionCarta.set(true);
-      return;
-    }
     this.cargandoVersionCarta.set(true);
     this.documentoService.obtenerBlob(detalle.id, doc.id, 'pdf').subscribe({
       next: blob => {
@@ -764,6 +729,12 @@ export class VistaExpediente implements OnInit, OnDestroy {
         this.blobVersionCarta = URL.createObjectURL(blob);
         this.urlVersionCarta.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobVersionCarta));
         this.cargandoVersionCarta.set(false);
+        if (doc.es_vigente) {
+          if (this.blobUrlDocGenerado) URL.revokeObjectURL(this.blobUrlDocGenerado);
+          this.blobUrlDocGenerado = URL.createObjectURL(blob);
+          this.urlDocGenerado.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlDocGenerado));
+          this.docGeneradoCargadoId = doc.id;
+        }
         if (!doc.pdf_path) this.cargar(detalle.id, true);
       },
       error: () => {
@@ -1137,6 +1108,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   ngOnDestroy(): void {
     this.solicitudVista++;
     if (this.blobVersionCarta) URL.revokeObjectURL(this.blobVersionCarta);
+    if (this.blobBorradorCarta) URL.revokeObjectURL(this.blobBorradorCarta);
     this.detenerPolling();
     if (this.blobUrlCarta) {
       URL.revokeObjectURL(this.blobUrlCarta);
@@ -1256,11 +1228,22 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.errorVistaResolucion.set('');
     this.urlVistaResolucion.set(null);
     if (this.blobVistaResolucion) URL.revokeObjectURL(this.blobVistaResolucion);
+    if (documento.id === this.docResolucionCargadoId && this.urlDocResolucion()) {
+      this.urlVistaResolucion.set(this.urlDocResolucion());
+      this.cargandoVistaResolucion.set(false);
+      return;
+    }
     this.documentoService.obtenerBlob(detalle.id, documento.id, 'pdf').subscribe({
       next: (blob) => {
         this.blobVistaResolucion = URL.createObjectURL(blob);
         this.urlVistaResolucion.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobVistaResolucion));
         this.cargandoVistaResolucion.set(false);
+        if (documento.es_vigente) {
+          if (this.blobUrlDocResolucion) URL.revokeObjectURL(this.blobUrlDocResolucion);
+          this.blobUrlDocResolucion = URL.createObjectURL(blob);
+          this.urlDocResolucion.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlDocResolucion));
+          this.docResolucionCargadoId = documento.id;
+        }
       },
       error: () => {
         this.cargandoVistaResolucion.set(false);
@@ -1623,6 +1606,14 @@ export class VistaExpediente implements OnInit, OnDestroy {
     }));
   }
 
+  protected verCartaDocente(): void {
+    this.modalCartaVisible.set(true);
+    const detalle = this.detalle();
+    if (detalle && !this.urlCarta()) {
+      this.prepararVistaCarta(detalle);
+    }
+  }
+
   private prepararVistaCarta(detalle: ExpedienteDetalle): void {
     const carta: ArchivoDetalle | null =
       detalle.archivos.find((a) => a.tipo === 'CARTA_DOCENTE') ?? null;
@@ -1631,14 +1622,18 @@ export class VistaExpediente implements OnInit, OnDestroy {
       return;
     }
     this.archivoCartaCargadoId = carta.id;
+    this.cargandoCartaDocente.set(true);
     this.archivoService.obtenerBlob(detalle.id, carta.id).subscribe({
       next: (blob) => {
+        this.cargandoCartaDocente.set(false);
         if (this.carta()?.id !== carta.id) return;
         if (this.blobUrlCarta) URL.revokeObjectURL(this.blobUrlCarta);
         this.blobUrlCarta = URL.createObjectURL(blob);
         this.urlCarta.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlCarta));
       },
       error: () => {
+        this.cargandoCartaDocente.set(false);
+        this.archivoCartaCargadoId = undefined;
         this.mensajes.add({
           severity: 'warn',
           summary: 'Vista previa no disponible',

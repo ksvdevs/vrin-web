@@ -1,4 +1,4 @@
-import { Component, computed, inject, input, output, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 
 import { Button } from 'primeng/button';
@@ -20,6 +20,7 @@ import { ExpedienteService } from '../../../core/services/expediente.service';
  * Datos del expediente en solo lectura + checklist de los 3 requisitos (RN-01).
  */
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-validacion-drawer',
   imports: [Button, Drawer, ReactiveFormsModule, SelectButton, Tag, Textarea],
   templateUrl: './validacion-drawer.html',

@@ -77,7 +77,7 @@
                 <div class="archivo-solicitud">
                   <span class="pdf-insignia">PDF</span>
                   <div class="archivo-info"><strong>{{ c.nombre_original }}</strong><small>{{ (c.tamano_bytes / 1048576).toFixed(1) }} MB · {{ c.mime === 'application/pdf' ? 'PDF' : 'Documento' }}</small></div>
-                  <p-button icon="pi pi-eye" [text]="true" severity="secondary" ariaLabel="Ver carta del docente" (onClick)="modalCartaVisible.set(true)" />
+                  <p-button icon="pi pi-eye" [text]="true" severity="secondary" ariaLabel="Ver carta del docente" (onClick)="verCartaDocente()" />
                   <p-button icon="pi pi-download" [text]="true" severity="secondary" ariaLabel="Descargar carta del docente" (onClick)="descargarCarta()" />
                 </div>
               } @else { <p class="pendiente">Sin carta adjunta.</p> }
@@ -85,7 +85,7 @@
             @if (e.validacion_calidad; as v) {
               @if (v.checklist) {
                 <ul class="requisitos-solicitud">
-                  @for (item of checklistItems(v.checklist); track item.etiqueta) {
+                  @for (item of checklistVista(); track item.etiqueta) {
                     <li><span class="requisito-icono" [class.no-cumple]="!item.cumple"><i [class]="item.cumple ? 'pi pi-check' : 'pi pi-times'"></i></span><span>{{ item.etiqueta }}</span><strong [class.no-cumple]="!item.cumple">{{ item.cumple ? 'CUMPLE' : 'NO CUMPLE' }}</strong></li>
                   }
                 </ul>
@@ -525,8 +525,10 @@
             <iframe [src]="url" title="Carta para OPP" class="pdf-carta-opp"></iframe>
           } @else {
             <div class="pdf-pendiente" role="status">
-              @if (cargandoVersionCarta()) { <i class="pi pi-spin pi-spinner"></i><p>Preparando el PDF de la carta…</p> }
-              @else if (errorVersionCarta()) { <p>{{ vistaBorrador() ? mensajeErrorPreview() : 'No se pudo cargar el PDF.' }}</p><p-button label="Reintentar" (onClick)="vistaBorrador() ? confirmarGenerarCarta() : verVersionCarta(documentoVista()!)" /> }
+              @if (vistaBorrador() && errorVersionCarta()) { <p>{{ mensajeErrorPreview() }}</p><p-button label="Reintentar" (onClick)="confirmarGenerarCarta()" /> }
+              @else if (vistaBorrador() && errorPdfBorrador()) { <p>No se pudo mostrar el PDF. Puedes revisar la carta en Word.</p><p-button label="Reintentar PDF" (onClick)="confirmarGenerarCarta()" /> }
+              @else if (cargandoVersionCarta()) { <i class="pi pi-spin pi-spinner"></i><p>Preparando la vista de la carta…</p> }
+              @else if (errorVersionCarta()) { <p>No se pudo cargar el PDF.</p><p-button label="Reintentar" (onClick)="verVersionCarta(documentoVista()!)" /> }
               @else if (esperaVistaCartaAgotada()) { <p>La vista en PDF sigue sin estar disponible. Puedes descargar la carta en Word o volver a comprobarla.</p><p-button label="Volver a comprobar" (onClick)="reintentarVistaCarta()" /> }
               @else { <p>La vista en PDF se está preparando. La carta en Word ya está disponible para descargar.</p><p-button label="Actualizar" (onClick)="reintentarVistaCarta()" /> }
             </div>
@@ -538,8 +540,9 @@
       <div class="vista-footer">
         <small><i class="pi pi-check"></i> {{ vistaBorrador() ? 'Carta preparada con la plantilla registrada para el expediente ' + detalle()?.codigo + '.' : 'Documento guardado en el expediente ' + detalle()?.codigo + '.' }}</small>
         <div>@if (vistaBorrador()) {
+          @if (borradorWordListo()) { <p-button label="Abrir borrador Word" icon="pi pi-download" severity="secondary" [outlined]="true" (onClick)="descargarBorradorCarta()" /> }
           <p-button label="Volver a editar" icon="pi pi-pencil" severity="secondary" [outlined]="true" [disabled]="guardandoCarta()" (onClick)="vistaCartaVrinVisible.set(false)" />
-          <p-button [label]="editandoCarta() ? 'Generar y guardar nueva versión' : 'Generar y guardar carta'" icon="pi pi-file" [loading]="guardandoCarta()" [disabled]="cargandoVersionCarta() || errorVersionCarta() || !urlVersionCarta()" (onClick)="generarCarta()" />
+          <p-button [label]="editandoCarta() ? 'Generar y guardar nueva versión' : 'Generar y guardar carta'" icon="pi pi-file" [loading]="guardandoCarta()" [disabled]="errorVersionCarta() || !borradorWordListo()" (onClick)="generarCarta()" />
         } @else { @if (documentoVista(); as version) { <p-button label="Descargar Word y guardar en Drive" icon="pi pi-download" severity="secondary" [outlined]="true" [loading]="sincronizandoDriveId() === version.id" (onClick)="descargarDocGenerado(version)" /><p-button label="Abrir carpeta en Drive" icon="pi pi-external-link" severity="secondary" [outlined]="true" (onClick)="abrirCarpetaCartasDrive()" /> } <p-button label="Cerrar" severity="secondary" [outlined]="true" (onClick)="vistaCartaVrinVisible.set(false)" /> }</div>
       </div>
     </ng-template>
@@ -586,6 +589,8 @@
   >
     @if (urlCarta(); as url) {
       <iframe class="modal-carta-iframe" [src]="url" title="Vista previa de la carta del docente"></iframe>
+    } @else if (cargandoCartaDocente()) {
+      <p class="text-500"><i class="pi pi-spin pi-spinner"></i> Cargando vista previa…</p>
     } @else {
       <p class="text-500">Vista previa no disponible. Usa «Descargar» desde la Etapa 1.</p>
     }

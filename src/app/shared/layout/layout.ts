@@ -1,26 +1,34 @@
-import { Component, inject, OnInit } from '@angular/core';
-import { RouterOutlet, RouterLink, RouterLinkActive, Router } from '@angular/router';
+import { ChangeDetectionStrategy, Component, inject } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { RouterOutlet, RouterLink, RouterLinkActive, Router, NavigationEnd } from '@angular/router';
+import { filter, map } from 'rxjs';
 import { AuthService } from '../../core/services/auth.service';
+import type { MenuItem } from 'primeng/api';
 import { MenuModule } from 'primeng/menu';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-layout',
   standalone: true,
   imports: [RouterOutlet, RouterLink, RouterLinkActive, MenuModule],
   templateUrl: './layout.html',
   styleUrls: ['./layout.scss'],
 })
-export class LayoutComponent implements OnInit {
+export class LayoutComponent {
   auth = inject(AuthService);
   router = inject(Router);
+  private readonly rutaActual = toSignal(
+    this.router.events.pipe(
+      filter((evento): evento is NavigationEnd => evento instanceof NavigationEnd),
+      map((evento) => evento.urlAfterRedirects),
+    ),
+    { initialValue: this.router.url },
+  );
+  readonly menuUsuario: MenuItem[] = [
+    { label: 'Cerrar sesión', icon: 'pi pi-sign-out', command: () => this.cerrarSesion() },
+  ];
   isPersonalOpen = true;
   menuContraido = false;
-
-  ngOnInit() {
-    if (this.router.url.includes('/roles') || this.router.url.includes('/usuarios')) {
-      this.isPersonalOpen = true;
-    }
-  }
 
   togglePersonal() {
     if (this.menuContraido) {
@@ -48,11 +56,11 @@ export class LayoutComponent implements OnInit {
   }
 
   get seccionActual() {
-    return this.router.url.startsWith('/expedientes') ? 'Investigación' : 'General';
+    return this.rutaActual().startsWith('/expedientes') ? 'Investigación' : 'General';
   }
 
   get paginaActual() {
-    const ruta = this.router.url.split('?')[0];
+    const ruta = this.rutaActual().split('?')[0];
     if (ruta.startsWith('/expedientes')) return 'Artículos financiados';
     if (ruta.startsWith('/catalogos/docentes')) return 'Docentes';
     if (ruta.startsWith('/plantillas')) return 'Gestor de plantillas';

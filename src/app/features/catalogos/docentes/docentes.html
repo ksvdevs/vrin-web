@@ -71,12 +71,14 @@
     </div>
 
     <p-table
-    [value]="docentesFiltrados()"
+    [value]="docentes()"
     [loading]="cargando()"
+    [lazy]="true"
     [paginator]="true"
     [rows]="registrosPorPagina"
+    [totalRecords]="total()"
     [first]="primeraFila"
-    (onPage)="primeraFila = $event.first"
+    (onPage)="alCambiarPagina($event)"
     [showCurrentPageReport]="true"
     [currentPageReportTemplate]="textoPaginacion()"
     [tableStyle]="{ 'min-width': '64rem' }"

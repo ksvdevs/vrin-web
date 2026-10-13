@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { Subject, Subscription, catchError, debounceTime, distinctUntilChanged, forkJoin, of, switchMap } from 'rxjs';
@@ -46,6 +46,7 @@ const EXTENSIONES_OCR = ['pdf', 'jpg', 'jpeg', 'png'];
 const TAMANO_MAXIMO = 25 * 1024 * 1024; // 25 MB (replica ck_arch_tamano)
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-registro-expediente',
   imports: [
     AutoComplete,
@@ -511,7 +512,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   }
 
   protected finalizar(): void {
-    this.router.navigate(['/']);
+    this.router.navigate(['/expedientes']);
   }
 
   protected verCarta(): void {

@@ -1,4 +1,4 @@
-import { Component, computed, input } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, input } from '@angular/core';
 
 import { ESTADO_INFO, type EstadoExpediente } from '../../core/models/expediente.model';
 
@@ -11,6 +11,7 @@ interface PasoEtapa {
 }
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-badge-etapa',
   templateUrl: './badge-etapa.html',
   styleUrl: './badge-etapa.scss',

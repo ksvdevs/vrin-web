@@ -29,7 +29,7 @@
           id="plantillas-busqueda"
           type="search"
           [ngModel]="filtroBusqueda()"
-          (ngModelChange)="filtroBusqueda.set($event); reiniciarPagina()"
+          (ngModelChange)="alBuscar($event)"
           placeholder="Buscar por nombre o código..."
         />
       </div>
@@ -79,12 +79,14 @@
   </div>
   <p-table
     class="sgr-table"
-    [value]="plantillasFiltradas()"
+    [value]="plantillas()"
     [loading]="cargando()"
+    [lazy]="true"
     [paginator]="true"
     [rows]="registrosPorPagina"
+    [totalRecords]="total()"
     [first]="primeraFila"
-    (onPage)="primeraFila = $event.first"
+    (onPage)="alCambiarPagina($event)"
     [showCurrentPageReport]="true"
     [currentPageReportTemplate]="textoPaginacion()"
     [tableStyle]="{ 'min-width': '64rem' }"

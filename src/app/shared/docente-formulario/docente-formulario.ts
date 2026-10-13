@@ -1,4 +1,5 @@
 import {
+  ChangeDetectionStrategy,
   Component,
   OnDestroy,
   OnInit,
@@ -38,6 +39,7 @@ import {
 } from '../select-con-alta-inline/select-con-alta-inline';
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-docente-formulario',
   imports: [Button, Dialog, InputText, ReactiveFormsModule, Select, SelectConAltaInline],
   templateUrl: './docente-formulario.html',

@@ -20,7 +20,7 @@ describe('Etapas de carta VRIN y resolución', () => {
   let detalle: ExpedienteDetalle;
   let pasoQuery: string | null;
   let rolActual: string;
-  const cartas = { sugerencia: () => of({ siguiente_numero: 67 }), actualizar: vi.fn(), preview: vi.fn() };
+  const cartas = { sugerencia: () => of({ siguiente_numero: 67 }), actualizar: vi.fn(), preview: vi.fn(), previewPdf: vi.fn() };
   const resoluciones = { sugerencia: () => of({ siguiente_numero: 13 }), preview: vi.fn() };
   const documentos = { obtenerBlob: vi.fn(), estadoDrive: vi.fn(), autorizarDrive: vi.fn(), subirADrive: vi.fn() };
   const archivos = { obtenerBlob: vi.fn() };
@@ -46,7 +46,8 @@ describe('Etapas de carta VRIN y resolución', () => {
     documentos.estadoDrive.mockReturnValue(of({ connected: true, folder_url: 'https://drive.google.com/drive/folders/carpeta-prueba' }));
     documentos.subirADrive.mockReturnValue(of({ id: 'archivo-drive-123', url: 'https://drive.google.com/file/d/archivo-drive-123/view', already_synced: false }));
     archivos.obtenerBlob.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
-    cartas.preview.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
+    cartas.preview.mockReturnValue(of(new Blob(['DOCX'], { type: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' })));
+    cartas.previewPdf.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
     resoluciones.preview.mockReturnValue(of(new Blob(['PDF'], { type: 'application/pdf' })));
     pasoQuery = null;
     rolActual = 'SECRETARIA';
@@ -215,6 +216,40 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(fixture.nativeElement.textContent).not.toContain('Fecha de aceptación');
     expect(fixture.nativeElement.querySelector('#carta_opp_numero')).toBeNull();
     expect(boton('Vista previa y guardar')).toBeDefined();
+  });
+
+  it('muestra la carta en el modal y permite guardar con el Word listo', async () => {
+    pasoQuery = '1';
+    await abrir();
+    const componente = fixture.componentInstance;
+    componente['confirmarGenerarCarta']();
+    fixture.detectChanges();
+
+    expect(cartas.preview).toHaveBeenCalledOnce();
+    expect(cartas.previewPdf).toHaveBeenCalledOnce();
+    expect(componente['cargandoVersionCarta']()).toBe(false);
+    expect(componente['urlVersionCarta']()).not.toBeNull();
+    expect(componente['borradorWordListo']()).toBe(true);
+    expect(fixture.nativeElement.querySelector('iframe.pdf-carta-opp')).not.toBeNull();
+    expect(fixture.nativeElement.textContent).toContain('Abrir borrador Word');
+
+    componente['generarCarta']();
+    expect(api.generarCarta).toHaveBeenCalledOnce();
+  });
+
+  it('permite guardar aunque el PDF de la vista previa siga cargando', async () => {
+    const pdfPendiente = new Subject<Blob>();
+    cartas.previewPdf.mockReturnValue(pdfPendiente.asObservable());
+    pasoQuery = '1';
+    await abrir();
+    const componente = fixture.componentInstance;
+    componente['confirmarGenerarCarta']();
+
+    expect(componente['borradorWordListo']()).toBe(true);
+    expect(componente['cargandoVersionCarta']()).toBe(true);
+    expect(componente['urlVersionCarta']()).toBeNull();
+    componente['generarCarta']();
+    expect(api.generarCarta).toHaveBeenCalledOnce();
   });
 
   it('permite pasar de la carta emitida a la respuesta OPP en Resolución', async () => {
@@ -578,12 +613,15 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(fixture.componentInstance['esperaVistaCartaAgotada']()).toBe(false);
   });
 
-  it('no vuelve a pedir la carta docente en cada consulta del expediente', async () => {
+  it('carga la carta docente solo al abrirla y la reutiliza después', async () => {
     detalle.archivos = [{ id: 2, tipo: 'CARTA_DOCENTE', etapa: 1,
       nombre_original: 'CARTA_DOCENTE_N°047.pdf', mime: 'application/pdf', tamano_bytes: 120,
       sha256: null, created_at: '2026-10-06' }];
     await abrir();
     fixture.componentInstance['cargar'](1, true);
+    expect(archivos.obtenerBlob).not.toHaveBeenCalled();
+    fixture.componentInstance['verCartaDocente']();
+    fixture.componentInstance['verCartaDocente']();
     expect(archivos.obtenerBlob).toHaveBeenCalledTimes(1);
     expect(archivos.obtenerBlob).toHaveBeenCalledWith(1, 2);
   });
@@ -629,16 +667,19 @@ describe('Etapas de carta VRIN y resolución', () => {
     click.mockRestore();
   });
 
-  it('reutiliza el PDF precargado al ver la carta vigente', async () => {
+  it('carga el PDF al abrir la carta vigente y lo reutiliza', async () => {
     esperarOpp();
     pasoQuery = '1';
     detalle.documentos_generados = [{ id: 9, tipo: 'CARTA_VRIN', version: 1,
       nombre_archivo: 'CARTA_VRIN_067-2026_v1.docx', pdf_path: 'carta.pdf',
       es_vigente: true, generado_at: '2026-10-06', plantilla: null }];
     await abrir();
+    expect(documentos.obtenerBlob).not.toHaveBeenCalled();
+    fixture.componentInstance['verVersionCarta'](detalle.documentos_generados[0]);
     expect(documentos.obtenerBlob).toHaveBeenCalledTimes(1);
     fixture.componentInstance['verVersionCarta'](detalle.documentos_generados[0]);
     expect(documentos.obtenerBlob).toHaveBeenCalledTimes(1);
+    fixture.detectChanges();
     expect(fixture.componentInstance['urlVersionCarta']()).not.toBeNull();
     expect(fixture.nativeElement.textContent).toContain('CARTA_VRIN_067-2026_v1.docx');
   });

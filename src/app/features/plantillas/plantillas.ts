@@ -1,6 +1,8 @@
-import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
 
 import { Button } from 'primeng/button';
 import { DatePicker } from 'primeng/datepicker';
@@ -24,6 +26,7 @@ const TIPOS = [
 const MAX_TAMANO = 25 * 1024 * 1024;
 
 @Component({
+  changeDetection: ChangeDetectionStrategy.OnPush,
   selector: 'app-plantillas',
   imports: [Button, DatePipe, DatePicker, Dialog, FormsModule, InputText, ReactiveFormsModule, Select, TableModule, Tag, Toast],
   templateUrl: './plantillas.html',
@@ -34,10 +37,13 @@ export class Plantillas implements OnInit {
   private readonly auth = inject(AuthService);
   private readonly plantillaService = inject(PlantillaService);
   private readonly mensajes = inject(MessageService);
+  private readonly destroyRef = inject(DestroyRef);
+  private readonly cambiosBusqueda = new Subject<string>();
 
   protected readonly plantillas = signal<Plantilla[]>([]);
   protected readonly cargando = signal(true);
-  protected readonly registrosPorPagina = 5;
+  protected readonly total = signal(0);
+  protected readonly registrosPorPagina = 15;
   protected primeraFila = 0;
   protected readonly opcionesEstado = [
     { label: 'Todos', value: null },
@@ -48,20 +54,6 @@ export class Plantillas implements OnInit {
   protected readonly filtroEstado = signal<'ACTIVO' | 'INACTIVO' | null>(null);
   protected readonly filtroDesde = signal<Date | null>(null);
   protected readonly filtroHasta = signal<Date | null>(null);
-  protected readonly plantillasFiltradas = computed(() => {
-    const busqueda = this.filtroBusqueda().trim().toLocaleLowerCase();
-    const estado = this.filtroEstado();
-    const desde = this.fechaLocal(this.filtroDesde());
-    const hasta = this.fechaLocal(this.filtroHasta());
-
-    return this.plantillas().filter((plantilla) => {
-      const fecha = plantilla.created_at?.slice(0, 10) ?? '';
-      return (!busqueda || `${plantilla.codigo} ${plantilla.nombre}`.toLocaleLowerCase().includes(busqueda))
-        && (!estado || plantilla.estado === estado)
-        && (!desde || fecha >= desde)
-        && (!hasta || fecha <= hasta);
-    });
-  });
   protected readonly dialogoSubida = signal(false);
   protected readonly subiendo = signal(false);
   protected readonly archivoSeleccionado = signal<File | null>(null);
@@ -76,17 +68,29 @@ export class Plantillas implements OnInit {
 
   ngOnInit(): void {
     this.auth.verificarSesion().subscribe();
-    this.cargar();
+    this.cambiosBusqueda
+      .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => this.reiniciarPagina());
+    this.cargar(1);
+  }
+
+  protected alBuscar(termino: string): void {
+    this.filtroBusqueda.set(termino);
+    this.cambiosBusqueda.next(termino);
   }
 
   protected reiniciarPagina(): void {
     this.primeraFila = 0;
+    this.cargar(1);
+  }
+
+  protected alCambiarPagina(evento: { first?: number | null }): void {
+    this.primeraFila = evento.first ?? 0;
+    this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
   }
 
   protected textoPaginacion(): string {
-    const total = this.plantillasFiltradas().length;
-    const visibles = Math.max(0, Math.min(this.registrosPorPagina, total - this.primeraFila));
-    return `Mostrando ${visibles} de ${total} plantillas`;
+    return `Mostrando ${this.plantillas().length} de ${this.total()} plantillas`;
   }
 
   private fechaLocal(fecha: Date | null): string | null {
@@ -97,23 +101,34 @@ export class Plantillas implements OnInit {
     return `${anio}-${mes}-${dia}`;
   }
 
-  protected cargar(): void {
+  protected cargar(pagina = 1): void {
+    this.primeraFila = (pagina - 1) * this.registrosPorPagina;
     this.cargando.set(true);
-    this.plantillaService.listar().subscribe({
-      next: (plantillas) => {
-        this.plantillas.set(plantillas);
-        this.primeraFila = 0;
-        this.cargando.set(false);
-      },
-      error: () => {
-        this.cargando.set(false);
-        this.mensajes.add({
-          severity: 'error',
-          summary: 'Sin conexión',
-          detail: 'No se pudo obtener el listado de plantillas.',
-        });
-      },
-    });
+    this.plantillaService
+      .listar(
+        {
+          busqueda: this.filtroBusqueda().trim() || undefined,
+          estado: this.filtroEstado() ?? undefined,
+          desde: this.fechaLocal(this.filtroDesde()) ?? undefined,
+          hasta: this.fechaLocal(this.filtroHasta()) ?? undefined,
+        },
+        pagina,
+      )
+      .subscribe({
+        next: (respuesta) => {
+          this.plantillas.set(respuesta.data);
+          this.total.set(respuesta.total);
+          this.cargando.set(false);
+        },
+        error: () => {
+          this.cargando.set(false);
+          this.mensajes.add({
+            severity: 'error',
+            summary: 'Sin conexión',
+            detail: 'No se pudo obtener el listado de plantillas.',
+          });
+        },
+      });
   }
 
   protected seleccionarArchivo(event: Event): void {
