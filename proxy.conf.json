@@ -1,0 +1,12 @@
+{
+  "/api/**": {
+    "target": "https://fragrance-whenever-findings-compare.trycloudflare.com",
+    "secure": true,
+    "changeOrigin": true
+  },
+  "/sanctum/**": {
+    "target": "https://fragrance-whenever-findings-compare.trycloudflare.com",
+    "secure": true,
+    "changeOrigin": true
+  }
+}

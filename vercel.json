@@ -4,11 +4,11 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://centered-christina-lady-antivirus.trycloudflare.com/api/:path*"
+      "destination": "https://fragrance-whenever-findings-compare.trycloudflare.com/api/:path*"
     },
     {
       "source": "/sanctum/:path*",
-      "destination": "https://centered-christina-lady-antivirus.trycloudflare.com/sanctum/:path*"
+      "destination": "https://fragrance-whenever-findings-compare.trycloudflare.com/sanctum/:path*"
     },
     {
       "source": "/(.*)",

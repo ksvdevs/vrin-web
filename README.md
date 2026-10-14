@@ -1,76 +1,26 @@
-# VrinWeb
+# VRIN Web
 
-## Despliegue desde GitHub en Vercel
+Frontend Angular del SGR-VRIN. La compilación de producción utiliza `/api` y `/sanctum` en el mismo dominio del frontend; Vercel reenvía ambas rutas a Laravel mediante las reglas de `vercel.json`.
 
-1. Confirma la compilación con `npm run build`. Desde este directorio, sube los cambios con `git add .`, `git commit -m "Preparar despliegue en Vercel"` y `git push origin main`.
-2. En Vercel, importa el repositorio `ksvdevs/vrin-web` y selecciona **Angular**. La raíz del proyecto es la raíz del repositorio.
-3. Usa Node.js 24 y `npm run build`. `vercel.json` ya define la salida `dist/vrin-web/browser`, el proxy al backend y la ruta de respaldo para Angular.
-4. Comprueba `/login`, una ruta interna abierta directamente y `/api/ping` en el dominio de Vercel.
+## Despliegue desde GitHub a Vercel
 
-### Backend local para la presentación
+1. Sube este repositorio (`ksvdevs/vrin-web`) a GitHub. El repositorio de Laravel es independiente; Vercel solo compila el frontend.
+2. Importa `ksvdevs/vrin-web` en Vercel. Selecciona la raíz del repositorio como **Root Directory**. `vercel.json` fija el preset Angular, `npm run build` y `dist/vrin-web/browser`; `package.json` fija Node.js 24.
+3. Comprueba que el backend, la base de datos y el túnel estén activos. Ejecuta `php artisan serve --host=127.0.0.1 --port=8000` y `cloudflared tunnel --url http://127.0.0.1:8000`. Verifica `http://127.0.0.1:8000/api/ping` y la URL pública del túnel con `/api/ping`.
+4. Antes de iniciar sesión, incluye el dominio **exacto** de producción de Vercel (sin `https://`) en `SANCTUM_STATEFUL_DOMAINS` del `.env` de Laravel. La configuración actual ya incluye `vrin-web.vercel.app`; si Vercel asigna otro dominio, actualízala. Mantén `SESSION_DOMAIN=` vacío, usa `APP_DEBUG=false` y ejecuta `php artisan config:clear`. Para que las cookies de la sesión pública solo viajen por HTTPS, configura `SESSION_SECURE_COOKIE=true`.
+5. Comprueba en el dominio de Vercel `/api/ping`, `/login`, el inicio de sesión y una ruta interna abierta directamente, por ejemplo `/expedientes`. Si usas dominios de Preview, añade cada dominio que necesite autenticación a `SANCTUM_STATEFUL_DOMAINS`.
 
-El build de producción solicita `/api` y `/sanctum` desde el dominio de Vercel. `vercel.json` reenvía estas rutas a `https://centered-christina-lady-antivirus.trycloudflare.com`, el Quick Tunnel actual.
+La URL del túnel actual es `https://fragrance-whenever-findings-compare.trycloudflare.com`. Está configurada en `vercel.json` para producción y en `proxy.conf.json` para `ng serve`. El valor `apiUrl: '/api'` de ambos archivos de entorno mantiene las peticiones en el dominio del frontend.
 
-1. Mantén MySQL encendido y Laravel en `127.0.0.1:8000` (`php artisan serve --host=127.0.0.1 --port=8000`). Comprueba `http://127.0.0.1:8000/api/ping`.
-2. Mantén abierto `cloudflared tunnel --url http://localhost:8000`. Comprueba `https://centered-christina-lady-antivirus.trycloudflare.com/api/ping`.
-3. Cuando Vercel asigne el dominio del frontend, agrégalo sin `https://` a `SANCTUM_STATEFUL_DOMAINS` en el `.env` de Laravel; conserva también `localhost:4200,127.0.0.1:4200` si usas el frontend local. Mantén `SESSION_DOMAIN=` vacío y `APP_DEBUG=false`. Ejecuta `php artisan config:clear`.
+Los Quick Tunnels de Cloudflare son temporales. Si el túnel cambia, actualiza su URL en `vercel.json`, `proxy.conf.json` y `APP_URL` de Laravel; vuelve a desplegar Vercel y reinicia `ng serve` si lo usas. La máquina que ejecuta Laravel, la base de datos y `cloudflared` debe permanecer encendida para que la aplicación funcione. Para disponibilidad estable, utiliza un backend alojado y un dominio o túnel estable.
 
-El Quick Tunnel deja de funcionar al cerrar `cloudflared` y puede generar otra URL al reiniciarlo. Si cambia, actualiza las dos reglas de `vercel.json`, confirma `APP_URL` en Laravel y vuelve a desplegar Vercel. La PC debe permanecer encendida y conectada a Internet durante la presentación.
+El `.env` de Laravel no se sube a GitHub y tampoco configura automáticamente Vercel. Si utilizas Google Drive OAuth desde fuera de tu máquina, configura `GOOGLE_DRIVE_REDIRECT_URI` con una URL pública válida del backend y registra esa misma URL en Google Cloud.
 
-This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 22.2.0.
-
-## Development server
-
-To start a local development server, run:
+## Desarrollo local
 
 ```bash
-ng serve
+npm install
+npm start
 ```
 
-Once the server is running, open your browser and navigate to `http://localhost:4200/`. The application will automatically reload whenever you modify any of the source files.
-
-## Code scaffolding
-
-Angular CLI includes powerful code scaffolding tools. To generate a new component, run:
-
-```bash
-ng generate component component-name
-```
-
-For a complete list of available schematics (such as `components`, `directives`, or `pipes`), run:
-
-```bash
-ng generate --help
-```
-
-## Building
-
-To build the project run:
-
-```bash
-ng build
-```
-
-This will compile your project and store the build artifacts in the `dist/` directory. By default, the production build optimizes your application for performance and speed.
-
-## Running unit tests
-
-To execute unit tests with the [Vitest](https://vitest.dev/) test runner, use the following command:
-
-```bash
-ng test
-```
-
-## Running end-to-end tests
-
-For end-to-end (e2e) testing, run:
-
-```bash
-ng e2e
-```
-
-Angular CLI does not come with an end-to-end testing framework by default. You can choose one that suits your needs.
-
-## Additional Resources
-
-For more information on using the Angular CLI, including detailed command references, visit the [Angular CLI Overview and Command Reference](https://angular.dev/tools/cli) page.
+Abre `http://localhost:4200`. El servidor de Angular usa `proxy.conf.json` para reenviar `/api` y `/sanctum` al túnel. Reinicia `npm start` después de modificar ese archivo. Ejecuta `npm run build` para verificar la compilación de producción.
