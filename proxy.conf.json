@@ -1,12 +1,12 @@
 {
   "/api/**": {
-    "target": "https://fragrance-whenever-findings-compare.trycloudflare.com",
-    "secure": true,
+    "target": "http://127.0.0.1:8000",
+    "secure": false,
     "changeOrigin": true
   },
   "/sanctum/**": {
-    "target": "https://fragrance-whenever-findings-compare.trycloudflare.com",
-    "secure": true,
+    "target": "http://127.0.0.1:8000",
+    "secure": false,
     "changeOrigin": true
   }
 }
