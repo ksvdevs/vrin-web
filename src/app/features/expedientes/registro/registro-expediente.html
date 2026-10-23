@@ -2,6 +2,15 @@
   <p-toast />
   <p-confirmdialog />
   <app-docente-formulario [(visible)]="dialogoDocenteVisible" (guardado)="alGuardarDocenteNuevo($event)" />
+  <p-dialog [header]="'Carta del docente — ' + (archivoPreparado()?.name ?? cartaSubida()?.nombre_original ?? '')" [(visible)]="modalCartaVisible" [modal]="true" [maximizable]="true" [style]="{ width: '60rem', maxWidth: '96vw' }">
+    @if (urlCarta(); as url) {
+      <iframe class="modal-carta-iframe" [src]="url" title="Vista previa de la carta del docente"></iframe>
+    } @else if (cargandoCarta()) {
+      <p>Cargando vista previa…</p>
+    } @else {
+      <p>Vista previa no disponible.</p>
+    }
+  </p-dialog>
   <section class="panel" role="dialog" aria-modal="true" aria-labelledby="titulo-registro">
     <header class="cabecera">
       <span class="icono-cabecera"><i class="pi pi-file" aria-hidden="true"></i></span>
@@ -14,14 +23,14 @@
 
     @if (!expedienteCreado()) {
       <nav class="pasos" aria-label="Pasos de registro">
-        <div class="paso" [class.activo]="pasoActual() === 1" [class.completo]="pasoActual() === 2">
+        <button type="button" class="paso" [class.activo]="pasoActual() === 1" [class.completo]="pasoActual() === 2" [attr.aria-current]="pasoActual() === 1 ? 'step' : null" (click)="pasoActual.set(1)">
           <span class="numero-paso">@if (pasoActual() === 2) {<i class="pi pi-check" aria-hidden="true"></i>} @else {1}</span>
           <span><strong>Modalidad y docente</strong><small>IA, carta y solicitante</small></span>
-        </div>
+        </button>
         <span class="linea-paso" aria-hidden="true"></span>
-        <div class="paso" [class.activo]="pasoActual() === 2">
+        <button type="button" class="paso" [class.activo]="pasoActual() === 2" [attr.aria-current]="pasoActual() === 2 ? 'step' : null" (click)="pasoActual.set(2)">
           <span class="numero-paso">2</span><span><strong>Artículo</strong><small>Publicación y monto</small></span>
-        </div>
+        </button>
       </nav>
     }
 
@@ -29,6 +38,9 @@
       <div class="cuerpo"><section class="tarjeta">
         <div class="encabezado-tarjeta"><span class="icono-tarjeta"><i class="pi pi-check" aria-hidden="true"></i></span><div><h2>Expediente registrado</h2><p>{{ expediente.codigo }} · {{ etiquetaEstado(expediente.estado) }}</p></div></div>
         <p class="ayuda">La carta no se pudo adjuntar. Puedes volver a subirla ahora.</p>
+        @if (cartaSubida(); as carta) {
+          <div class="carta-actual"><i class="pi pi-file-pdf" aria-hidden="true"></i><span>{{ carta.nombre_original }}</span>@if (puedePrevisualizarCarta(carta.nombre_original)) {<p-button label="Ver" icon="pi pi-eye" [text]="true" (onClick)="verCarta()" />}<p-button label="Descargar" icon="pi pi-download" [text]="true" (onClick)="descargarCarta()" /></div>
+        }
         <div class="selector-archivo">
           <label class="boton-archivo">Elegir archivo<input type="file" class="input-archivo" accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" (change)="seleccionarArchivo($event)" /></label>
           <span class="nombre-archivo">{{ archivoSeleccionado()?.name ?? 'Ningún archivo seleccionado' }}</span>
@@ -52,18 +64,19 @@
               <div class="seccion-carta">
                 <div class="encabezado-carta">
                   <div><h2>Carta escaneada del docente</h2><p>{{ modoRegistro() === 'ia' ? 'Obligatoria para autocompletar el formulario con IA.' : 'Adjunta como documento de sustento para continuar.' }}</p></div>
-                  @if (archivoSeleccionado() || cartaSubida()) {<span class="archivo-listo">Archivo listo</span>}
+                  @if (archivoPreparado() || cartaSubida()) {<span class="archivo-listo">Archivo listo</span>}
                 </div>
-              @if (editandoId() && cartaSubida(); as carta) {
-                <div class="carta-actual"><i class="pi pi-file-pdf" aria-hidden="true"></i><span>{{ carta.nombre_original }}</span><p-button label="Ver" icon="pi pi-eye" [text]="true" (onClick)="verCarta()" /><p-button label="Descargar" icon="pi pi-download" [text]="true" (onClick)="descargarCarta()" /></div>
+              @if (archivoPreparado(); as archivo) {
+                <div class="carta-actual"><i class="pi pi-file-pdf" aria-hidden="true"></i><span>{{ archivo.name }}</span><p-button label="Ver" icon="pi pi-eye" [text]="true" (onClick)="verCarta()" />@if (modoRegistro() === 'ia') {<p-button label="Analizar" icon="pi pi-sparkles" severity="success" [loading]="analizando()" [disabled]="analizando()" (onClick)="analizarCarta()" />}</div>
+              } @else if (cartaSubida(); as carta) {
+                <div class="carta-actual"><i class="pi pi-file-pdf" aria-hidden="true"></i><span>{{ carta.nombre_original }}</span>@if (puedePrevisualizarCarta(carta.nombre_original)) {<p-button label="Ver" icon="pi pi-eye" [text]="true" (onClick)="verCarta()" />}<p-button label="Descargar" icon="pi pi-download" [text]="true" (onClick)="descargarCarta()" /></div>
               }
               <div class="selector-archivo con-boton-externo">
                 <div class="archivo-campo">
                 <label class="boton-archivo">Elegir archivo<input type="file" class="input-archivo" accept=".pdf,.jpg,.jpeg,.png" (change)="seleccionarCartaOcr($event)" /></label>
-                @if (archivoSeleccionado()) {<span class="etiqueta-pdf">{{ archivoSeleccionado()!.name.toLowerCase().endsWith('.pdf') ? 'PDF' : 'IMG' }}</span>}
                 <span class="nombre-archivo">{{ archivoSeleccionado()?.name ?? 'Ningún archivo seleccionado' }}</span>
                 </div>
-                <button type="button" class="boton-subir" [disabled]="!archivoSeleccionado() || analizando()" (click)="subirCartaInicial()"><i class="pi pi-upload" aria-hidden="true"></i>{{ analizando() ? 'Analizando…' : 'Subir' }}</button>
+                <button type="button" class="boton-subir" [disabled]="!archivoSeleccionado()" (click)="subirCartaInicial()"><i class="pi pi-upload" aria-hidden="true"></i>Subir</button>
               </div>
               @if (resultadoOcr() && modoRegistro() === 'ia') {
                 <div class="estado-ocr"><i class="pi pi-check" aria-hidden="true"></i><span><strong>Extracción completada</strong><small>Revisa los campos autocompletados antes de registrar el expediente.</small></span></div>

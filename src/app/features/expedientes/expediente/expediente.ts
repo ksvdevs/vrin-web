@@ -1617,8 +1617,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
   private prepararVistaCarta(detalle: ExpedienteDetalle): void {
     const carta: ArchivoDetalle | null =
       detalle.archivos.find((a) => a.tipo === 'CARTA_DOCENTE') ?? null;
-    const mime = (carta?.mime ?? '').toLowerCase();
-    if (!carta || (!mime.includes('pdf') && !mime.startsWith('image')) || carta.id === this.archivoCartaCargadoId) {
+    const extension = carta?.nombre_original.split('.').pop()?.toLowerCase();
+    if (!carta || !['pdf', 'jpg', 'jpeg', 'png'].includes(extension ?? '') || carta.id === this.archivoCartaCargadoId) {
       return;
     }
     this.archivoCartaCargadoId = carta.id;
@@ -1628,7 +1628,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
         this.cargandoCartaDocente.set(false);
         if (this.carta()?.id !== carta.id) return;
         if (this.blobUrlCarta) URL.revokeObjectURL(this.blobUrlCarta);
-        this.blobUrlCarta = URL.createObjectURL(blob);
+        const tipo = extension === 'pdf' ? 'application/pdf' : extension === 'png' ? 'image/png' : 'image/jpeg';
+        this.blobUrlCarta = URL.createObjectURL(new Blob([blob], { type: tipo }));
         this.urlCarta.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlCarta));
       },
       error: () => {

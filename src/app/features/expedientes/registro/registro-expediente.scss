@@ -60,7 +60,8 @@
   background: #fff;
   border-bottom: 1px solid #e7edf3;
 }
-.paso { display: flex; align-items: center; gap: 10px; padding: 8px; border-radius: 10px; color: #91a2b1; }
+.paso { display: flex; align-items: center; gap: 10px; padding: 8px; border: 0; border-radius: 10px; background: transparent; color: #91a2b1; font: inherit; text-align: left; cursor: pointer; }
+.paso:focus-visible { outline: 2px solid #22559a; outline-offset: 2px; }
 .paso strong, .paso small { display: block; white-space: nowrap; }
 .paso strong { font-size: 11px; font-weight: 600; }
 .paso small { margin-top: 5px; font-size: 9px; }
@@ -130,18 +131,6 @@
   border: 1px solid #dce7ef;
   border-radius: 8px;
   overflow: hidden;
-}
-.etiqueta-pdf {
-  display: grid;
-  place-items: center;
-  width: 29px;
-  height: 29px;
-  margin-left: 12px;
-  border-radius: 7px;
-  background: #fff0f0;
-  color: #cd5b5b;
-  font-size: 8px;
-  font-weight: 700;
 }
 .boton-archivo {
   display: flex;
@@ -276,6 +265,7 @@
 .boton-primario:disabled { opacity: .6; cursor: default; }
 .carta-actual { display: flex; align-items: center; gap: 8px; margin-bottom: 12px; font-size: 10px; }
 .carta-actual span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.modal-carta-iframe { display: block; width: 100%; height: 75vh; border: 0; }
 .ayuda { color: #6b8197; font-size: 11px; }
 :host ::ng-deep .select-ancho, :host ::ng-deep .autocomplete-ancho, :host ::ng-deep .numero-ancho { width: 100%; }
 :host ::ng-deep .campo .p-select, :host ::ng-deep .campo .p-datepicker-input, :host ::ng-deep .campo .p-inputnumber-input, :host ::ng-deep .campo .p-autocomplete-input { width: 100%; min-height: 42px; border: 1px solid #d9e5ed; border-radius: 8px; background: #fff; color: #284866; font-size: 11px; box-shadow: none; }

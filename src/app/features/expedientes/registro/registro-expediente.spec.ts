@@ -20,17 +20,19 @@ describe('Asociación del docente extraído de la carta', () => {
   };
   let buscarPorNombre: ReturnType<typeof vi.fn>;
   let obtener: ReturnType<typeof vi.fn>;
+  let analizarCarta: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     buscarPorNombre = vi.fn((q: string) => of(q === 'Delmer Zea' || q.includes('Gonzales') ? [docente] : []));
     obtener = vi.fn();
+    analizarCarta = vi.fn(() => of({ datos: {} }));
     await TestBed.configureTestingModule({
       imports: [RegistroExpediente],
       providers: [
         provideRouter([]), MessageService, ConfirmationService,
         { provide: AuthService, useValue: { verificarSesion: () => of(true) } },
         { provide: ArchivoService, useValue: {} },
-        { provide: ExpedienteService, useValue: { obtener } },
+        { provide: ExpedienteService, useValue: { obtener, analizarCarta } },
         { provide: DocenteService, useValue: { buscarPorNombre } },
       ],
     }).overrideComponent(RegistroExpediente, { set: { template: '' } }).compileComponents();
@@ -41,6 +43,27 @@ describe('Asociación del docente extraído de la carta', () => {
     fixture.detectChanges();
     return fixture.componentInstance;
   }
+
+  it('muestra la carta arriba solo después de Subir y analiza solo al pulsar Analizar', () => {
+    const componente = abrir();
+    const archivo = new File(['%PDF-1.4'], 'carta.pdf', { type: 'application/pdf' });
+    componente['seleccionarCartaOcr']({ target: { files: [archivo], value: 'carta.pdf' } } as unknown as Event);
+
+    expect(componente['archivoPreparado']()).toBeNull();
+    expect(analizarCarta).not.toHaveBeenCalled();
+
+    componente['subirCartaInicial']();
+    expect(componente['archivoPreparado']()).toBe(archivo);
+    expect(componente['archivoSeleccionado']()).toBeNull();
+    expect(analizarCarta).not.toHaveBeenCalled();
+
+    componente['analizarCarta']();
+    expect(analizarCarta).toHaveBeenCalledExactlyOnceWith(archivo);
+
+    componente['modoRegistro'].set('manual');
+    componente['analizarCarta']();
+    expect(analizarCarta).toHaveBeenCalledTimes(1);
+  });
 
   it('selecciona al docente por nombre completo aunque el OCR invierta el orden', () => {
     const componente = abrir();

@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
+import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { Subject, Subscription, catchError, debounceTime, distinctUntilChanged, forkJoin, of, switchMap } from 'rxjs';
 
 import { ConfirmationService, MessageService } from 'primeng/api';
@@ -8,6 +9,7 @@ import { AutoComplete, type AutoCompleteCompleteEvent } from 'primeng/autocomple
 import { Button } from 'primeng/button';
 import { ConfirmDialog } from 'primeng/confirmdialog';
 import { DatePicker } from 'primeng/datepicker';
+import { Dialog } from 'primeng/dialog';
 import { InputNumber } from 'primeng/inputnumber';
 import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
@@ -53,6 +55,7 @@ const TAMANO_MAXIMO = 25 * 1024 * 1024; // 25 MB (replica ck_arch_tamano)
     Button,
     ConfirmDialog,
     DatePicker,
+    Dialog,
     DocenteFormulario,
     InputNumber,
     InputText,
@@ -69,6 +72,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   private readonly router = inject(Router);
   private readonly docenteService = inject(DocenteService);
   private readonly archivoService = inject(ArchivoService);
+  private readonly sanitizer = inject(DomSanitizer);
   private readonly expedienteService = inject(ExpedienteService);
   private readonly mensajes = inject(MessageService);
   private readonly confirmacion = inject(ConfirmationService);
@@ -78,7 +82,12 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   protected readonly guardando = signal(false);
   protected readonly expedienteCreado = signal<Expediente | null>(null);
   protected readonly cartaSubida = signal<ArchivoExpediente | null>(null);
+  protected readonly modalCartaVisible = signal(false);
+  protected readonly urlCarta = signal<SafeResourceUrl | null>(null);
+  protected readonly cargandoCarta = signal(false);
+  private blobUrlCarta?: string;
   protected readonly archivoSeleccionado = signal<File | null>(null);
+  protected readonly archivoPreparado = signal<File | null>(null);
   protected readonly subiendo = signal(false);
   protected readonly analizando = signal(false);
   protected readonly resultadoOcr = signal<ResultadoOcr | null>(null);
@@ -160,6 +169,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.blobUrlCarta) URL.revokeObjectURL(this.blobUrlCarta);
     this.suscripcionBusqueda?.unsubscribe();
     this.suscripcionDocente?.unsubscribe();
     this.suscripcionDocenteOcr?.unsubscribe();
@@ -312,32 +322,25 @@ export class RegistroExpediente implements OnInit, OnDestroy {
       });
       return;
     }
-    this.suscripcionAnalisis?.unsubscribe();
-    this.suscripcionDocenteOcr?.unsubscribe();
-    this.analizando.set(false);
-    this.buscandoDocenteOcr.set(false);
-    this.avisoDocenteOcr.set(null);
-    this.candidatosDocenteOcr.set([]);
     this.archivoSeleccionado.set(archivo);
-    this.resultadoOcr.set(null);
   }
 
   protected analizarCarta(): void {
-    const archivo = this.archivoSeleccionado();
-    if (!archivo || this.analizando()) {
+    const archivo = this.archivoPreparado();
+    if (!archivo || this.analizando() || this.modoRegistro() !== 'ia') {
       return;
     }
     this.analizando.set(true);
     this.suscripcionAnalisis = this.expedienteService.analizarCarta(archivo).subscribe({
       next: (resultado) => {
-        if (this.archivoSeleccionado() !== archivo) return;
+        if (this.archivoPreparado() !== archivo) return;
         this.analizando.set(false);
+        if (this.modoRegistro() !== 'ia') return;
         this.resultadoOcr.set(resultado);
-        this.modoRegistro.set('ia');
         this.aplicarOcr(resultado.datos);
       },
       error: (error) => {
-        if (this.archivoSeleccionado() !== archivo) return;
+        if (this.archivoPreparado() !== archivo) return;
         this.analizando.set(false);
         this.resultadoOcr.set(null);
         this.mensajes.add({
@@ -350,16 +353,22 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   }
 
   protected subirCartaInicial(): void {
-    if (!this.archivoSeleccionado()) return;
-    if (this.modoRegistro() === 'ia') {
-      this.analizarCarta();
-    } else {
-      this.mensajes.add({
-        severity: 'info',
-        summary: 'Carta preparada',
-        detail: 'La carta se adjuntará al registrar el expediente.',
-      });
-    }
+    const archivo = this.archivoSeleccionado();
+    if (!archivo) return;
+    this.suscripcionAnalisis?.unsubscribe();
+    this.suscripcionDocenteOcr?.unsubscribe();
+    this.analizando.set(false);
+    this.buscandoDocenteOcr.set(false);
+    this.avisoDocenteOcr.set(null);
+    this.candidatosDocenteOcr.set([]);
+    this.resultadoOcr.set(null);
+    this.archivoPreparado.set(archivo);
+    this.archivoSeleccionado.set(null);
+    this.mensajes.add({
+      severity: 'info',
+      summary: 'Carta preparada',
+      detail: 'La carta se adjuntará al registrar el expediente.',
+    });
   }
 
   protected cerrarBannerOcr(): void {
@@ -493,6 +502,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
       next: (guardado) => {
         this.subiendo.set(false);
         this.cartaSubida.set(guardado);
+        this.archivoPreparado.set(null);
         this.archivoSeleccionado.set(null);
         this.mensajes.add({
           severity: 'success',
@@ -516,18 +526,28 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   }
 
   protected verCarta(): void {
-    const id = this.editandoId();
+    const seleccionado = this.archivoPreparado();
+    const id = this.editandoId() ?? this.expedienteCreado()?.id;
     const carta = this.cartaSubida();
-    if (!id || !carta) {
+    if (!seleccionado && (!id || !carta)) {
       return;
     }
-    this.archivoService.obtenerBlob(id, carta.id).subscribe({
+    if (this.blobUrlCarta) URL.revokeObjectURL(this.blobUrlCarta);
+    this.blobUrlCarta = undefined;
+    this.urlCarta.set(null);
+    this.modalCartaVisible.set(true);
+    if (seleccionado) {
+      this.mostrarCarta(seleccionado);
+      return;
+    }
+    this.cargandoCarta.set(true);
+    this.archivoService.obtenerBlob(id!, carta!.id).subscribe({
       next: (blob) => {
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
-        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+        this.cargandoCarta.set(false);
+        this.mostrarCarta(blob);
       },
       error: () => {
+        this.cargandoCarta.set(false);
         this.mensajes.add({
           severity: 'error',
           summary: 'No se pudo abrir la carta',
@@ -537,8 +557,20 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     });
   }
 
+  private mostrarCarta(archivo: Blob): void {
+    const nombre = this.archivoPreparado()?.name ?? this.cartaSubida()?.nombre_original ?? '';
+    const extension = nombre.split('.').pop()?.toLowerCase();
+    const tipo = extension === 'pdf' ? 'application/pdf' : extension === 'png' ? 'image/png' : 'image/jpeg';
+    this.blobUrlCarta = URL.createObjectURL(new Blob([archivo], { type: tipo }));
+    this.urlCarta.set(this.sanitizer.bypassSecurityTrustResourceUrl(this.blobUrlCarta));
+  }
+
+  protected puedePrevisualizarCarta(nombre: string): boolean {
+    return /\.(pdf|jpe?g|png)$/i.test(nombre);
+  }
+
   protected descargarCarta(): void {
-    const id = this.editandoId();
+    const id = this.editandoId() ?? this.expedienteCreado()?.id;
     const carta = this.cartaSubida();
     if (!id || !carta) {
       return;
@@ -650,7 +682,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     if (id) {
       this.expedienteService.actualizar(id, payload).subscribe({
         next: () => {
-          const archivoNuevo = this.archivoSeleccionado();
+          const archivoNuevo = this.archivoPreparado();
           if (!archivoNuevo) {
             this.guardando.set(false);
             this.mensajes.add({
@@ -718,7 +750,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
       detail: `Estado: ${this.etiquetaEstado(expediente.estado)}`,
     });
 
-    const archivo = this.archivoSeleccionado();
+    const archivo = this.archivoPreparado();
     if (!archivo) {
       this.expedienteCreado.set(expediente);
       return;
