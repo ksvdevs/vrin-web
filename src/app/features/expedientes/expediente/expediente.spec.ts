@@ -493,13 +493,42 @@ describe('Etapas de carta VRIN y resolución', () => {
       meta_presupuestal: '017', especifica_gasto: '2.3', fuente_financiamiento: 'Recursos',
       carta_numero: '017-OPP', carta_fecha: new Date(2026, 9, 5),
       registro_vrin_numero: '123', registro_vrin_fecha: new Date(2026, 9, 5) });
+    fixture.componentInstance['resolucionForm'].patchValue({
+      carta_especialista_investigacion: 'CARTA N° 042-2026',
+      fecha_carta_especialista_investigacion: new Date(2026, 9, 4),
+    });
     fixture.detectChanges();
     boton('Guardar cambios').click();
     fixture.detectChanges();
     expect(api.registrarRespuestaOpp).toHaveBeenCalledTimes(1);
     expect(fixture.componentInstance['indiceActivoVisible']()).toBe(2);
-    expect(resoluciones.preview).toHaveBeenCalledWith(1, expect.objectContaining({ numero: 13 }));
+    expect(resoluciones.preview).toHaveBeenCalledWith(1, expect.objectContaining({ numero: 13, carta_especialista_investigacion: 'CARTA N° 042-2026', fecha_carta_especialista_investigacion: '2026-10-04' }));
     expect(boton('Generar y guardar resolución')).toBeDefined();
+  });
+
+  it('permite llenar la carta especialista después de guardar OPP y la envía a la vista previa', async () => {
+    esperarOpp();
+    pasoQuery = '2';
+    detalle = {
+      ...detalle, estado: 'DISPONIBILIDAD_CONFIRMADA', etapa_actual: 3,
+      respuesta_opp: { disponibilidad: 'SI', carta_numero: '017-OPP', carta_fecha: '2026-10-05',
+        monto_aprobado: 1500, meta_presupuestal: '017', especifica_gasto: '2.3',
+        fuente_financiamiento: 'Recursos', registro_vrin_numero: '123',
+        registro_vrin_fecha: '2026-10-06', registrado_por: 'Secretaría' },
+      resolucion_borrador: { numero: 13, anio: 2026, fecha_emision: '2026-10-07',
+        carta_especialista_investigacion: null, fecha_carta_especialista_investigacion: null },
+      transiciones_disponibles: [{ destino: 'RESOLUCION_EMITIDA', accion: { clave: 'generar_resolucion', etiqueta: 'Generar resolución' }, habilitada: true }],
+    };
+    await abrir();
+    expect(fixture.nativeElement.querySelector('#res_carta_especialista_pendiente')).not.toBeNull();
+    const formulario = fixture.componentInstance['resolucionForm'];
+    formulario.patchValue({ carta_especialista_investigacion: 'CARTA N° 042-2026',
+      fecha_carta_especialista_investigacion: new Date(2026, 9, 4) });
+    fixture.componentInstance['confirmarGenerarResolucion']();
+    expect(resoluciones.preview).toHaveBeenCalledWith(1, expect.objectContaining({
+      carta_especialista_investigacion: 'CARTA N° 042-2026',
+      fecha_carta_especialista_investigacion: '2026-10-04',
+    }));
   });
 
   it('solicita el PDF al abrir la carta aunque la conversión siga pendiente', async () => {
@@ -526,7 +555,7 @@ describe('Etapas de carta VRIN y resolución', () => {
       monto_aprobado: 1500, meta_presupuestal: '017', especifica_gasto: '2.3',
       fuente_financiamiento: 'Recursos', registro_vrin_numero: '123',
       registro_vrin_fecha: '2026-10-06', registrado_por: 'Secretaría' };
-    detalle.resolucion = { numero: '13', anio: 2026, fecha_emision: '2026-10-07', estado: 'EMITIDA', emitida_por: 'Secretaría' };
+    detalle.resolucion = { numero: '13', anio: 2026, fecha_emision: '2026-10-07', carta_especialista_investigacion: 'CARTA N° 042-2026', fecha_carta_especialista_investigacion: '2026-10-04', estado: 'EMITIDA', emitida_por: 'Secretaría' };
     detalle.documentos_generados = [{ id: 10, tipo: 'RESOLUCION', version: 2,
       pdf_path: 'resolucion.pdf', es_vigente: true, generado_at: '2026-10-07', plantilla: null }];
     await abrir();
@@ -535,6 +564,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     fixture.detectChanges();
     expect(fixture.componentInstance['oppForm'].controls.carta_numero.value).toBe('017-OPP');
     expect(fixture.componentInstance['resolucionForm'].controls.numero.value).toBe(13);
+    expect(fixture.componentInstance['resolucionForm'].controls.carta_especialista_investigacion.value).toBe('CARTA N° 042-2026');
     expect(fixture.nativeElement.querySelector('#res_numero')).not.toBeNull();
     api.actualizarRespuestaOpp.mockReturnValue(of({ estado: 'RESOLUCION_EMITIDA' }));
     api.actualizarResolucion.mockReturnValue(of({}));
@@ -542,7 +572,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(api.actualizarRespuestaOpp).toHaveBeenCalledWith(1, expect.objectContaining({ carta_numero: '017-OPP' }));
     expect(resoluciones.preview).toHaveBeenCalledWith(1, expect.objectContaining({ numero: 13 }));
     fixture.componentInstance['generarResolucion']();
-    expect(api.actualizarResolucion).toHaveBeenCalledWith(1, expect.objectContaining({ numero: 13 }));
+    expect(api.actualizarResolucion).toHaveBeenCalledWith(1, expect.objectContaining({ numero: 13, carta_especialista_investigacion: 'CARTA N° 042-2026' }));
     vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
     (fixture.nativeElement.querySelector('button[aria-label="Descargar resolución en Word (.docx)"]') as HTMLButtonElement).click();
     expect(documentos.obtenerBlob).toHaveBeenCalledWith(1, 10, 'docx', false);
@@ -582,7 +612,7 @@ describe('Etapas de carta VRIN y resolución', () => {
       respuesta_opp: { disponibilidad: 'SI', monto_aprobado: 1500, meta_presupuestal: '017',
         especifica_gasto: '2.3', fuente_financiamiento: 'Recursos', carta_numero: '017-OPP',
         carta_fecha: '2026-10-05', registro_vrin_numero: '1538-VRIN', registro_vrin_fecha: '2026-10-06', registrado_por: 'Secretaría' },
-      resolucion_borrador: { numero: 13, anio: 2026, fecha_emision: '2026-10-07' },
+      resolucion_borrador: { numero: 13, anio: 2026, fecha_emision: '2026-10-07', carta_especialista_investigacion: 'CARTA N° 042-2026', fecha_carta_especialista_investigacion: '2026-10-04' },
       transiciones_disponibles: [{ destino: 'RESOLUCION_EMITIDA', accion: { clave: 'generar_resolucion', etiqueta: 'Generar resolución' }, habilitada: true }],
     };
     api.actualizarRespuestaOpp.mockReturnValue(of({ estado: 'DISPONIBILIDAD_CONFIRMADA', etapa_actual: 3 }));

@@ -99,7 +99,7 @@
                   @if (formulario.controls.docente.touched && formulario.controls.docente.invalid) {<small class="error">{{ mensajeError(formulario.controls.docente) }}</small>}
                 </div>
                 <div class="campo"><label for="grado">Grado académico <b>*</b></label><input pInputText id="grado" [value]="gradoDocente() ?? ''" placeholder="Seleccionar" readonly /></div>
-                <div class="campo"><label for="tipo_contrato">Tipo de contrato <b>*</b></label><input pInputText id="tipo_contrato" [value]="tipoContratoDocente() ?? ''" placeholder="Seleccionar" readonly /></div>
+                <div class="campo"><label for="categoria_docente">Categoría <b>*</b></label><input pInputText id="categoria_docente" [value]="categoriaDocente() ?? ''" placeholder="Seleccionar" readonly /></div>
                 <div class="campo"><label for="facultad">Facultad <b>*</b></label><input pInputText id="facultad" [value]="facultadDocente() ?? ''" placeholder="Selecciona la facultad" readonly /></div>
                 <div class="campo"><label for="escuela">Escuela profesional <b>*</b></label><input pInputText id="escuela" [value]="escuelaDocente() ?? ''" placeholder="Selecciona la escuela" readonly /></div>
               </div>

@@ -11,7 +11,7 @@ import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
 
-import { Docente, DocentePayload, GRADOS, TIPOS_CONTRATO } from '../../../core/models/docente.model';
+import { CATEGORIAS, Docente, DocentePayload, GRADOS } from '../../../core/models/docente.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { DocenteService } from '../../../core/services/docente.service';
 import { DocenteFormulario } from '../../../shared/docente-formulario/docente-formulario';
@@ -47,16 +47,16 @@ export class Docentes implements OnInit {
   protected readonly total = signal(0);
   protected readonly busqueda = signal('');
   protected readonly filtroEstado = signal<boolean | null>(null);
-  protected readonly filtroContrato = signal<string | null>(null);
+  protected readonly filtroCategoria = signal<string | null>(null);
   protected readonly filtroGrado = signal<string | null>(null);
   protected readonly opcionesEstado = [
     { label: 'Todos', value: null },
     { label: 'Activo', value: true },
     { label: 'Inactivo', value: false },
   ];
-  protected readonly opcionesContrato = [
+  protected readonly opcionesCategoria = [
     { label: 'Todos', value: null },
-    ...TIPOS_CONTRATO.map((tipo) => ({ label: tipo, value: tipo })),
+    ...CATEGORIAS.map((categoria) => ({ label: categoria.replaceAll('_', ' '), value: categoria })),
   ];
   protected readonly opcionesGrado = [
     { label: 'Todos', value: null },
@@ -113,7 +113,7 @@ export class Docentes implements OnInit {
     const desactivar = docente.activo;
     this.confirmacion.confirm({
       header: desactivar ? 'Desactivar docente' : 'Activar docente',
-      message: `¿${desactivar ? 'Desactivar' : 'Activar'} a ${docente.apellido_paterno}, ${docente.nombres}?`,
+      message: `¿${desactivar ? 'Desactivar' : 'Activar'} a ${this.apellidos(docente)}, ${docente.nombres}?`,
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: desactivar ? 'Desactivar' : 'Activar',
       rejectLabel: 'Cancelar',
@@ -128,10 +128,14 @@ export class Docentes implements OnInit {
     return facultad ? `${escuela} (${facultad})` : escuela;
   }
 
+  protected apellidos(docente: Docente): string {
+    return [docente.apellido_paterno, docente.apellido_materno].filter(Boolean).join(' ');
+  }
+
   protected confirmarEliminar(docente: Docente): void {
     this.confirmacion.confirm({
       header: 'Eliminar docente',
-      message: `¿Eliminar a ${docente.apellido_paterno}, ${docente.nombres}? Dejará de aparecer en todos los listados.`,
+      message: `¿Eliminar a ${this.apellidos(docente)}, ${docente.nombres}? Dejará de aparecer en todos los listados.`,
       icon: 'pi pi-trash',
       acceptLabel: 'Eliminar',
       rejectLabel: 'Cancelar',
@@ -146,7 +150,7 @@ export class Docentes implements OnInit {
         this.mensajes.add({
           severity: 'success',
           summary: 'Docente eliminado',
-          detail: `${docente.apellido_paterno}, ${docente.nombres}`,
+          detail: `${this.apellidos(docente)}, ${docente.nombres}`,
         });
         this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
       },
@@ -168,7 +172,7 @@ export class Docentes implements OnInit {
           this.mensajes.add({
             severity: 'success',
             summary: docente.activo ? 'Docente desactivado' : 'Docente activado',
-            detail: `${docente.apellido_paterno}, ${docente.nombres}`,
+            detail: `${this.apellidos(docente)}, ${docente.nombres}`,
           });
           this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
         },
@@ -188,8 +192,10 @@ export class Docentes implements OnInit {
       nombres: docente.nombres,
       apellido_paterno: docente.apellido_paterno,
       apellido_materno: docente.apellido_materno ?? null,
+      genero: docente.genero,
+      celular: docente.celular ?? null,
       grado: docente.grado,
-      tipo_contrato: docente.tipo_contrato,
+      categoria: docente.categoria,
       escuela_id: docente.escuela_id,
       email: docente.email ?? null,
       activo,
@@ -204,7 +210,7 @@ export class Docentes implements OnInit {
         {
           busqueda: this.busqueda().trim() || undefined,
           activo: estado === null ? undefined : estado ? 1 : 0,
-          tipo_contrato: this.filtroContrato() ?? undefined,
+          categoria: this.filtroCategoria() ?? undefined,
           grado: this.filtroGrado() ?? undefined,
         },
         pagina,

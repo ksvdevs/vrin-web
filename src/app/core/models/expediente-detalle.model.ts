@@ -102,11 +102,19 @@ export interface ExpedienteDetalle {
     registro_vrin_fecha: string | null;
     registrado_por: string | null;
   } | null;
-  resolucion_borrador?: { numero: number | null; anio: number | null; fecha_emision: string | null } | null;
+  resolucion_borrador?: {
+    numero: number | null;
+    anio: number | null;
+    fecha_emision: string | null;
+    carta_especialista_investigacion: string | null;
+    fecha_carta_especialista_investigacion: string | null;
+  } | null;
   resolucion: {
     numero: string;
     anio: number;
     fecha_emision: string | null;
+    carta_especialista_investigacion: string | null;
+    fecha_carta_especialista_investigacion: string | null;
     estado: string | null;
     emitida_por: string | null;
   } | null;

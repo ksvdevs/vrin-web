@@ -2,129 +2,128 @@
   [header]="docente() ? 'Editar docente' : 'Nuevo docente'"
   [(visible)]="visible"
   [modal]="true"
-  [style]="{ width: '36rem' }"
+  [style]="{ width: '43rem', maxWidth: '96vw' }"
+  styleClass="docente-dialogo"
 >
   <form [formGroup]="formulario" (ngSubmit)="guardar()" class="formulario">
     <div class="campo">
       <label for="dni">DNI</label>
-      <input pInputText id="dni" formControlName="dni" maxlength="8" autocomplete="off" />
-      @if (formulario.controls.dni.touched && formulario.controls.dni.invalid) {
+      <div class="entrada-dni">
+        <i class="pi pi-search" aria-hidden="true"></i>
+        <span>DNI</span>
+        <input pInputText id="dni" formControlName="dni" inputmode="numeric" maxlength="12" autocomplete="off" />
+      </div>
+      @if ((formulario.controls.dni.touched || formulario.controls.dni.dirty) && formulario.controls.dni.invalid) {
         <small class="error">El DNI debe tener exactamente 8 dígitos.</small>
       }
     </div>
 
-    <div class="fila">
+    <div class="fila fila-dos">
       <div class="campo">
-        <label for="apellido_paterno">Apellido paterno</label>
-        <input pInputText id="apellido_paterno" formControlName="apellido_paterno" />
-        @if (
-          formulario.controls.apellido_paterno.touched &&
-          formulario.controls.apellido_paterno.invalid
-        ) {
-          <small class="error">Obligatorio.</small>
+        <label for="nombres">Nombre(s)*</label>
+        <input pInputText id="nombres" formControlName="nombres" maxlength="100" />
+        @if (formulario.controls.nombres.touched && formulario.controls.nombres.invalid) {
+          <small class="error">Ingresa los nombres.</small>
         }
       </div>
       <div class="campo">
-        <label for="apellido_materno">Apellido materno</label>
-        <input pInputText id="apellido_materno" formControlName="apellido_materno" />
+        <label for="apellidos">Apellidos *</label>
+        <input pInputText id="apellidos" formControlName="apellidos" maxlength="160" />
+        @if (formulario.controls.apellidos.touched && formulario.controls.apellidos.invalid) {
+          <small class="error">Ingresa los apellidos.</small>
+        }
       </div>
     </div>
 
-    <div class="campo">
-      <label for="nombres">Nombres</label>
-      <input pInputText id="nombres" formControlName="nombres" />
-      @if (formulario.controls.nombres.touched && formulario.controls.nombres.invalid) {
-        <small class="error">Obligatorio.</small>
-      }
+    <div class="fila fila-contacto">
+      <div class="campo">
+        <label for="genero">Género *</label>
+        <p-select inputId="genero" formControlName="genero" [options]="generos" optionLabel="label" optionValue="value" styleClass="select-ancho" appendTo="body" />
+        @if (formulario.controls.genero.touched && formulario.controls.genero.invalid) {
+          <small class="error">Selecciona un género.</small>
+        }
+      </div>
+      <div class="campo">
+        <label for="celular">Celular</label>
+        <input pInputText id="celular" type="tel" inputmode="numeric" formControlName="celular" maxlength="9" autocomplete="tel" />
+        @if (formulario.controls.celular.touched && formulario.controls.celular.invalid) {
+          <small class="error">Ingresa 9 dígitos, comenzando con 9.</small>
+        }
+      </div>
+      <div class="campo">
+        <label for="email">Email*</label>
+        <input pInputText id="email" type="email" formControlName="email" maxlength="190" autocomplete="email" />
+        @if (formulario.controls.email.touched && formulario.controls.email.invalid) {
+          <small class="error">Ingresa un email válido.</small>
+        }
+      </div>
     </div>
 
-    <div class="fila">
+    <div class="fila fila-dos">
       <div class="campo">
-        <label for="grado">Grado académico</label>
-        <p-select
-          inputId="grado"
-          formControlName="grado"
-          [options]="grados"
-          placeholder="Selecciona el grado"
-          styleClass="select-ancho"
-        />
+        <label for="grado">Grado académico*</label>
+        <p-select inputId="grado" formControlName="grado" [options]="grados" placeholder="Selecciona el grado" styleClass="select-ancho" appendTo="body" />
         @if (formulario.controls.grado.touched && formulario.controls.grado.invalid) {
-          <small class="error">Obligatorio.</small>
+          <small class="error">Selecciona el grado.</small>
         }
       </div>
       <div class="campo">
-        <label for="tipo_contrato">Tipo de contrato</label>
-        <p-select
-          inputId="tipo_contrato"
-          formControlName="tipo_contrato"
-          [options]="tiposContrato"
-          optionLabel="label"
-          optionValue="value"
-          placeholder="Selecciona el tipo"
-          styleClass="select-ancho"
-        />
-        @if (formulario.controls.tipo_contrato.touched && formulario.controls.tipo_contrato.invalid) {
-          <small class="error">Obligatorio.</small>
+        <label for="categoria">Categoría*</label>
+        <p-select inputId="categoria" formControlName="categoria" [options]="categorias" optionLabel="label" optionValue="value" placeholder="Selecciona el tipo" styleClass="select-ancho" appendTo="body" />
+        @if (formulario.controls.categoria.touched && formulario.controls.categoria.invalid) {
+          <small class="error">Selecciona una categoría.</small>
         }
       </div>
     </div>
 
-    <div class="campo">
-      <label for="facultad">Facultad</label>
-      <app-select-con-alta-inline
-        formControlName="facultad_id"
-        [opciones]="facultades()"
-        placeholder="Selecciona la facultad"
-        etiquetaAlta="Agregar facultad"
-        tituloDialogo="Nueva facultad"
-        [puedeCrear]="esAdmin()"
-        [crear]="crearFacultad"
-        (creado)="alCrearFacultad($event)"
-      />
-      @if (formulario.controls.facultad_id.touched && formulario.controls.facultad_id.invalid) {
-        <small class="error">Obligatorio.</small>
-      }
+    <div class="fila fila-dos">
+      <div class="campo">
+        <label>Facultad*</label>
+        <app-select-con-alta-inline
+          formControlName="facultad_id"
+          [opciones]="facultades()"
+          placeholder="Selecciona la facultad"
+          etiquetaAlta="Agregar facultad"
+          tituloDialogo="Nueva facultad"
+          [puedeCrear]="esAdmin()"
+          [crear]="crearFacultad"
+          (creado)="alCrearFacultad($event)"
+        />
+        @if (formulario.controls.facultad_id.touched && formulario.controls.facultad_id.invalid) {
+          <small class="error">Selecciona la facultad.</small>
+        }
+      </div>
+      <div class="campo">
+        <label>Carrera*</label>
+        <app-select-con-alta-inline
+          formControlName="escuela_id"
+          [opciones]="escuelasDisponibles()"
+          placeholder="Selecciona la carrera"
+          etiquetaAlta="Agregar carrera"
+          tituloDialogo="Nueva carrera"
+          [puedeCrear]="esAdmin()"
+          [crear]="crearEscuela"
+          (creado)="alCrearEscuela($event)"
+        />
+        @if (formulario.controls.escuela_id.touched && formulario.controls.escuela_id.invalid) {
+          <small class="error">Selecciona la carrera después de la facultad.</small>
+        }
+      </div>
     </div>
 
-    <div class="campo">
-      <label for="escuela">Escuela profesional</label>
-      <app-select-con-alta-inline
-        formControlName="escuela_id"
-        [opciones]="escuelasDisponibles()"
-        placeholder="Selecciona la escuela"
-        etiquetaAlta="Agregar escuela"
-        tituloDialogo="Nueva escuela profesional"
-        [puedeCrear]="esAdmin()"
-        [crear]="crearEscuela"
-        (creado)="alCrearEscuela($event)"
-      />
-      @if (formulario.controls.escuela_id.touched && formulario.controls.escuela_id.invalid) {
-        <small class="error">Obligatorio. Primero elige una facultad.</small>
-      }
-    </div>
-
-    <div class="campo">
-      <label for="email">Email institucional (opcional)</label>
-      <input pInputText id="email" type="email" formControlName="email" autocomplete="off" />
-      @if (formulario.controls.email.touched && formulario.controls.email.invalid) {
-        <small class="error">Ingresa un email válido.</small>
-      }
+    <div class="fila fila-dos">
+      <div class="campo">
+        <label for="activo">Estado*</label>
+        <p-select inputId="activo" formControlName="activo" [options]="estados" optionLabel="label" optionValue="value" placeholder="Activo / Inactivo" styleClass="select-ancho" appendTo="body" />
+        @if (formulario.controls.activo.touched && formulario.controls.activo.invalid) {
+          <small class="error">Selecciona el estado.</small>
+        }
+      </div>
     </div>
   </form>
 
   <ng-template #footer>
-    <p-button
-      label="Cancelar"
-      severity="secondary"
-      styleClass="sgr-secondary-button"
-      (onClick)="visible.set(false)"
-    />
-    <p-button
-      [label]="docente() ? 'Guardar cambios' : 'Registrar'"
-      icon="pi pi-check"
-      styleClass="sgr-primary-button"
-      [loading]="guardando()"
-      (onClick)="guardar()"
-    />
+    <p-button label="Cancelar" severity="secondary" styleClass="sgr-secondary-button" (onClick)="visible.set(false)" />
+    <p-button [label]="docente() ? 'Guardar cambios' : 'Registrar'" icon="pi pi-check" styleClass="sgr-primary-button" [loading]="guardando()" (onClick)="guardar()" />
   </ng-template>
 </p-dialog>

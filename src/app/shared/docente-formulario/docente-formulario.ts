@@ -21,12 +21,14 @@ import { InputText } from 'primeng/inputtext';
 import { Select } from 'primeng/select';
 
 import {
+  CATEGORIAS,
+  Categoria,
   Docente,
   DocentePayload,
+  GENEROS,
+  Genero,
   GRADOS,
   Grado,
-  TIPOS_CONTRATO,
-  TipoContrato,
 } from '../../core/models/docente.model';
 import { Escuela } from '../../core/models/escuela.model';
 import { Facultad } from '../../core/models/facultad.model';
@@ -62,21 +64,31 @@ export class DocenteFormulario implements OnInit, OnDestroy {
   protected readonly guardando = signal(false);
 
   protected readonly grados = GRADOS.map((g) => ({ label: g, value: g }));
-  protected readonly tiposContrato = TIPOS_CONTRATO.map((t) => ({
-    label: t === 'NOMBRADO' ? 'Nombrado' : 'Contratado',
-    value: t,
+  protected readonly categorias = CATEGORIAS.map((categoria) => ({
+    label: categoria.replaceAll('_', ' ').toLowerCase().replace(/^\w/, (letra) => letra.toUpperCase()),
+    value: categoria,
   }));
+  protected readonly generos = GENEROS.map((genero) => ({
+    label: genero.charAt(0) + genero.slice(1).toLowerCase(),
+    value: genero,
+  }));
+  protected readonly estados = [
+    { label: 'Activo', value: true },
+    { label: 'Inactivo', value: false },
+  ];
 
   protected readonly formulario = this.fb.group({
     dni: ['', [Validators.required, Validators.pattern(/^\d{8}$/)]],
     nombres: ['', Validators.required],
-    apellido_paterno: ['', Validators.required],
-    apellido_materno: [''],
+    apellidos: ['', Validators.required],
+    genero: [null as Genero | null, Validators.required],
+    celular: ['', Validators.pattern(/^9\d{8}$/)],
     grado: [null as Grado | null, Validators.required],
-    tipo_contrato: [null as TipoContrato | null, Validators.required],
+    categoria: [null as Categoria | null, Validators.required],
     facultad_id: [null as number | null, Validators.required],
     escuela_id: [{ value: null as number | null, disabled: true }, Validators.required],
-    email: ['', Validators.email],
+    email: ['', [Validators.required, Validators.email]],
+    activo: [null as boolean | null, Validators.required],
   });
 
   protected readonly facultadSeleccionadaId = signal<number | null>(null);
@@ -143,20 +155,31 @@ export class DocenteFormulario implements OnInit, OnDestroy {
       return;
     }
     const valores = this.formulario.getRawValue();
+    const apellidos = (valores.apellidos ?? '').trim().replace(/\s+/g, ' ');
+    const docenteAnterior = this.docente();
+    const apellidosSinCambios = docenteAnterior &&
+      apellidos === [docenteAnterior.apellido_paterno, docenteAnterior.apellido_materno]
+        .filter(Boolean).join(' ');
+    const [apellidoPaterno, ...apellidoMaterno] = apellidos.split(' ');
     const payload: DocentePayload = {
       dni: valores.dni ?? '',
-      nombres: valores.nombres ?? '',
-      apellido_paterno: valores.apellido_paterno ?? '',
-      apellido_materno: valores.apellido_materno?.trim() || null,
+      nombres: valores.nombres?.trim() ?? '',
+      apellido_paterno: apellidosSinCambios ? docenteAnterior.apellido_paterno : apellidoPaterno,
+      apellido_materno: apellidosSinCambios
+        ? docenteAnterior.apellido_materno ?? null
+        : apellidoMaterno.join(' ') || null,
+      genero: valores.genero,
+      celular: valores.celular?.trim() || null,
       grado: valores.grado as Grado,
-      tipo_contrato: valores.tipo_contrato as TipoContrato,
+      categoria: valores.categoria,
       escuela_id: valores.escuela_id ?? 0,
       email: valores.email?.trim() || null,
+      activo: valores.activo === true,
     };
-    const enEdicion = this.docente();
+    const enEdicion = docenteAnterior;
     this.guardando.set(true);
     const peticion = enEdicion
-      ? this.docenteService.actualizar(enEdicion.id, { ...payload, activo: enEdicion.activo })
+      ? this.docenteService.actualizar(enEdicion.id, payload)
       : this.docenteService.crear(payload);
     peticion.subscribe({
       next: (docenteGuardado) => {
@@ -165,7 +188,7 @@ export class DocenteFormulario implements OnInit, OnDestroy {
         this.mensajes.add({
           severity: 'success',
           summary: enEdicion ? 'Docente actualizado' : 'Docente registrado',
-          detail: `${payload.apellido_paterno}, ${payload.nombres}`,
+          detail: `${[payload.apellido_paterno, payload.apellido_materno].filter(Boolean).join(' ')}, ${payload.nombres}`,
         });
         this.guardado.emit(docenteGuardado);
       },
@@ -212,12 +235,14 @@ export class DocenteFormulario implements OnInit, OnDestroy {
     this.formulario.reset({
       dni: docente.dni,
       nombres: docente.nombres,
-      apellido_paterno: docente.apellido_paterno,
-      apellido_materno: docente.apellido_materno ?? '',
+      apellidos: [docente.apellido_paterno, docente.apellido_materno].filter(Boolean).join(' '),
+      genero: docente.genero,
+      celular: docente.celular ?? '',
       grado: docente.grado,
-      tipo_contrato: docente.tipo_contrato,
+      categoria: docente.categoria,
       facultad_id: facultadId,
       email: docente.email ?? '',
+      activo: docente.activo,
     });
     if (facultadId !== null) {
       this.formulario.controls.escuela_id.enable({ emitEvent: false });

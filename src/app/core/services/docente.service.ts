@@ -8,7 +8,7 @@ import { ApiService } from './api.service';
 export interface FiltrosDocente {
   busqueda?: string;
   activo?: number;
-  tipo_contrato?: string;
+  categoria?: string;
   grado?: string;
 }
 
@@ -24,8 +24,8 @@ export class DocenteService {
     if (filtros.activo !== undefined && filtros.activo !== null) {
       params['activo'] = filtros.activo;
     }
-    if (filtros.tipo_contrato) {
-      params['tipo_contrato'] = filtros.tipo_contrato;
+    if (filtros.categoria) {
+      params['categoria'] = filtros.categoria;
     }
     if (filtros.grado) {
       params['grado'] = filtros.grado;

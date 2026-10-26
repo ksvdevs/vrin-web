@@ -1,35 +1,148 @@
 .formulario {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 25px;
 }
 
 .fila {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 1rem;
+  gap: 19px;
+}
+
+.fila-dos {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.fila-contacto {
+  grid-template-columns: 0.9fr 0.9fr 2fr;
 }
 
 .campo {
   display: flex;
+  min-width: 0;
   flex-direction: column;
-  gap: 0.45rem;
+  gap: 8px;
 
   label {
+    color: #43536c;
+    font-size: 14px;
     font-weight: 600;
-    font-size: 11px;
-    color: #526b82;
   }
 
-  input {
+  > input {
     width: 100%;
   }
 
   .error {
-    color: var(--p-red-500);
+    color: #ff3b4d;
+    font-size: 13px;
   }
 }
 
-:host ::ng-deep .select-ancho {
+.entrada-dni {
+  display: flex;
+  align-items: center;
   width: 100%;
+  height: 45px;
+  gap: 14px;
+  padding: 0 16px;
+  border: 1px solid #dce5f0;
+  border-radius: 11px;
+  color: #8a9bb2;
+
+  i {
+    color: #00b8d4;
+    font-size: 16px;
+    font-weight: 700;
+  }
+
+  input.p-inputtext {
+    flex: 1;
+    width: 1px;
+    min-width: 0;
+    height: 100%;
+    padding: 0;
+    border: 0;
+    outline: 0;
+    box-shadow: none;
+  }
+
+  &:focus-within {
+    border-color: #7ea5e8;
+    box-shadow: 0 0 0 3px #2765fa1f;
+  }
+}
+
+:host ::ng-deep .docente-dialogo {
+  border-radius: 13px;
+
+  .p-dialog-header {
+    padding: 28px 32px 20px;
+    color: #173b63;
+    font-size: 22px;
+    font-weight: 700;
+  }
+
+  .p-dialog-content {
+    max-height: calc(100vh - 175px);
+    padding: 12px 32px 24px;
+  }
+
+  .p-dialog-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 18px 32px 26px;
+    border-top: 0;
+  }
+
+  .campo label {
+    color: #43536c;
+    font-size: 14px;
+    font-weight: 600;
+  }
+
+  .campo > input.p-inputtext,
+  .campo .p-select,
+  .campo .alta-inline-select {
+    width: 100%;
+    height: 45px;
+    border: 1px solid #dce5f0;
+    border-radius: 11px;
+    color: #43536c;
+    font-size: 15px;
+  }
+
+  .p-select-label {
+    display: flex;
+    align-items: center;
+    padding: 0 16px;
+    color: #647998;
+    font-size: 15px;
+  }
+
+  .p-button.sgr-primary-button,
+  .p-button.sgr-secondary-button {
+    min-height: 45px;
+    padding-inline: 20px;
+    font-size: 15px;
+    font-weight: 500;
+  }
+
+  .p-button.sgr-primary-button {
+    background: #183b63;
+  }
+}
+
+@media (max-width: 560px) {
+  .fila-dos,
+  .fila-contacto {
+    grid-template-columns: 1fr;
+  }
+
+  :host ::ng-deep .docente-dialogo {
+    .p-dialog-header { padding-inline: 20px; }
+    .p-dialog-content { padding-inline: 20px; }
+    .p-dialog-footer { padding-inline: 20px; }
+  }
 }

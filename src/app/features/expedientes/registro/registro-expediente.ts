@@ -115,10 +115,9 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   ];
 
   protected readonly gradoDocente = computed(() => this.docenteSeleccionado()?.grado ?? null);
-  protected readonly tipoContratoDocente = computed(() => {
-    const tipo = this.docenteSeleccionado()?.tipo_contrato;
-    return tipo === 'NOMBRADO' ? 'Nombrado' : tipo === 'CONTRATADO' ? 'Contratado' : null;
-  });
+  protected readonly categoriaDocente = computed(() =>
+    this.docenteSeleccionado()?.categoria?.replaceAll('_', ' ').toLowerCase() ?? null,
+  );
   protected readonly facultadDocente = computed(
     () => this.docenteSeleccionado()?.escuela?.facultad?.nombre ?? null,
   );

@@ -328,6 +328,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
     numero: [null as number | null, [Validators.required, Validators.min(1)]],
     anio: [new Date().getFullYear(), [Validators.required]],
     fecha_emision: [new Date() as Date | null, Validators.required],
+    carta_especialista_investigacion: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(160)]],
+    fecha_carta_especialista_investigacion: [null as Date | null, Validators.required],
   });
 
   protected readonly desembolsoForm = this.fb.group({
@@ -494,6 +496,11 @@ export class VistaExpediente implements OnInit, OnDestroy {
       anio: emitida?.anio ?? borrador?.anio ?? new Date().getFullYear(),
       fecha_emision: emitida?.fecha_emision ? new Date(`${emitida.fecha_emision}T00:00:00`)
         : borrador?.fecha_emision ? new Date(`${borrador.fecha_emision}T00:00:00`) : new Date(),
+      carta_especialista_investigacion: emitida?.carta_especialista_investigacion ?? borrador?.carta_especialista_investigacion ?? '',
+      fecha_carta_especialista_investigacion: emitida?.fecha_carta_especialista_investigacion
+        ? new Date(`${emitida.fecha_carta_especialista_investigacion}T00:00:00`)
+        : borrador?.fecha_carta_especialista_investigacion
+          ? new Date(`${borrador.fecha_carta_especialista_investigacion}T00:00:00`) : null,
     });
   }
 
@@ -754,7 +761,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
     if (!detalle || this.guardandoOpp()) {
       return;
     }
-    if (this.oppForm.invalid || (this.oppForm.controls.disponibilidad.value === 'SI' && this.resolucionForm.invalid)) {
+    if (this.oppForm.invalid || (this.oppForm.controls.disponibilidad.value === 'SI' && this.datosResolucionBaseInvalidos())) {
       this.oppForm.markAllAsTouched();
       this.resolucionForm.markAllAsTouched();
       return;
@@ -802,6 +809,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
       payload['resolucion_numero'] = resolucion.numero;
       payload['resolucion_anio'] = resolucion.anio;
       payload['resolucion_fecha_emision'] = this.iso(resolucion.fecha_emision) ?? null;
+      payload['resolucion_carta_especialista_investigacion'] = resolucion.carta_especialista_investigacion?.trim() ?? '';
+      payload['resolucion_fecha_carta_especialista_investigacion'] = this.iso(resolucion.fecha_carta_especialista_investigacion) ?? null;
     }
 
     this.guardandoOpp.set(true);
@@ -822,7 +831,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
         });
         this.oppForm.reset({ disponibilidad: 'SI' });
         this.cargar(detalle.id);
-        if (respuesta.estado === 'DISPONIBILIDAD_CONFIRMADA' || respuesta.estado === 'RESOLUCION_EMITIDA') this.confirmarGenerarResolucion(true);
+        if ((respuesta.estado === 'DISPONIBILIDAD_CONFIRMADA' || respuesta.estado === 'RESOLUCION_EMITIDA') && this.resolucionForm.valid) this.confirmarGenerarResolucion(true);
       },
       error: (error) => {
         this.guardandoOpp.set(false);
@@ -883,7 +892,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected descartarRespuestaOpp(): void {
     if (!this.editandoOpp()) {
       this.oppForm.reset({ disponibilidad: 'SI' });
-      this.resolucionForm.reset({ numero: null, anio: new Date().getFullYear(), fecha_emision: new Date() });
+      this.resolucionForm.reset({ numero: null, anio: new Date().getFullYear(), fecha_emision: new Date(), carta_especialista_investigacion: '', fecha_carta_especialista_investigacion: null });
       this.archivoOppSeleccionado.set(null);
       this.sugerirNumeroResolucionSiCorresponde();
     }
@@ -1181,6 +1190,11 @@ export class VistaExpediente implements OnInit, OnDestroy {
     return tipo === 'NOMBRADO' ? 'Nombrado' : tipo === 'CONTRATADO' ? 'Contratado' : tipo;
   }
 
+  protected datosResolucionBaseInvalidos(): boolean {
+    const controles = this.resolucionForm.controls;
+    return controles.numero.invalid || controles.anio.invalid || controles.fecha_emision.invalid;
+  }
+
   protected confirmarGenerarResolucion(trasGuardar = false): void {
     if (this.resolucionForm.invalid || this.guardandoResolucion()) {
       this.resolucionForm.markAllAsTouched();
@@ -1200,6 +1214,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
       numero: valores.numero ?? 0,
       anio: valores.anio ?? new Date().getFullYear(),
       fecha_emision: this.iso(valores.fecha_emision) ?? '',
+      carta_especialista_investigacion: valores.carta_especialista_investigacion?.trim() ?? '',
+      fecha_carta_especialista_investigacion: this.iso(valores.fecha_carta_especialista_investigacion) ?? '',
     }).subscribe({
       next: (blob) => {
         this.blobVistaResolucion = URL.createObjectURL(blob);
@@ -1263,6 +1279,8 @@ export class VistaExpediente implements OnInit, OnDestroy {
         numero: valores.numero ?? 0,
         anio: valores.anio ?? new Date().getFullYear(),
         fecha_emision: this.iso(valores.fecha_emision) ?? '',
+        carta_especialista_investigacion: valores.carta_especialista_investigacion?.trim() ?? '',
+        fecha_carta_especialista_investigacion: this.iso(valores.fecha_carta_especialista_investigacion) ?? '',
       };
     const operacion = detalle.resolucion
       ? this.expedienteService.actualizarResolucion(detalle.id, payload)

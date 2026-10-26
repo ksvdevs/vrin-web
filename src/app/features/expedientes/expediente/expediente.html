@@ -346,6 +346,8 @@
                   <div class="campo"><label for="res_numero">Número de resolución *</label><input pInputText id="res_numero" type="number" formControlName="numero" min="1" /></div>
                   <div class="campo"><label for="res_anio">Año *</label><input pInputText id="res_anio" type="number" formControlName="anio" /></div>
                   <div class="campo"><label for="res_fecha">Fecha de emisión VRIN *</label><p-datepicker inputId="res_fecha" formControlName="fecha_emision" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" /></div>
+                  <div class="campo"><label for="res_carta_especialista">Carta especialista investigación *</label><input pInputText id="res_carta_especialista" formControlName="carta_especialista_investigacion" maxlength="160" />@if (resolucionForm.controls.carta_especialista_investigacion.touched && resolucionForm.controls.carta_especialista_investigacion.invalid) { <small class="error">Ingresa la carta del especialista.</small> }</div>
+                  <div class="campo"><label for="res_fecha_carta_especialista">Fecha carta especialista investigación *</label><p-datepicker inputId="res_fecha_carta_especialista" formControlName="fecha_carta_especialista_investigacion" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" />@if (resolucionForm.controls.fecha_carta_especialista_investigacion.touched && resolucionForm.controls.fecha_carta_especialista_investigacion.invalid) { <small class="error">Selecciona la fecha de la carta.</small> }</div>
                 </div>
               }
             </form>
@@ -359,8 +361,17 @@
                 <div class="fila"><div class="campo"><label>Meta presupuestal</label><div class="valor-carta">{{ opp.meta_presupuestal ?? '—' }}</div></div><div class="campo"><label>Específica de gasto</label><div class="valor-carta">{{ opp.especifica_gasto ?? '—' }}</div></div></div>
                 <div class="campo"><label>Fuente de financiamiento</label><div class="valor-carta">{{ opp.fuente_financiamiento ?? '—' }}</div></div>
                 <div class="fila"><div class="campo"><label>Número de resolución</label><div class="valor-carta">{{ e.resolucion?.numero ?? resolucionForm.controls.numero.value ?? '—' }}</div></div><div class="campo"><label>Fecha de emisión VRIN</label><div class="valor-carta">{{ e.resolucion ? formatoFecha(e.resolucion.fecha_emision) : fechaCartaVista(resolucionForm.controls.fecha_emision.value) }}</div></div></div>
+                @if (e.resolucion) { <div class="fila"><div class="campo"><label>Carta especialista investigación</label><div class="valor-carta">{{ e.resolucion.carta_especialista_investigacion ?? '—' }}</div></div><div class="campo"><label>Fecha carta especialista investigación</label><div class="valor-carta">{{ formatoFecha(e.resolucion.fecha_carta_especialista_investigacion) }}</div></div></div> }
               }
             </div>
+            @if (opp.disponibilidad === 'SI' && !e.resolucion) {
+              <div class="formulario datos-manuales-resolucion" [formGroup]="resolucionForm">
+                <div class="fila">
+                  <div class="campo"><label for="res_carta_especialista_pendiente">Carta especialista investigación *</label><input pInputText id="res_carta_especialista_pendiente" formControlName="carta_especialista_investigacion" maxlength="160" placeholder="Número de carta" />@if (resolucionForm.controls.carta_especialista_investigacion.touched && resolucionForm.controls.carta_especialista_investigacion.invalid) { <small class="error">Ingresa la carta del especialista.</small> }</div>
+                  <div class="campo"><label for="res_fecha_carta_especialista_pendiente">Fecha carta especialista investigación *</label><p-datepicker inputId="res_fecha_carta_especialista_pendiente" formControlName="fecha_carta_especialista_investigacion" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" />@if (resolucionForm.controls.fecha_carta_especialista_investigacion.touched && resolucionForm.controls.fecha_carta_especialista_investigacion.invalid) { <small class="error">Selecciona la fecha de la carta.</small> }</div>
+                </div>
+              </div>
+            }
           } @else {
             <p class="pendiente">{{ e.estado === 'EN_ESPERA_OPP' ? 'Pendiente de registro por Secretaría.' : 'Genera primero la carta VRIN / OPP en el paso 2.' }}</p>
           }
@@ -368,7 +379,7 @@
           <div class="acciones-carta-opp acciones-resolucion">
             @if (puedeRegistrarOpp() || editandoOpp()) {
               <p-button [label]="editandoOpp() ? 'Cancelar edición' : 'Descartar'" severity="secondary" [outlined]="true" [disabled]="guardandoOpp()" (onClick)="descartarRespuestaOpp()" />
-              <p-button label="Guardar cambios" icon="pi pi-eye" iconPos="right" [loading]="guardandoOpp()" [disabled]="oppForm.invalid || (oppForm.controls.disponibilidad.value === 'SI' && resolucionForm.invalid) || guardandoOpp() || adjuntandoOpp() || analizandoOpp()" (onClick)="guardarRespuestaOpp()" />
+              <p-button label="Guardar cambios" icon="pi pi-eye" iconPos="right" [loading]="guardandoOpp()" [disabled]="oppForm.invalid || (oppForm.controls.disponibilidad.value === 'SI' && datosResolucionBaseInvalidos()) || guardandoOpp() || adjuntandoOpp() || analizandoOpp()" (onClick)="guardarRespuestaOpp()" />
             } @else {
               <p-button label="Volver a expedientes" icon="pi pi-chevron-left" severity="secondary" [outlined]="true" routerLink="/expedientes" />
               @if (docResolucionGenerada(); as doc) {
@@ -561,6 +572,8 @@
           <div class="vista-dato"><span>Expediente VRIN</span><strong>{{ opp.registro_vrin_numero ?? '—' }}</strong></div>
           <div class="vista-dato"><span>Carta OPP</span><strong>{{ opp.carta_numero ?? '—' }}</strong></div>
           <div class="vista-dato"><span>Número de resolución</span><strong>{{ resolucionForm.controls.numero.value }}-{{ resolucionForm.controls.anio.value }}</strong></div>
+          <div class="vista-dato"><span>Carta especialista</span><strong>{{ resolucionForm.controls.carta_especialista_investigacion.value }}</strong></div>
+          <div class="vista-dato"><span>Fecha carta especialista</span><strong>{{ fechaCartaVista(resolucionForm.controls.fecha_carta_especialista_investigacion.value) }}</strong></div>
         }
       </aside>
       <div class="vista-papel">

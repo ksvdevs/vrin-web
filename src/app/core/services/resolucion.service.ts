@@ -11,7 +11,7 @@ export class ResolucionService {
     return this.api.get('/resoluciones/sugerencia', { anio });
   }
 
-  preview(expedienteId: number, payload: { numero: number; anio: number; fecha_emision: string }): Observable<Blob> {
+  preview(expedienteId: number, payload: { numero: number; anio: number; fecha_emision: string; carta_especialista_investigacion: string; fecha_carta_especialista_investigacion: string }): Observable<Blob> {
     return this.api.postBlob(`/expedientes/${expedienteId}/resolucion/preview`, payload);
   }
 }

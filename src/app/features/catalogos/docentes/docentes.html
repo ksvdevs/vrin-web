@@ -45,12 +45,12 @@
         />
       </div>
       <div class="filtro-docentes">
-        <label for="docentes-contrato">Tipo de contrato</label>
+        <label for="docentes-categoria">Categoría</label>
         <p-select
-          inputId="docentes-contrato"
-          [options]="opcionesContrato"
-          [ngModel]="filtroContrato()"
-          (ngModelChange)="filtroContrato.set($event); reiniciarPagina()"
+          inputId="docentes-categoria"
+          [options]="opcionesCategoria"
+          [ngModel]="filtroCategoria()"
+          (ngModelChange)="filtroCategoria.set($event); reiniciarPagina()"
           optionLabel="label"
           optionValue="value"
           class="select-filtro-docentes"
@@ -81,15 +81,18 @@
     (onPage)="alCambiarPagina($event)"
     [showCurrentPageReport]="true"
     [currentPageReportTemplate]="textoPaginacion()"
-    [tableStyle]="{ 'min-width': '64rem' }"
+    [tableStyle]="{ 'min-width': '76rem' }"
     class="sgr-table"
   >
     <ng-template #header>
       <tr>
         <th>DNI</th>
-        <th>Apellidos y Nombres</th>
+        <th>Apellidos</th>
+        <th>Nombres</th>
+        <th>Género</th>
+        <th>Celular</th>
         <th>Grado</th>
-        <th>Tipo contrato</th>
+        <th>Categoría</th>
         <th>Escuela</th>
         <th>Estado</th>
         @if (esAdmin()) {
@@ -100,17 +103,12 @@
     <ng-template #body let-docente>
       <tr>
         <td>{{ docente.dni }}</td>
-        <td>
-          {{ docente.apellido_paterno }}
-          {{ docente.apellido_materno }}, {{ docente.nombres }}
-        </td>
+        <td>{{ apellidos(docente) }}</td>
+        <td>{{ docente.nombres }}</td>
+        <td>{{ docente.genero ? docente.genero.charAt(0) + docente.genero.slice(1).toLowerCase() : '—' }}</td>
+        <td>{{ docente.celular || '—' }}</td>
         <td>{{ docente.grado }}</td>
-        <td>
-          <p-tag
-            [value]="docente.tipo_contrato"
-            [severity]="docente.tipo_contrato === 'NOMBRADO' ? 'info' : 'secondary'"
-          />
-        </td>
+        <td>{{ docente.categoria ? docente.categoria.replaceAll('_', ' ').toLowerCase() : '—' }}</td>
         <td>{{ nombreEscuela(docente) }}</td>
         <td>
           <p-tag
@@ -137,7 +135,7 @@
     </ng-template>
     <ng-template #emptymessage>
       <tr>
-        <td [attr.colspan]="esAdmin() ? 7 : 6" class="vacio">
+        <td [attr.colspan]="esAdmin() ? 10 : 9" class="vacio">
           @if (!cargando()) {
             No se encontraron docentes.
           }

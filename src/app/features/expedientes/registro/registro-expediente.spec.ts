@@ -15,7 +15,7 @@ import { RegistroExpediente } from './registro-expediente';
 describe('Asociación del docente extraído de la carta', () => {
   const docente: Docente = {
     id: 1, dni: '77100101', nombres: 'Delmer', apellido_paterno: 'Zea', apellido_materno: 'Gonzales',
-    grado: 'Dr.', tipo_contrato: 'NOMBRADO', escuela_id: 1, activo: true,
+    grado: 'Dr.', tipo_contrato: 'NOMBRADO', categoria: 'ORDINARIO_AUXILIAR', genero: 'MASCULINO', escuela_id: 1, activo: true,
     escuela: { id: 1, nombre: 'Escuela', facultad_id: 1, facultad: { id: 1, nombre: 'Facultad' } } as Docente['escuela'],
   };
   let buscarPorNombre: ReturnType<typeof vi.fn>;

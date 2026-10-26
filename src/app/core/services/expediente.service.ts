@@ -135,6 +135,8 @@ export class ExpedienteService {
       numero: number;
       anio: number;
       fecha_emision: string;
+      carta_especialista_investigacion: string;
+      fecha_carta_especialista_investigacion: string;
     },
   ): Observable<{
     estado: EstadoExpediente;
@@ -150,7 +152,7 @@ export class ExpedienteService {
     return this.api.post(`/expedientes/${id}/resolucion/generar`, payload);
   }
 
-  actualizarResolucion(id: number, payload: { numero: number; anio: number; fecha_emision: string }): Observable<unknown> {
+  actualizarResolucion(id: number, payload: { numero: number; anio: number; fecha_emision: string; carta_especialista_investigacion: string; fecha_carta_especialista_investigacion: string }): Observable<unknown> {
     return this.api.put(`/expedientes/${id}/resolucion`, payload);
   }
 
