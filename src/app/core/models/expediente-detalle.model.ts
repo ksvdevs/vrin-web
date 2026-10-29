@@ -78,6 +78,7 @@ export interface ExpedienteDetalle {
     resultado: string;
     checklist: Record<string, boolean> | null;
     observacion: string | null;
+    ultimo_motivo_reevaluacion?: string | null;
     validado_at: string | null;
     validado_por: string | null;
   } | null;

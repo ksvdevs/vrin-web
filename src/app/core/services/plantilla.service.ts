@@ -17,6 +17,10 @@ export interface FiltrosPlantilla {
 export class PlantillaService {
   private readonly api = inject(ApiService);
 
+  listarTipos(): Observable<TipoDocumento[]> {
+    return this.api.get<TipoDocumento[]>('/plantillas/tipos');
+  }
+
   listar(
     filtros: FiltrosPlantilla = {},
     pagina = 1,
@@ -55,6 +59,14 @@ export class PlantillaService {
 
   cambiarEstado(id: number, estado: 'ACTIVO' | 'INACTIVO'): Observable<{ id: number; estado: string }> {
     return this.api.patch(`/plantillas/${id}`, { estado });
+  }
+
+  actualizarNombre(id: number, nombre: string): Observable<{ id: number; nombre: string; estado: string }> {
+    return this.api.patch(`/plantillas/${id}`, { nombre });
+  }
+
+  eliminar(id: number): Observable<void> {
+    return this.api.delete<void>(`/plantillas/${id}`);
   }
 }
 

@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, effect, inject, input, model, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 
 import { MessageService } from 'primeng/api';
 import { Select } from 'primeng/select';
@@ -55,6 +56,11 @@ export class ValidacionExpediente {
   });
 
   constructor() {
+    this.formulario.valueChanges.pipe(takeUntilDestroyed()).subscribe(() => {
+      const observacion = this.formulario.controls.observacion;
+      observacion.setValidators(this.observacionObligatoria ? [Validators.required, Validators.pattern(/\S/)] : []);
+      observacion.updateValueAndValidity({ emitEvent: false });
+    });
     effect(() => {
       if (!this.visible()) return;
       const anterior = this.esReevaluacion() ? this.expediente()?.validacion_calidad : null;
@@ -62,8 +68,8 @@ export class ValidacionExpediente {
         carta_aceptacion: anterior?.checklist?.['carta_aceptacion'] ?? null,
         docente_ordinario_contratado: anterior?.checklist?.['docente_ordinario_contratado'] ?? null,
         afiliacion_universidad: anterior?.checklist?.['afiliacion_universidad'] ?? null,
-        observacion: '',
-        motivo_correccion: '',
+        observacion: anterior?.observacion ?? '',
+        motivo_correccion: anterior?.ultimo_motivo_reevaluacion ?? '',
       });
     });
   }
@@ -75,7 +81,17 @@ export class ValidacionExpediente {
   }
 
   get resultado(): 'CUMPLE' | 'NO_CUMPLE' {
-    return REQUISITOS.every((r) => this.formulario.controls[r.clave].value === true) ? 'CUMPLE' : 'NO_CUMPLE';
+    const todosCumplen = REQUISITOS.every((r) => this.formulario.controls[r.clave].value === true);
+    const hayObservacion = !!this.formulario.controls.observacion.value?.trim();
+    return todosCumplen && !hayObservacion ? 'CUMPLE' : 'NO_CUMPLE';
+  }
+
+  get observacionObligatoria(): boolean {
+    return REQUISITOS.some((r) => this.formulario.controls[r.clave].value === false);
+  }
+
+  get requisitosPendientes(): boolean {
+    return REQUISITOS.some((r) => this.formulario.controls[r.clave].invalid);
   }
 
   protected fechaCorta(fecha: string | null | undefined): string {

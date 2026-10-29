@@ -134,9 +134,10 @@
   padding-block: 12px;
   padding-inline: 18px;
 }
-.plantillas-page .col-acciones { width: 96px; }
+.plantillas-page .col-acciones { width: 140px; white-space: nowrap; }
 .plantillas-page .accion { color: #6d90b5; }
 .plantillas-page .accion i { font-size: 14px; }
+.plantillas-page .accion:disabled { opacity: .45; cursor: not-allowed; }
 :host ::ng-deep .plantillas-page .sgr-table .p-paginator {
   min-height: 59px;
   display: flex;

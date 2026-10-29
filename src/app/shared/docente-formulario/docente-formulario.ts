@@ -80,7 +80,8 @@ export class DocenteFormulario implements OnInit, OnDestroy {
   protected readonly formulario = this.fb.group({
     dni: ['', [Validators.required, Validators.pattern(/^\d{8}$/)]],
     nombres: ['', Validators.required],
-    apellidos: ['', Validators.required],
+    apellido_paterno: ['', Validators.required],
+    apellido_materno: [''],
     genero: [null as Genero | null, Validators.required],
     celular: ['', Validators.pattern(/^9\d{8}$/)],
     grado: [null as Grado | null, Validators.required],
@@ -155,19 +156,12 @@ export class DocenteFormulario implements OnInit, OnDestroy {
       return;
     }
     const valores = this.formulario.getRawValue();
-    const apellidos = (valores.apellidos ?? '').trim().replace(/\s+/g, ' ');
     const docenteAnterior = this.docente();
-    const apellidosSinCambios = docenteAnterior &&
-      apellidos === [docenteAnterior.apellido_paterno, docenteAnterior.apellido_materno]
-        .filter(Boolean).join(' ');
-    const [apellidoPaterno, ...apellidoMaterno] = apellidos.split(' ');
     const payload: DocentePayload = {
       dni: valores.dni ?? '',
       nombres: valores.nombres?.trim() ?? '',
-      apellido_paterno: apellidosSinCambios ? docenteAnterior.apellido_paterno : apellidoPaterno,
-      apellido_materno: apellidosSinCambios
-        ? docenteAnterior.apellido_materno ?? null
-        : apellidoMaterno.join(' ') || null,
+      apellido_paterno: valores.apellido_paterno?.trim() ?? '',
+      apellido_materno: valores.apellido_materno?.trim() || null,
       genero: valores.genero,
       celular: valores.celular?.trim() || null,
       grado: valores.grado as Grado,
@@ -235,7 +229,8 @@ export class DocenteFormulario implements OnInit, OnDestroy {
     this.formulario.reset({
       dni: docente.dni,
       nombres: docente.nombres,
-      apellidos: [docente.apellido_paterno, docente.apellido_materno].filter(Boolean).join(' '),
+      apellido_paterno: docente.apellido_paterno,
+      apellido_materno: docente.apellido_materno ?? '',
       genero: docente.genero,
       celular: docente.celular ?? '',
       grado: docente.grado,

@@ -11,7 +11,7 @@ import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
 
-import { CATEGORIAS, Docente, DocentePayload, GRADOS } from '../../../core/models/docente.model';
+import { CATEGORIAS, Docente, GRADOS } from '../../../core/models/docente.model';
 import { AuthService } from '../../../core/services/auth.service';
 import { DocenteService } from '../../../core/services/docente.service';
 import { DocenteFormulario } from '../../../shared/docente-formulario/docente-formulario';
@@ -39,6 +39,7 @@ export class Docentes implements OnInit {
   private readonly confirmacion = inject(ConfirmationService);
   private readonly destroyRef = inject(DestroyRef);
   private readonly cambiosBusqueda = new Subject<string>();
+  private ultimaCarga = 0;
 
   protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol_codigo === 'ADMINISTRADOR_GENERAL');
 
@@ -166,7 +167,7 @@ export class Docentes implements OnInit {
 
   private cambiarEstado(docente: Docente): void {
     this.docenteService
-      .cambiarEstado(docente.id, this.payloadDesdeDocente(docente, !docente.activo))
+      .cambiarEstado(docente.id, !docente.activo)
       .subscribe({
         next: () => {
           this.mensajes.add({
@@ -186,23 +187,8 @@ export class Docentes implements OnInit {
       });
   }
 
-  private payloadDesdeDocente(docente: Docente, activo: boolean): DocentePayload {
-    return {
-      dni: docente.dni,
-      nombres: docente.nombres,
-      apellido_paterno: docente.apellido_paterno,
-      apellido_materno: docente.apellido_materno ?? null,
-      genero: docente.genero,
-      celular: docente.celular ?? null,
-      grado: docente.grado,
-      categoria: docente.categoria,
-      escuela_id: docente.escuela_id,
-      email: docente.email ?? null,
-      activo,
-    };
-  }
-
   private cargar(pagina: number): void {
+    const carga = ++this.ultimaCarga;
     this.cargando.set(true);
     const estado = this.filtroEstado();
     this.docenteService
@@ -217,11 +203,18 @@ export class Docentes implements OnInit {
       )
       .subscribe({
         next: (respuesta) => {
+          if (carga !== this.ultimaCarga) return;
           this.docentes.set(respuesta.data);
           this.total.set(respuesta.total);
           this.cargando.set(false);
+          const ultimaPagina = Math.max(1, Math.ceil(respuesta.total / this.registrosPorPagina));
+          if (pagina > ultimaPagina) {
+            this.primeraFila = (ultimaPagina - 1) * this.registrosPorPagina;
+            this.cargar(ultimaPagina);
+          }
         },
         error: () => {
+          if (carga !== this.ultimaCarga) return;
           this.cargando.set(false);
           this.mensajes.add({
             severity: 'error',

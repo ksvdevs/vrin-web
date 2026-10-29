@@ -82,6 +82,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   protected readonly guardando = signal(false);
   protected readonly expedienteCreado = signal<Expediente | null>(null);
   protected readonly cartaSubida = signal<ArchivoExpediente | null>(null);
+  protected readonly vistaCartaVisible = signal(false);
   protected readonly modalCartaVisible = signal(false);
   protected readonly urlCarta = signal<SafeResourceUrl | null>(null);
   protected readonly cargandoCarta = signal(false);
@@ -106,6 +107,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   private suscripcionDocente?: Subscription;
   private suscripcionDocenteOcr?: Subscription;
   private suscripcionAnalisis?: Subscription;
+  private suscripcionCarta?: Subscription;
 
   protected readonly opcionesBase = BASES_INDEXADORAS.map((b) => ({ label: b, value: b }));
   protected readonly opcionesCuartil = CUARTILES.map((c) => ({ label: c, value: c }));
@@ -173,6 +175,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     this.suscripcionDocente?.unsubscribe();
     this.suscripcionDocenteOcr?.unsubscribe();
     this.suscripcionAnalisis?.unsubscribe();
+    this.suscripcionCarta?.unsubscribe();
   }
 
   protected alBuscarDocente(event: AutoCompleteCompleteEvent): void {
@@ -248,8 +251,24 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   }
 
   protected guardar(): void {
-    if (this.formulario.invalid || this.guardando()) {
+    if (this.guardando()) return;
+    if (this.formulario.invalid) {
       this.formulario.markAllAsTouched();
+      const controles = this.formulario.controls;
+      if (controles.carta_docente_numero.invalid || controles.carta_docente_registro_numero.invalid || controles.carta_docente_registro_fecha.invalid || controles.carta_docente_fecha.invalid || controles.docente.invalid) {
+        this.pasoActual.set(1);
+        this.mensajes.add({
+          severity: 'warn',
+          summary: 'Faltan datos de la carta o del docente',
+          detail: 'Revisa los campos obligatorios marcados antes de registrar el expediente.',
+        });
+      } else {
+        this.mensajes.add({
+          severity: 'warn',
+          summary: 'Faltan datos del artículo',
+          detail: 'Revisa los campos obligatorios marcados antes de registrar el expediente.',
+        });
+      }
       return;
     }
     const payload = this.construirPayload();
@@ -260,13 +279,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   }
 
   protected continuar(): void {
-    const controles = this.formulario.controls;
-    controles.carta_docente_numero.markAsTouched();
-    controles.carta_docente_registro_numero.markAsTouched();
-    controles.carta_docente_registro_fecha.markAsTouched();
-    controles.carta_docente_fecha.markAsTouched();
-    controles.docente.markAsTouched();
-    if (controles.carta_docente_numero.invalid || controles.carta_docente_registro_numero.invalid || controles.carta_docente_registro_fecha.invalid || controles.carta_docente_fecha.invalid || controles.docente.invalid) return;
+    if (this.analizando()) return;
     this.pasoActual.set(2);
   }
 
@@ -301,6 +314,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     const input = event.target as HTMLInputElement;
     const archivo = input.files?.[0] ?? null;
     input.value = '';
+    if (this.pasoActual() === 2) return;
     if (!archivo) {
       return;
     }
@@ -326,7 +340,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
 
   protected analizarCarta(): void {
     const archivo = this.archivoPreparado();
-    if (!archivo || this.analizando() || this.modoRegistro() !== 'ia') {
+    if (!archivo || this.analizando() || this.modoRegistro() !== 'ia' || this.pasoActual() === 2) {
       return;
     }
     this.analizando.set(true);
@@ -353,7 +367,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
 
   protected subirCartaInicial(): void {
     const archivo = this.archivoSeleccionado();
-    if (!archivo) return;
+    if (!archivo || this.pasoActual() === 2) return;
     this.suscripcionAnalisis?.unsubscribe();
     this.suscripcionDocenteOcr?.unsubscribe();
     this.analizando.set(false);
@@ -363,6 +377,8 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     this.resultadoOcr.set(null);
     this.archivoPreparado.set(archivo);
     this.archivoSeleccionado.set(null);
+    this.limpiarVistaCarta();
+    if (this.vistaCartaVisible()) this.prepararVistaCarta();
     this.mensajes.add({
       severity: 'info',
       summary: 'Carta preparada',
@@ -525,22 +541,33 @@ export class RegistroExpediente implements OnInit, OnDestroy {
   }
 
   protected verCarta(): void {
+    if (this.expedienteCreado()) {
+      this.modalCartaVisible.set(true);
+    } else {
+      this.vistaCartaVisible.set(true);
+    }
+    this.prepararVistaCarta();
+  }
+
+  protected ocultarCarta(): void {
+    this.vistaCartaVisible.set(false);
+  }
+
+  private prepararVistaCarta(): void {
     const seleccionado = this.archivoPreparado();
     const id = this.editandoId() ?? this.expedienteCreado()?.id;
     const carta = this.cartaSubida();
     if (!seleccionado && (!id || !carta)) {
       return;
     }
-    if (this.blobUrlCarta) URL.revokeObjectURL(this.blobUrlCarta);
-    this.blobUrlCarta = undefined;
-    this.urlCarta.set(null);
-    this.modalCartaVisible.set(true);
+    if (!this.puedePrevisualizarCarta(seleccionado?.name ?? carta?.nombre_original ?? '')) return;
+    if (this.urlCarta() || this.cargandoCarta()) return;
     if (seleccionado) {
       this.mostrarCarta(seleccionado);
       return;
     }
     this.cargandoCarta.set(true);
-    this.archivoService.obtenerBlob(id!, carta!.id).subscribe({
+    this.suscripcionCarta = this.archivoService.obtenerBlob(id!, carta!.id).subscribe({
       next: (blob) => {
         this.cargandoCarta.set(false);
         this.mostrarCarta(blob);
@@ -554,6 +581,14 @@ export class RegistroExpediente implements OnInit, OnDestroy {
         });
       },
     });
+  }
+
+  private limpiarVistaCarta(): void {
+    this.suscripcionCarta?.unsubscribe();
+    if (this.blobUrlCarta) URL.revokeObjectURL(this.blobUrlCarta);
+    this.blobUrlCarta = undefined;
+    this.urlCarta.set(null);
+    this.cargandoCarta.set(false);
   }
 
   private mostrarCarta(archivo: Blob): void {

@@ -2,6 +2,9 @@
 export interface TipoDocumento {
   id: number;
   codigo: string;
+  codigo_version?: string;
+  familia_id?: number;
+  eliminada?: boolean;
   nombre: string;
 }
 
@@ -13,6 +16,8 @@ export interface Plantilla {
   tipo_documento: TipoDocumento | null;
   version: number;
   estado: 'ACTIVO' | 'INACTIVO';
+  vigente: boolean;
+  version_vigente?: number | null;
   tokens_count: number;
   sin_mapeo: string[];
   sha256: string;

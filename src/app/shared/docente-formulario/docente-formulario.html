@@ -18,7 +18,7 @@
       }
     </div>
 
-    <div class="fila fila-dos">
+    <div class="fila fila-tres">
       <div class="campo">
         <label for="nombres">Nombre(s)*</label>
         <input pInputText id="nombres" formControlName="nombres" maxlength="100" />
@@ -27,11 +27,15 @@
         }
       </div>
       <div class="campo">
-        <label for="apellidos">Apellidos *</label>
-        <input pInputText id="apellidos" formControlName="apellidos" maxlength="160" />
-        @if (formulario.controls.apellidos.touched && formulario.controls.apellidos.invalid) {
-          <small class="error">Ingresa los apellidos.</small>
+        <label for="apellido_paterno">Apellido paterno *</label>
+        <input pInputText id="apellido_paterno" formControlName="apellido_paterno" maxlength="80" />
+        @if (formulario.controls.apellido_paterno.touched && formulario.controls.apellido_paterno.invalid) {
+          <small class="error">Ingresa el apellido paterno.</small>
         }
+      </div>
+      <div class="campo">
+        <label for="apellido_materno">Apellido materno</label>
+        <input pInputText id="apellido_materno" formControlName="apellido_materno" maxlength="80" />
       </div>
     </div>
 

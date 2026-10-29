@@ -58,7 +58,7 @@
                 />
               </div>
             }
-            @if (formulario.invalid && formulario.touched) {
+            @if (requisitosPendientes && formulario.touched) {
               <small class="error">Debes verificar los 3 requisitos para guardar.</small>
             }
             <div class="resultado-previa">
@@ -67,15 +67,21 @@
             </div>
 
             <div class="campo">
-              <label for="observacion">Observación (opcional)</label>
+              <label for="observacion">Observación @if (observacionObligatoria) {<span aria-hidden="true">*</span>} @else {(opcional)}</label>
               <textarea
                 pTextarea
                 id="observacion"
                 formControlName="observacion"
+                [attr.aria-required]="observacionObligatoria"
+                [attr.aria-invalid]="formulario.controls.observacion.invalid"
+                [attr.aria-describedby]="observacionObligatoria && formulario.controls.observacion.invalid ? 'observacion-ayuda' : null"
                 [rows]="3"
                 [autoResize]="true"
-                placeholder="Si el expediente No Cumple, registra aquí el motivo para el docente."
+                placeholder="Describe el motivo. Toda observación registrada marcará el expediente como No cumple."
               ></textarea>
+              @if (observacionObligatoria && formulario.controls.observacion.invalid) {
+                <small id="observacion-ayuda" class="error">Describe el motivo cuando algún requisito no cumple.</small>
+              }
             </div>
             @if (esReevaluacion()) {
               <div class="campo">

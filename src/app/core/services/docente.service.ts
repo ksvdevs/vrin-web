@@ -46,8 +46,8 @@ export class DocenteService {
     return this.api.put<Docente>(`/docentes/${id}`, payload);
   }
 
-  cambiarEstado(id: number, payload: DocentePayload): Observable<Docente> {
-    return this.api.put<Docente>(`/docentes/${id}`, payload);
+  cambiarEstado(id: number, activo: boolean): Observable<Docente> {
+    return this.api.patch<Docente>(`/docentes/${id}/estado`, { activo });
   }
 
   eliminar(id: number): Observable<unknown> {

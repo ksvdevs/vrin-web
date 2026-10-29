@@ -66,10 +66,14 @@
               </div>
             </div>
             <div class="fila-datos datos-carta">
-              <div class="campo"><span class="etiqueta-carta">N.º de carta</span><output class="valor-carta">{{ e.carta_docente_numero }}</output></div>
-              <div class="campo"><span class="etiqueta-carta">Registro de carta docente</span><output class="valor-carta">{{ e.carta_docente_registro_numero || '—' }}</output></div>
-              <div class="campo"><span class="etiqueta-carta">Fecha de registro</span><output class="valor-carta">{{ formatoFecha(e.carta_docente_registro_fecha) }}</output></div>
-              <div class="campo"><span class="etiqueta-carta">Fecha de carta</span><output class="valor-carta">{{ formatoFecha(e.carta_docente_fecha) }}</output></div>
+              <div class="datos-carta-fila">
+                <div class="campo"><span class="etiqueta-carta">N.º de carta</span><output class="valor-carta">{{ e.carta_docente_numero }}</output></div>
+                <div class="campo"><span class="etiqueta-carta">Fecha de carta</span><output class="valor-carta">{{ formatoFecha(e.carta_docente_fecha) }}</output></div>
+              </div>
+              <div class="datos-carta-fila">
+                <div class="campo"><span class="etiqueta-carta">N.º de registro</span><output class="valor-carta">{{ e.carta_docente_registro_numero || '—' }}</output></div>
+                <div class="campo"><span class="etiqueta-carta">Fecha de registro</span><output class="valor-carta">{{ formatoFecha(e.carta_docente_registro_fecha) }}</output></div>
+              </div>
             </div>
             <div class="documento-solicitud">
               <p>Documento de solicitud</p>

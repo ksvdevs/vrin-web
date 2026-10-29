@@ -18,13 +18,13 @@
         <label class="selector-plantilla">
           <span class="sr-only">Plantilla de carta vigente</span>
           <select
-            [ngModel]="seleccionCartaId()" [disabled]="actualizandoPlantillas()"
-            (ngModelChange)="alCambiarPlantilla(1, $event)"
+            [ngModel]="seleccionCartaId()" [disabled]="actualizandoPlantillas() || tipoCartaId() === null"
+            (ngModelChange)="alCambiarPlantilla(tipoCartaId(), $event)"
             aria-label="Plantilla de carta vigente"
           >
             <option [ngValue]="null" disabled>{{ actualizandoPlantillas() ? 'Cargando plantilla…' : 'Plantilla Carta' }}</option>
             @for (plantilla of plantillasCarta(); track plantilla.id) {
-              <option [ngValue]="plantilla.id">{{ plantilla.codigo }}</option>
+              <option [ngValue]="plantilla.id">{{ plantilla.codigo }} · v{{ plantilla.version }}</option>
             }
           </select>
           <i class="pi pi-chevron-down" aria-hidden="true"></i>
@@ -32,13 +32,13 @@
         <label class="selector-plantilla selector-resolucion">
           <span class="sr-only">Plantilla de resolución vigente</span>
           <select
-            [ngModel]="seleccionResolucionId()" [disabled]="actualizandoPlantillas()"
-            (ngModelChange)="alCambiarPlantilla(2, $event)"
+            [ngModel]="seleccionResolucionId()" [disabled]="actualizandoPlantillas() || tipoResolucionId() === null"
+            (ngModelChange)="alCambiarPlantilla(tipoResolucionId(), $event)"
             aria-label="Plantilla de resolución vigente"
           >
             <option [ngValue]="null" disabled>{{ actualizandoPlantillas() ? 'Cargando plantilla…' : 'Plantilla Resolución' }}</option>
             @for (plantilla of plantillasResolucion(); track plantilla.id) {
-              <option [ngValue]="plantilla.id">{{ plantilla.codigo }}</option>
+              <option [ngValue]="plantilla.id">{{ plantilla.codigo }} · v{{ plantilla.version }}</option>
             }
           </select>
           <i class="pi pi-chevron-down" aria-hidden="true"></i>

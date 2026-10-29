@@ -11,7 +11,7 @@
       <p>Vista previa no disponible.</p>
     }
   </p-dialog>
-  <section class="panel" role="dialog" aria-modal="true" aria-labelledby="titulo-registro">
+  <section class="panel" [class.panel-comparacion]="vistaCartaVisible()" role="dialog" aria-modal="true" aria-labelledby="titulo-registro">
     <header class="cabecera">
       <span class="icono-cabecera"><i class="pi pi-file" aria-hidden="true"></i></span>
       <div class="titulo">
@@ -28,7 +28,7 @@
           <span><strong>Modalidad y docente</strong><small>IA, carta y solicitante</small></span>
         </button>
         <span class="linea-paso" aria-hidden="true"></span>
-        <button type="button" class="paso" [class.activo]="pasoActual() === 2" [attr.aria-current]="pasoActual() === 2 ? 'step' : null" (click)="pasoActual.set(2)">
+        <button type="button" class="paso" [class.activo]="pasoActual() === 2" [attr.aria-current]="pasoActual() === 2 ? 'step' : null" [disabled]="analizando()" (click)="continuar()">
           <span class="numero-paso">2</span><span><strong>Artículo</strong><small>Publicación y monto</small></span>
         </button>
       </nav>
@@ -50,15 +50,27 @@
       <footer class="pie"><button type="button" class="boton-secundario" (click)="finalizar()">Cerrar</button><button type="button" class="boton-primario" (click)="finalizar()">Finalizar <i class="pi pi-check" aria-hidden="true"></i></button></footer>
     } @else {
       <form [formGroup]="formulario" class="formulario-registro" (ngSubmit)="pasoActual() === 1 ? continuar() : guardar()">
-        <div class="cuerpo">
-          @if (pasoActual() === 1) {
+        <div class="cuerpo" [class.cuerpo-comparacion]="vistaCartaVisible()">
+          @if (vistaCartaVisible()) {
+            <section class="tarjeta tarjeta-vista-carta" aria-label="Carta del docente">
+              <div class="encabezado-tarjeta"><span class="icono-tarjeta"><i class="pi pi-file-pdf" aria-hidden="true"></i></span><div><h2>Carta del docente</h2><p class="nombre-carta">{{ archivoPreparado()?.name ?? cartaSubida()?.nombre_original }}</p></div><button type="button" class="boton-ampliar-carta" (click)="ocultarCarta()" aria-label="Ocultar carta"><i class="pi pi-times" aria-hidden="true"></i> Ocultar</button></div>
+              @if (urlCarta(); as url) {
+                <iframe class="vista-carta-iframe" [src]="url" title="Vista previa de la carta del docente"></iframe>
+              } @else if (cargandoCarta()) {
+                <p class="ayuda">Cargando vista previa…</p>
+              } @else {
+                <p class="ayuda">No se pudo mostrar la carta. Oculta y vuelve a pulsar «Ver» para intentarlo de nuevo.</p>
+              }
+            </section>
+          }
+          <div class="contenido-registro">
             <section class="tarjeta">
               <div class="modalidad">
                 <span>Modalidad de registro</span>
                 <small>Selecciona cómo deseas completar la información del expediente.</small>
                 <div class="opciones-modalidad">
-                  <button type="button" class="opcion-modalidad" [class.seleccionada]="modoRegistro() === 'ia'" [attr.aria-pressed]="modoRegistro() === 'ia'" (click)="modoRegistro.set('ia')"><span class="radio"></span><span><strong>Autocompletar con IA</strong><small>Extrae los datos de la carta para que solo tengas que revisarlos.</small></span><em>Recomendado</em></button>
-                  <button type="button" class="opcion-modalidad" [class.seleccionada]="modoRegistro() === 'manual'" [attr.aria-pressed]="modoRegistro() === 'manual'" (click)="modoRegistro.set('manual')"><span class="radio"></span><span><strong>Registro manual</strong><small>Completa directamente todos los campos del expediente.</small></span></button>
+                  <button type="button" class="opcion-modalidad" [class.seleccionada]="modoRegistro() === 'ia'" [attr.aria-pressed]="modoRegistro() === 'ia'" [disabled]="pasoActual() === 2" (click)="modoRegistro.set('ia')"><span class="radio"></span><span><strong>Autocompletar con IA</strong><small>Extrae los datos de la carta para que solo tengas que revisarlos.</small></span><em>Recomendado</em></button>
+                  <button type="button" class="opcion-modalidad" [class.seleccionada]="modoRegistro() === 'manual'" [attr.aria-pressed]="modoRegistro() === 'manual'" [disabled]="pasoActual() === 2" (click)="modoRegistro.set('manual')"><span class="radio"></span><span><strong>Registro manual</strong><small>Completa directamente todos los campos del expediente.</small></span></button>
                 </div>
               </div>
               <div class="seccion-carta">
@@ -67,22 +79,23 @@
                   @if (archivoPreparado() || cartaSubida()) {<span class="archivo-listo">Archivo listo</span>}
                 </div>
               @if (archivoPreparado(); as archivo) {
-                <div class="carta-actual"><i class="pi pi-file-pdf" aria-hidden="true"></i><span>{{ archivo.name }}</span><p-button label="Ver" icon="pi pi-eye" [text]="true" (onClick)="verCarta()" />@if (modoRegistro() === 'ia') {<p-button label="Analizar" icon="pi pi-sparkles" severity="success" [loading]="analizando()" [disabled]="analizando()" (onClick)="analizarCarta()" />}</div>
+                <div class="carta-actual"><i class="pi pi-file-pdf" aria-hidden="true"></i><span>{{ archivo.name }}</span><p-button label="Ver" icon="pi pi-eye" [text]="true" (onClick)="verCarta()" />@if (modoRegistro() === 'ia') {<p-button label="Analizar" icon="pi pi-sparkles" severity="success" [loading]="analizando()" [disabled]="analizando() || pasoActual() === 2" (onClick)="analizarCarta()" />}</div>
               } @else if (cartaSubida(); as carta) {
                 <div class="carta-actual"><i class="pi pi-file-pdf" aria-hidden="true"></i><span>{{ carta.nombre_original }}</span>@if (puedePrevisualizarCarta(carta.nombre_original)) {<p-button label="Ver" icon="pi pi-eye" [text]="true" (onClick)="verCarta()" />}<p-button label="Descargar" icon="pi pi-download" [text]="true" (onClick)="descargarCarta()" /></div>
               }
               <div class="selector-archivo con-boton-externo">
                 <div class="archivo-campo">
-                <label class="boton-archivo">Elegir archivo<input type="file" class="input-archivo" accept=".pdf,.jpg,.jpeg,.png" (change)="seleccionarCartaOcr($event)" /></label>
+                <label class="boton-archivo" [class.deshabilitado]="pasoActual() === 2">Elegir archivo<input type="file" class="input-archivo" accept=".pdf,.jpg,.jpeg,.png" [disabled]="pasoActual() === 2" (change)="seleccionarCartaOcr($event)" /></label>
                 <span class="nombre-archivo">{{ archivoSeleccionado()?.name ?? 'Ningún archivo seleccionado' }}</span>
                 </div>
-                <button type="button" class="boton-subir" [disabled]="!archivoSeleccionado()" (click)="subirCartaInicial()"><i class="pi pi-upload" aria-hidden="true"></i>Subir</button>
+                <button type="button" class="boton-subir" [disabled]="pasoActual() === 2 || !archivoSeleccionado()" (click)="subirCartaInicial()"><i class="pi pi-upload" aria-hidden="true"></i>Subir</button>
               </div>
               @if (resultadoOcr() && modoRegistro() === 'ia') {
-                <div class="estado-ocr"><i class="pi pi-check" aria-hidden="true"></i><span><strong>Extracción completada</strong><small>Revisa los campos autocompletados antes de registrar el expediente.</small></span></div>
+                <div class="estado-ocr"><i class="pi pi-check" aria-hidden="true"></i><span><strong>Análisis finalizado</strong><small>Revisa los datos extraídos y completa los campos que hayan quedado vacíos antes de registrar.</small></span></div>
               }
               </div>
             </section>
+          @if (pasoActual() === 1) {
             <section class="tarjeta">
               <div class="encabezado-tarjeta"><span class="icono-tarjeta"><i class="pi pi-user" aria-hidden="true"></i></span><div><h2>Datos del docente solicitante</h2><p>{{ resultadoOcr() && modoRegistro() === 'ia' ? 'Información autocompletada por IA y disponible para edición.' : 'Completa los datos personales, académicos y contractuales.' }}</p></div>@if (resultadoOcr() && modoRegistro() === 'ia') {<span class="badge-ia">IA completado</span>}</div>
               <div class="campos">
@@ -118,8 +131,9 @@
               </div>
             </section>
           }
+          </div>
         </div>
-        <footer class="pie"><button type="button" class="boton-secundario" (click)="cancelar()">Cancelar</button><div class="acciones-pie">@if (pasoActual() === 2) {<button type="button" class="boton-secundario" (click)="pasoActual.set(1)">Anterior</button>}<button type="submit" class="boton-primario" [disabled]="guardando()">{{ pasoActual() === 1 ? 'Continuar' : editandoId() ? 'Guardar cambios' : 'Registrar expediente' }} <i class="pi" [class.pi-angle-right]="pasoActual() === 1" [class.pi-check]="pasoActual() === 2" aria-hidden="true"></i></button></div></footer>
+        <footer class="pie"><button type="button" class="boton-secundario" (click)="cancelar()">Cancelar</button><div class="acciones-pie">@if (pasoActual() === 2) {<button type="button" class="boton-secundario" (click)="pasoActual.set(1)">Anterior</button>}<button type="submit" class="boton-primario" [disabled]="guardando() || (pasoActual() === 1 && analizando())">{{ pasoActual() === 1 ? 'Continuar' : editandoId() ? 'Guardar cambios' : 'Registrar expediente' }} <i class="pi" [class.pi-angle-right]="pasoActual() === 1" [class.pi-check]="pasoActual() === 2" aria-hidden="true"></i></button></div></footer>
       </form>
     }
   </section>

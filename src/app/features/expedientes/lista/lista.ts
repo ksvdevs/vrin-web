@@ -1,6 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { debounceTime, distinctUntilChanged, forkJoin, Subscription } from 'rxjs';
+import { EMPTY, debounceTime, distinctUntilChanged, expand, forkJoin, Observable, reduce, Subscription } from 'rxjs';
 import { FormBuilder, FormsModule, ReactiveFormsModule } from '@angular/forms';
 import { Router, RouterLink, RouterOutlet } from '@angular/router';
 
@@ -79,6 +79,8 @@ export class ListaExpedientes implements OnInit {
   protected readonly actualizandoPlantillas = signal(false);
   protected readonly seleccionCartaId = signal<number | null>(null);
   protected readonly seleccionResolucionId = signal<number | null>(null);
+  protected readonly tipoCartaId = signal<number | null>(null);
+  protected readonly tipoResolucionId = signal<number | null>(null);
 
   protected readonly esSecretariaOAdmin = computed(() =>
     ['SECRETARIA', 'ADMINISTRADOR_GENERAL'].includes(this.auth.usuarioActual()?.rol_codigo ?? ''),
@@ -127,11 +129,13 @@ export class ListaExpedientes implements OnInit {
       this.seleccionResolucionId.set(cache.resolucionId);
     }
     this.actualizandoPlantillas.set(true);
-    forkJoin({ plantillas: this.plantillaService.listar({ estado: 'ACTIVO' }, 1, 100), selecciones: this.seleccionService.listarVigentes() })
+    forkJoin({ tipos: this.plantillaService.listarTipos(), plantillas: this.listarPlantillasActivas(), selecciones: this.seleccionService.listarVigentes() })
       .pipe(takeUntilDestroyed(this.destroyRef)).subscribe({
-        next: ({ plantillas, selecciones }) => {
-          const cartas = plantillas.data.filter(p => p.tipo_documento?.codigo === 'CARTA');
-          const resoluciones = plantillas.data.filter(p => p.tipo_documento?.codigo === 'RESOLUCION');
+        next: ({ tipos, plantillas, selecciones }) => {
+          const cartas = plantillas.filter(p => p.tipo_documento?.codigo === 'CARTA' && p.sin_mapeo.length === 0);
+          const resoluciones = plantillas.filter(p => p.tipo_documento?.codigo === 'RESOLUCION' && p.sin_mapeo.length === 0);
+          this.tipoCartaId.set(tipos.find(t => t.codigo === 'CARTA')?.id ?? null);
+          this.tipoResolucionId.set(tipos.find(t => t.codigo === 'RESOLUCION')?.id ?? null);
           const cartaId = selecciones.find(s => s.tipo_documento?.codigo === 'CARTA')?.plantilla?.id ?? null;
           const resolucionId = selecciones.find(s => s.tipo_documento?.codigo === 'RESOLUCION')?.plantilla?.id ?? null;
           this.plantillasCarta.set(cartas);
@@ -148,12 +152,22 @@ export class ListaExpedientes implements OnInit {
       });
   }
 
-  protected alCambiarPlantilla(tipoDocumentoId: number, plantillaId: number | null): void {
-    if (plantillaId === null || this.actualizandoPlantillas()) {
+  private listarPlantillasActivas(): Observable<Plantilla[]> {
+    return this.plantillaService.listar({ estado: 'ACTIVO' }, 1, 100).pipe(
+      expand((respuesta) => respuesta.current_page < respuesta.last_page
+        ? this.plantillaService.listar({ estado: 'ACTIVO' }, respuesta.current_page + 1, 100)
+        : EMPTY),
+      reduce((todas, respuesta) => [...todas, ...respuesta.data], [] as Plantilla[]),
+    );
+  }
+
+  protected alCambiarPlantilla(tipoDocumentoId: number | null, plantillaId: number | null): void {
+    if (tipoDocumentoId === null || plantillaId === null || this.actualizandoPlantillas()) {
       return;
     }
-    const anterior = tipoDocumentoId === 1 ? this.seleccionCartaId() : this.seleccionResolucionId();
-    if (tipoDocumentoId === 1) this.seleccionCartaId.set(plantillaId);
+    const esCarta = tipoDocumentoId === this.tipoCartaId();
+    const anterior = esCarta ? this.seleccionCartaId() : this.seleccionResolucionId();
+    if (esCarta) this.seleccionCartaId.set(plantillaId);
     else this.seleccionResolucionId.set(plantillaId);
     this.actualizandoPlantillas.set(true);
     this.seleccionService
@@ -164,7 +178,7 @@ export class ListaExpedientes implements OnInit {
       })
       .subscribe({
         next: () => {
-          if (tipoDocumentoId === 1) this.seleccionCartaId.set(plantillaId);
+          if (esCarta) this.seleccionCartaId.set(plantillaId);
           else this.seleccionResolucionId.set(plantillaId);
           this.seleccionService.catalogo.update(cache => cache ? { ...cache, cartaId: this.seleccionCartaId(), resolucionId: this.seleccionResolucionId() } : null);
           this.actualizandoPlantillas.set(false);
@@ -175,7 +189,7 @@ export class ListaExpedientes implements OnInit {
           });
         },
         error: (error) => {
-          if (tipoDocumentoId === 1) this.seleccionCartaId.set(anterior);
+          if (esCarta) this.seleccionCartaId.set(anterior);
           else this.seleccionResolucionId.set(anterior);
           this.actualizandoPlantillas.set(false);
           this.mensajes.add({

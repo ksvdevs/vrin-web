@@ -89,6 +89,54 @@ describe('Asociación del docente extraído de la carta', () => {
     expect(componente['formulario'].controls.carta_docente_registro_numero.invalid).toBe(true);
   });
 
+  it('permite comparar el artículo con la carta aunque el OCR no encuentre la fecha y vuelve al dato pendiente al guardar', () => {
+    const componente = abrir();
+    expect(componente['formulario'].controls.carta_docente_fecha.invalid).toBe(true);
+
+    componente['continuar']();
+    expect(componente['pasoActual']()).toBe(2);
+
+    componente['guardar']();
+    expect(componente['pasoActual']()).toBe(1);
+    expect(componente['formulario'].controls.carta_docente_fecha.touched).toBe(true);
+  });
+
+  it('abre la carta en el drawer solo al pulsar Ver y conserva la vista entre pasos', () => {
+    const componente = abrir();
+    const archivo = new File(['%PDF-1.4'], 'carta.pdf', { type: 'application/pdf' });
+    componente['archivoPreparado'].set(archivo);
+    componente['urlCarta'].set('blob:carta' as ReturnType<typeof componente['urlCarta']>);
+
+    componente['continuar']();
+    expect(componente['vistaCartaVisible']()).toBe(false);
+
+    componente['verCarta']();
+    expect(componente['vistaCartaVisible']()).toBe(true);
+
+    componente['pasoActual'].set(1);
+    expect(componente['vistaCartaVisible']()).toBe(true);
+
+    componente['ocultarCarta']();
+    expect(componente['vistaCartaVisible']()).toBe(false);
+  });
+
+  it('bloquea análisis y sustitución de la carta mientras se revisa el artículo', () => {
+    const componente = abrir();
+    const carta = new File(['%PDF-1.4'], 'carta.pdf', { type: 'application/pdf' });
+    const reemplazo = new File(['%PDF-1.4'], 'reemplazo.pdf', { type: 'application/pdf' });
+    componente['archivoPreparado'].set(carta);
+    componente['continuar']();
+
+    componente['analizarCarta']();
+    componente['seleccionarCartaOcr']({ target: { files: [reemplazo], value: 'reemplazo.pdf' } } as unknown as Event);
+    componente['archivoSeleccionado'].set(reemplazo);
+    componente['subirCartaInicial']();
+
+    expect(analizarCarta).not.toHaveBeenCalled();
+    expect(componente['archivoPreparado']()).toBe(carta);
+    expect(componente['archivoSeleccionado']()).toBe(reemplazo);
+  });
+
   it('al editar muestra la facultad y conserva la fecha de registro de la carta', () => {
     obtener.mockReturnValue(of({
       carta_docente_numero: '017-2026', carta_docente_fecha: '2026-07-14',

@@ -1,5 +1,6 @@
 <main class="plantillas-page sgr-page sgr-management">
   <p-toast />
+  <p-confirmdialog />
 
   <header class="sgr-page-header">
     <div class="sgr-page-title">
@@ -8,13 +9,13 @@
         <h1>Gestor de plantillas documentales</h1>
         <p class="subtitulo">
           Plantillas DOCX para la generación de cartas VRIN y resoluciones.
-          El DOCX es inmutable: corregir = subir una nueva versión.
+          Cada registro conserva su propio archivo DOCX. Para cargar otro archivo, registra otra plantilla.
         </p>
       </div>
     </div>
     <div class="sgr-header-actions">
       @if (esAdmin()) {
-        <p-button label="Subir plantilla" icon="pi pi-upload" styleClass="sgr-primary-button" (onClick)="dialogoSubida.set(true)" />
+        <p-button label="Subir plantilla" styleClass="sgr-primary-button" (onClick)="abrirSubida()" />
       }
     </div>
   </header>
@@ -98,6 +99,7 @@
         <th>TIPO</th>
         <th>VERSIÓN</th>
         <th>ESTADO</th>
+        <th>SELECCIÓN</th>
         <th>TOKENS</th>
         <th>ADVERTENCIAS</th>
         <th>FECHA</th>
@@ -118,9 +120,16 @@
             [severity]="p.estado === 'ACTIVO' ? 'success' : 'secondary'"
           />
         </td>
+        <td>
+          @if (p.vigente) {
+            <a routerLink="/expedientes" title="Cambia la plantilla vigente en Expedientes">Vigente</a>
+          } @else { — }
+        </td>
         <td>{{ p.tokens_count }}</td>
         <td>
-          @if (p.sin_mapeo.length > 0) {
+          @if (p.tokens_count === 0) {
+            <span class="tokens-advertencia">Sin campos</span>
+          } @else if (p.sin_mapeo.length > 0) {
             <span class="tokens-advertencia" [title]="p.sin_mapeo.join(', ')">
               {{ p.sin_mapeo.length }} sin mapeo
             </span>
@@ -131,14 +140,21 @@
         <td>{{ p.created_at ? (p.created_at | date: 'dd/MM/yyyy') : '—' }}</td>
         @if (esAdmin()) {
           <td class="col-acciones">
+            <button type="button" class="accion" (click)="abrirEdicion(p)" [attr.aria-label]="'Editar nombre de ' + p.nombre" [title]="'Editar nombre de ' + p.nombre">
+              <i class="pi pi-pencil" aria-hidden="true"></i>
+            </button>
             <button
               type="button"
               class="accion"
               (click)="alternarEstado(p)"
+              [disabled]="p.vigente && p.estado === 'ACTIVO'"
               [attr.aria-label]="(p.estado === 'ACTIVO' ? 'Desactivar ' : 'Activar ') + p.nombre"
-              [title]="(p.estado === 'ACTIVO' ? 'Desactivar ' : 'Activar ') + p.nombre"
+              [title]="p.vigente && p.estado === 'ACTIVO' ? 'Selecciona otra plantilla vigente antes de desactivar' : (p.estado === 'ACTIVO' ? 'Desactivar ' : 'Activar ') + p.nombre"
             >
               <i [class]="p.estado === 'ACTIVO' ? 'pi pi-ban' : 'pi pi-check'" aria-hidden="true"></i>
+            </button>
+            <button type="button" class="accion" (click)="confirmarEliminar(p)" [disabled]="p.vigente" [attr.aria-label]="'Eliminar ' + p.nombre" [title]="p.vigente ? 'Selecciona otra plantilla vigente antes de eliminar' : 'Eliminar ' + p.nombre">
+              <i class="pi pi-trash" aria-hidden="true"></i>
             </button>
           </td>
         }
@@ -146,7 +162,7 @@
     </ng-template>
     <ng-template #emptymessage>
       <tr>
-        <td [attr.colspan]="esAdmin() ? 9 : 8" class="vacio">
+        <td [attr.colspan]="esAdmin() ? 10 : 9" class="vacio">
           @if (!cargando()) {
             No se encontraron plantillas.
           }
@@ -175,7 +191,7 @@
         <p-select
           inputId="tipo"
           formControlName="tipo_documento_id"
-          [options]="tipos"
+          [options]="tipos()"
           optionLabel="nombre"
           optionValue="id"
           placeholder="Selecciona el tipo"
@@ -204,18 +220,35 @@
       <p class="nota">
         <i class="pi pi-info-circle"></i>
         Al subir se indexan los tokens del documento. Los tokens sin mapeo conocido se
-        reportan como advertencia; el DOCX queda inmutable (corregir = subir nueva versión).
+        reportan como advertencia. Para usar otro DOCX, registra otra plantilla.
       </p>
     </form>
     <ng-template #footer>
       <p-button label="Cancelar" severity="secondary" styleClass="sgr-secondary-button" (onClick)="dialogoSubida.set(false)" />
       <p-button
         label="Subir"
-        icon="pi pi-upload"
         styleClass="sgr-primary-button"
         [loading]="subiendo()"
+        [disabled]="subiendo() || tipos().length === 0"
         (onClick)="subir()"
       />
+    </ng-template>
+  </p-dialog>
+
+  <p-dialog header="Editar nombre de plantilla" [(visible)]="dialogoEdicion" [modal]="true" [style]="{ width: '30rem' }">
+    <form [formGroup]="formularioEdicion" (ngSubmit)="guardarEdicion()" class="formulario">
+      <div class="campo">
+        <label for="nombre-edicion">Nombre de la plantilla *</label>
+        <input pInputText id="nombre-edicion" formControlName="nombre" maxlength="150" />
+        @if (formularioEdicion.controls.nombre.touched && formularioEdicion.controls.nombre.invalid) {
+          <small class="error">Ingresa un nombre de hasta 150 caracteres.</small>
+        }
+      </div>
+      <p class="nota">Aquí solo se modifica el nombre. Para cargar otro DOCX, registra otra plantilla.</p>
+    </form>
+    <ng-template #footer>
+      <p-button label="Cancelar" severity="secondary" styleClass="sgr-secondary-button" (onClick)="dialogoEdicion.set(false)" />
+      <p-button label="Guardar cambios" icon="pi pi-check" styleClass="sgr-primary-button" [loading]="editando()" (onClick)="guardarEdicion()" />
     </ng-template>
   </p-dialog>
 </main>

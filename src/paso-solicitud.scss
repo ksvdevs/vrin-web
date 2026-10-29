@@ -15,10 +15,11 @@
   .registro-acciones { margin-left: auto; display: flex; align-items: center; gap: .65rem; .estado-registro { margin-left: 0; } .p-button { font-size: .75rem; border-radius: 8px; } }
   .completo { background: #e6f5ee; color: #00805a; }
   .estado-registro.no-cumple { background: #fde8e8; color: #b44040; }
-  .datos-carta { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .85rem;
-    .campo { gap: .4rem; }
+  .datos-carta { grid-template-columns: minmax(0, 1fr); gap: .85rem;
+    .datos-carta-fila { display: grid; grid-template-columns: minmax(0, 2.6fr) minmax(0, 1fr); gap: .85rem; align-items: stretch; }
+    .campo { gap: .4rem; min-width: 0; }
     .etiqueta-carta { color: #58738f; font-size: .7rem; font-weight: 500; }
-    .valor-carta { display: flex; align-items: center; min-height: 44px; padding: .85rem; border: 1px solid #dbe5ef; border-radius: 10px; background: #fff; color: #38536c; font-size: .75rem; overflow-wrap: anywhere; }
+    .valor-carta { display: flex; align-items: center; flex: 1; min-height: 46px; padding: .6rem .75rem; border: 1px solid #dbe5ef; border-radius: 10px; background: #fff; color: #38536c; font-size: .75rem; line-height: 1.4; overflow-wrap: anywhere; }
   }
   .etiqueta { font-size: .6rem; color: #8197ac; font-weight: 500; text-transform: uppercase; letter-spacing: .04em; }
   .documento-solicitud > p { margin: 0 0 .8rem; font-size: .8rem; }
@@ -49,7 +50,7 @@
   .siguiente-solicitud .p-button { background: #245693; border-color: #245693; border-radius: 9px; font-size: .8rem; }
 }
 @media (max-width: 800px) { .paso-solicitud .contenido { grid-template-columns: minmax(0, 1fr); } .paso-solicitud .resumen-solicitud { min-height: auto; } }
-@media (max-width: 600px) { .paso-solicitud { padding: 1.25rem .75rem; .registro-solicitud { padding: 1rem; } .datos-carta { grid-template-columns: 1fr; } .registro-cabecera { flex-wrap: wrap; } .registro-acciones { width: 100%; justify-content: space-between; } } }.pasos-solicitud { display: flex; background: #fff; border: 1px solid #dfe7ef; border-radius: 15px; padding: 1.25rem 2rem 1.75rem;
+@media (max-width: 600px) { .paso-solicitud { padding: 1.25rem .75rem; .registro-solicitud { padding: 1rem; } .datos-carta .datos-carta-fila { grid-template-columns: 1fr; } .registro-cabecera { flex-wrap: wrap; } .registro-acciones { width: 100%; justify-content: space-between; } } }.pasos-solicitud { display: flex; background: #fff; border: 1px solid #dfe7ef; border-radius: 15px; padding: 1.25rem 2rem 1.75rem;
   button { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: .45rem; background: none; border: 0; color: #58738f; cursor: pointer; font-family: inherit; padding: 0 .25rem;
     &:not(:last-child)::after { content: ''; position: absolute; height: 3px; background: #dfe7ef; left: calc(50% + 25px); right: calc(-50% + 25px); top: 18px; }
     strong { font-size: .65rem; font-weight: 500; } small { font-size: .55rem; color: #879bb0; }
