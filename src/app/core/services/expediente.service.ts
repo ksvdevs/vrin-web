@@ -203,7 +203,7 @@ export class ExpedienteService {
     return this.api.post(`/expedientes/${id}/rendicion/doi`, payload);
   }
 
-  cerrarRendicion(id: number, payload: { fecha_informe: string; doi?: string | null }): Observable<unknown> {
+  cerrarRendicion(id: number, payload: { fecha_informe: string; doi: string }): Observable<unknown> {
     return this.api.post(`/expedientes/${id}/rendicion/cerrar`, payload);
   }
 }

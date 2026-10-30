@@ -198,25 +198,12 @@
         }
 
         @if (indiceActivoVisible() === 2) {
-          <section class="tarjeta registro-solicitud resolucion-principal">
+          <section class="tarjeta registro-solicitud resolucion-principal" [class.resolucion-en-edicion]="puedeRegistrarOpp() || editandoOpp()">
             <div class="registro-cabecera"><span class="registro-icono"><i class="pi pi-book"></i></span><div><h2>{{ editandoOpp() ? 'Editar información de la resolución' : docResolucionGenerada() ? 'Resolución VRIN' : 'Preparar resolución VRIN' }}</h2><p>{{ editandoOpp() ? 'Actualiza los datos y revisa la nueva versión antes de reemplazar el documento vigente.' : docResolucionGenerada() ? 'Consulta y administra la resolución generada para este expediente.' : 'Carga la respuesta de OPP, valida la disponibilidad y completa los datos de la resolución.' }}</p></div>@if (docResolucionGenerada()) { <span class="estado-registro" [class.completo]="!editandoOpp()">{{ editandoOpp() ? 'Editando' : 'Generada' }}</span> }</div>
-            @if (docResolucionGenerada(); as doc) {
-              @if (driveConectado() === false && puedeConectarDrive()) {
-                <div class="aviso-carta aviso-version">
-                  <i class="pi pi-cloud"></i>
-                  <div><strong>Conectar Google Drive</strong><p>Autoriza la cuenta institucional para guardar las resoluciones al descargarlas.</p></div>
-                  <p-button label="Conectar Drive" icon="pi pi-external-link" severity="secondary" [outlined]="true" (onClick)="conectarDrive()" />
-                  <p-button label="Comprobar conexión" severity="secondary" [text]="true" (onClick)="consultarEstadoDrive()" />
-                </div>
-              }
-              <div class="documentos-cabecera"><div><strong>Resoluciones generadas</strong><small>{{ versionesResolucion().length }} {{ versionesResolucion().length === 1 ? 'versión asociada' : 'versiones asociadas' }} al expediente</small></div><span class="vigente">VIGENTE</span></div>
-              <div class="archivo-solicitud documento-generado"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>{{ doc.nombre_archivo || 'Resolución · Versión ' + doc.version + '.docx' }}</strong><small>Generada el {{ doc.generado_at }} · {{ doc.drive_file_id ? 'Guardada en Drive' : 'Pendiente de Drive' }}</small></div><div class="documento-acciones"><p-button label="Ver resolución" icon="pi pi-eye" severity="secondary" [outlined]="true" (onClick)="verResolucionGenerada(doc)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar resolución en Word (.docx)" [loading]="sincronizandoDriveId() === doc.id" (onClick)="descargarDocResolucion('docx', doc)" /><p-button icon="pi pi-external-link" severity="secondary" [outlined]="true" ariaLabel="Abrir carpeta de resoluciones en Google Drive" (onClick)="abrirCarpetaResolucionesDrive()" /></div></div>
-              @if (versionesResolucion().length > 1) { <details class="historial-cartas"><summary>Ver historial de versiones</summary>@for (version of versionesResolucion(); track version.id) { @if (!version.es_vigente) { <div class="archivo-solicitud"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>{{ version.nombre_archivo || 'Resolución · Versión ' + version.version + '.docx' }}</strong><small>{{ version.generado_at }} · {{ version.drive_file_id ? 'Guardada en Drive' : 'Pendiente de Drive' }}</small></div><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver resolución anterior" (onClick)="verResolucionGenerada(version)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar resolución anterior en Word (.docx)" [loading]="sincronizandoDriveId() === version.id" (onClick)="descargarDocResolucion('docx', version)" /><p-button icon="pi pi-external-link" severity="secondary" [outlined]="true" ariaLabel="Abrir carpeta de resoluciones en Google Drive" (onClick)="abrirCarpetaResolucionesDrive()" /></div> } } </details> }
-              <div class="aviso-carta"><i class="pi pi-check"></i><div><strong>La resolución ya fue generada</strong><p>El documento vigente y las versiones anteriores están disponibles en este expediente.</p></div></div>
-              @if (editandoOpp()) { <div class="aviso-carta aviso-version"><i class="pi pi-clock"></i><div><strong>Se creará una nueva versión</strong><p>La resolución vigente se conservará en el historial.</p></div></div> }
-            }
           @if (puedeRegistrarOpp() || editandoOpp()) {
             <form [formGroup]="oppForm" class="formulario form-etapa" (ngSubmit)="guardarRespuestaOpp()">
+              <div class="resolucion-carga-card">
+              <div class="resolucion-opciones">
               <fieldset class="opciones-resolucion"><legend>¿Existe disponibilidad presupuestal?</legend>
                 <label><input type="radio" formControlName="disponibilidad" value="SI" /> Sí, existe disponibilidad</label>
                 <label><input type="radio" formControlName="disponibilidad" value="NO" [disabled]="editandoOpp()" /> No hay disponibilidad</label>
@@ -225,6 +212,7 @@
                 <label><input type="radio" name="modoOpp" [checked]="modoOpp() === 'IA'" (change)="modoOpp.set('IA')" /> Autocompletar con IA</label>
                 <label><input type="radio" name="modoOpp" [checked]="modoOpp() === 'MANUAL'" (change)="modoOpp.set('MANUAL')" /> Registro manual</label>
               </fieldset>
+              </div>
               <div class="campo"><label for="archivo_opp">Carta de respuesta de OPP</label>
                 <div class="carga-opp"><div class="archivo-campo-opp">
                     <label class="boton-archivo-opp" for="archivo_opp">Elegir archivo</label>
@@ -234,60 +222,30 @@
                   </div>
                   <p-button label="Subir" icon="pi pi-upload" [loading]="adjuntandoOpp() || analizandoOpp()" [disabled]="!archivoOppSeleccionado() || adjuntandoOpp() || analizandoOpp()" (onClick)="subirEscaneoOpp()" />
                 </div>
-                @if (modoOpp() === 'IA') { <small class="ayuda">Al subirla, la IA propondrá datos. Revísalos antes de guardar.</small> }
-                @if (adjuntosOpp().length > 0) { <div class="archivo-solicitud documento-generado"><span class="pdf-insignia">PDF</span><div class="archivo-info"><strong>{{ adjuntosOpp()[0].nombre_original }}</strong><small>Documento original de OPP</small></div><div class="documento-acciones"><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver carta OPP" (onClick)="verArchivoOpp(adjuntosOpp()[0])" /></div></div> }
+                @if (modoOpp() === 'IA') { <small class="ayuda">Después de subir la carta, selecciona Analizar y revisa los datos propuestos antes de guardar.</small> }
+                @if (adjuntosOpp().length > 0) { <div class="archivo-solicitud documento-generado"><span class="opp-archivo-icono"><i class="pi pi-file"></i></span><div class="archivo-info"><strong>{{ adjuntosOpp()[0].nombre_original }}</strong><small>Documento original de OPP</small></div><div class="documento-acciones"><p-button [label]="vistaArchivoOppEnPagina() ? 'Ocultar' : 'Ver'" [icon]="vistaArchivoOppEnPagina() ? 'pi pi-times' : 'pi pi-eye'" severity="secondary" [outlined]="true" (onClick)="vistaArchivoOppEnPagina() ? vistaArchivoOppEnPagina.set(false) : verArchivoOpp(adjuntosOpp()[0], true)" />@if (modoOpp() === 'IA') { <p-button label="Analizar" icon="pi pi-sparkles" severity="success" [loading]="analizandoOpp()" [disabled]="adjuntandoOpp() || analizandoOpp()" (onClick)="analizarAdjuntoOpp(adjuntosOpp()[0])" /> }</div></div> }
               </div>
-              <h3 class="seccion-resolucion">Datos de la carta OPP</h3>
+              </div>
               @if (oppForm.controls.disponibilidad.value === 'SI') {
-                <div class="fila">
-                  <div class="campo">
-                    <label for="monto_aprobado">Monto aprobado (S/) *</label>
-                    <p-inputnumber
-                      inputId="monto_aprobado"
-                      formControlName="monto_aprobado"
-                      mode="currency"
-                      currency="PEN"
-                      locale="es-PE"
-                      [min]="0.01"
-                      [minFractionDigits]="2"
-                      [maxFractionDigits]="2"
-                      styleClass="numero-ancho"
-                    />
-                  </div>
-                  <div class="campo">
-                    <label for="meta">Meta presupuestal *</label>
-                    <input
-                      pInputText
-                      id="meta"
-                      formControlName="meta_presupuestal"
-                      maxlength="3"
-                      placeholder="3 dígitos, p. ej. 017"
-                    />
-                    <small class="ayuda">Formato: 3 dígitos.</small>
-                  </div>
-                </div>
-                <div class="fila">
-                  <div class="campo">
-                    <label for="especifica">Específica de gasto *</label>
-                    <input
-                      pInputText
-                      id="especifica"
-                      formControlName="especifica_gasto"
-                      maxlength="30"
-                      placeholder="p. ej. 2.3.27.11 99"
-                    />
-                  </div>
-                  <div class="campo">
-                    <label for="fuente">Fuente de financiamiento *</label>
-                    <input
-                      pInputText
-                      id="fuente"
-                      formControlName="fuente_financiamiento"
-                      maxlength="100"
-                    />
-                  </div>
+                <div class="resolucion-campos-principales" [formGroup]="resolucionForm" aria-label="Datos de la resolución">
+                  <div class="campo"><label for="res_numero">Número de resolución *</label><input pInputText id="res_numero" type="number" formControlName="numero" min="1" /></div>
+                  <div class="campo"><label for="res_anio">Año *</label><input pInputText id="res_anio" type="number" formControlName="anio" /></div>
+                  <div class="campo"><label for="res_fecha">Fecha de emisión VRIN *</label><p-datepicker inputId="res_fecha" formControlName="fecha_emision" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" /></div>
+                  <div class="campo"><label for="res_carta_especialista">Carta especialista investigación *</label><input pInputText id="res_carta_especialista" formControlName="carta_especialista_investigacion" maxlength="160" />@if (resolucionForm.controls.carta_especialista_investigacion.touched && resolucionForm.controls.carta_especialista_investigacion.invalid) { <small class="error">Ingresa la carta del especialista.</small> }</div>
+                  <div class="campo"><label for="res_fecha_carta_especialista">Fecha carta especialista investigación *</label><p-datepicker inputId="res_fecha_carta_especialista" formControlName="fecha_carta_especialista_investigacion" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" />@if (resolucionForm.controls.fecha_carta_especialista_investigacion.touched && resolucionForm.controls.fecha_carta_especialista_investigacion.invalid) { <small class="error">Selecciona la fecha de la carta.</small> }</div>
                 </div>
               }
+              <div class="resolucion-trabajo" [class.con-vista]="vistaArchivoOppEnPagina()">
+                @if (vistaArchivoOppEnPagina()) {
+                  <section class="resolucion-documento" aria-label="Vista de carta de respuesta OPP">
+                    <div class="resolucion-documento-cabecera"><span class="opp-archivo-icono"><i class="pi pi-file-pdf"></i></span><div><strong>{{ adjuntosOpp()[0]?.nombre_original }}</strong><small>Carta de respuesta OPP</small></div><p-button icon="pi pi-window-maximize" severity="secondary" [outlined]="true" ariaLabel="Ampliar carta OPP" (onClick)="vistaArchivoOppVisible.set(true)" /></div>
+                    @if (urlArchivoOpp(); as url) { <iframe [src]="url" title="Carta de respuesta OPP" class="resolucion-documento-iframe"></iframe> }
+                    @else if (errorArchivoOpp()) { <p class="resolucion-documento-estado">No se pudo mostrar la carta OPP.</p> }
+                    @else { <p class="resolucion-documento-estado">Cargando carta…</p> }
+                  </section>
+                }
+                <div class="resolucion-datos">
+              <h3 class="seccion-resolucion">Datos de la carta OPP</h3>
               <div class="fila">
                 <div class="campo">
                   <label for="carta_opp_numero">Número de carta OPP *</label>
@@ -345,15 +303,18 @@
               </div>
 
               @if (oppForm.controls.disponibilidad.value === 'SI') {
-                <h3 class="seccion-resolucion">Datos de la resolución</h3>
-                <div class="fila" [formGroup]="resolucionForm">
-                  <div class="campo"><label for="res_numero">Número de resolución *</label><input pInputText id="res_numero" type="number" formControlName="numero" min="1" /></div>
-                  <div class="campo"><label for="res_anio">Año *</label><input pInputText id="res_anio" type="number" formControlName="anio" /></div>
-                  <div class="campo"><label for="res_fecha">Fecha de emisión VRIN *</label><p-datepicker inputId="res_fecha" formControlName="fecha_emision" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" /></div>
-                  <div class="campo"><label for="res_carta_especialista">Carta especialista investigación *</label><input pInputText id="res_carta_especialista" formControlName="carta_especialista_investigacion" maxlength="160" />@if (resolucionForm.controls.carta_especialista_investigacion.touched && resolucionForm.controls.carta_especialista_investigacion.invalid) { <small class="error">Ingresa la carta del especialista.</small> }</div>
-                  <div class="campo"><label for="res_fecha_carta_especialista">Fecha carta especialista investigación *</label><p-datepicker inputId="res_fecha_carta_especialista" formControlName="fecha_carta_especialista_investigacion" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" />@if (resolucionForm.controls.fecha_carta_especialista_investigacion.touched && resolucionForm.controls.fecha_carta_especialista_investigacion.invalid) { <small class="error">Selecciona la fecha de la carta.</small> }</div>
+                <div class="fila">
+                  <div class="campo"><label for="especifica">Específica de gasto *</label><input pInputText id="especifica" formControlName="especifica_gasto" maxlength="30" placeholder="p. ej. 2.3.27.11 99" /></div>
+                  <div class="campo"><label for="meta">Meta presupuestal *</label><input pInputText id="meta" formControlName="meta_presupuestal" maxlength="3" placeholder="3 dígitos, p. ej. 017" /><small class="ayuda">Formato: 3 dígitos.</small></div>
+                </div>
+                <div class="fila">
+                  <div class="campo"><label for="fuente">Fuente de financiamiento *</label><input pInputText id="fuente" formControlName="fuente_financiamiento" maxlength="100" /></div>
+                  <div class="campo"><label for="monto_aprobado">Monto aprobado (S/) *</label><p-inputnumber inputId="monto_aprobado" formControlName="monto_aprobado" mode="currency" currency="PEN" locale="es-PE" [min]="0.01" [minFractionDigits]="2" [maxFractionDigits]="2" styleClass="numero-ancho" /></div>
                 </div>
               }
+
+                </div>
+              </div>
             </form>
           } @else if (e.respuesta_opp; as opp) {
             @if (adjuntosOpp().length > 0) { <div class="archivo-solicitud documento-generado"><span class="pdf-insignia">PDF</span><div class="archivo-info"><strong>{{ adjuntosOpp()[0].nombre_original }}</strong><small>Documento original de OPP</small></div><div class="documento-acciones"><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver carta OPP" (onClick)="verArchivoOpp(adjuntosOpp()[0])" /></div></div> }
@@ -379,6 +340,21 @@
           } @else {
             <p class="pendiente">{{ e.estado === 'EN_ESPERA_OPP' ? 'Pendiente de registro por Secretaría.' : 'Genera primero la carta VRIN / OPP en el paso 2.' }}</p>
           }
+            @if (docResolucionGenerada(); as doc) {
+              @if (driveConectado() === false && puedeConectarDrive()) {
+                <div class="aviso-carta aviso-version">
+                  <i class="pi pi-cloud"></i>
+                  <div><strong>Conectar Google Drive</strong><p>Autoriza la cuenta institucional para guardar las resoluciones al descargarlas.</p></div>
+                  <p-button label="Conectar Drive" icon="pi pi-external-link" severity="secondary" [outlined]="true" (onClick)="conectarDrive()" />
+                  <p-button label="Comprobar conexión" severity="secondary" [text]="true" (onClick)="consultarEstadoDrive()" />
+                </div>
+              }
+              <div class="documentos-cabecera"><div><strong>Resoluciones generadas</strong><small>{{ versionesResolucion().length }} {{ versionesResolucion().length === 1 ? 'versión asociada' : 'versiones asociadas' }} al expediente</small></div><span class="vigente">VIGENTE</span></div>
+              <div class="archivo-solicitud documento-generado"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>{{ doc.nombre_archivo || 'Resolución · Versión ' + doc.version + '.docx' }}</strong><small>Generada el {{ doc.generado_at }} · {{ doc.drive_file_id ? 'Guardada en Drive' : 'Pendiente de Drive' }}</small></div><div class="documento-acciones"><p-button label="Ver resolución" icon="pi pi-eye" severity="secondary" [outlined]="true" (onClick)="verResolucionGenerada(doc)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar resolución en Word (.docx)" [loading]="sincronizandoDriveId() === doc.id" (onClick)="descargarDocResolucion('docx', doc)" /><p-button icon="pi pi-external-link" severity="secondary" [outlined]="true" ariaLabel="Abrir carpeta de resoluciones en Google Drive" (onClick)="abrirCarpetaResolucionesDrive()" /></div></div>
+              @if (versionesResolucion().length > 1) { <details class="historial-cartas"><summary>Ver historial de versiones</summary>@for (version of versionesResolucion(); track version.id) { @if (!version.es_vigente) { <div class="archivo-solicitud"><span class="word-insignia">DOCX</span><div class="archivo-info"><strong>{{ version.nombre_archivo || 'Resolución · Versión ' + version.version + '.docx' }}</strong><small>{{ version.generado_at }} · {{ version.drive_file_id ? 'Guardada en Drive' : 'Pendiente de Drive' }}</small></div><p-button icon="pi pi-eye" severity="secondary" [outlined]="true" ariaLabel="Ver resolución anterior" (onClick)="verResolucionGenerada(version)" /><p-button icon="pi pi-download" severity="secondary" [outlined]="true" ariaLabel="Descargar resolución anterior en Word (.docx)" [loading]="sincronizandoDriveId() === version.id" (onClick)="descargarDocResolucion('docx', version)" /><p-button icon="pi pi-external-link" severity="secondary" [outlined]="true" ariaLabel="Abrir carpeta de resoluciones en Google Drive" (onClick)="abrirCarpetaResolucionesDrive()" /></div> } } </details> }
+              <div class="aviso-carta"><i class="pi pi-check"></i><div><strong>La resolución ya fue generada</strong><p>El documento vigente y las versiones anteriores están disponibles en este expediente.</p></div></div>
+              @if (editandoOpp()) { <div class="aviso-carta aviso-version"><i class="pi pi-clock"></i><div><strong>Se creará una nueva versión</strong><p>La resolución vigente se conservará en el historial.</p></div></div> }
+            }
           </section>
           <div class="acciones-carta-opp acciones-resolucion">
             @if (puedeRegistrarOpp() || editandoOpp()) {
@@ -443,7 +419,7 @@
                   <form [formGroup]="rendicionForm" class="rendicion-informe-form" (ngSubmit)="cerrarRendicion()">
                     <div class="fila rendicion-datos-informe">
                       <div class="campo"><label for="fecha_informe">Fecha de entrega del informe de rendición *</label><p-datepicker inputId="fecha_informe" formControlName="fecha_informe" dateFormat="dd/mm/yy" [minDate]="fechaMinimaInforme()" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" /></div>
-                      <div class="campo"><label for="doi_rendicion">DOI del artículo</label><input pInputText id="doi_rendicion" formControlName="doi" maxlength="255" placeholder="10.1234/ejemplo o https://doi.org/..." />@if (rendicionForm.controls.doi.touched && rendicionForm.controls.doi.invalid) { <small class="error">El DOI no puede superar los 255 caracteres.</small> }</div>
+                      <div class="campo"><label for="doi_rendicion">DOI del artículo *</label><input pInputText id="doi_rendicion" formControlName="doi" maxlength="255" required placeholder="10.1234/ejemplo o https://doi.org/..." />@if (rendicionForm.controls.doi.touched && (rendicionForm.controls.doi.hasError('required') || rendicionForm.controls.doi.hasError('pattern'))) { <small class="error">Ingresa el DOI del artículo.</small> }@else if (rendicionForm.controls.doi.touched && rendicionForm.controls.doi.hasError('maxlength')) { <small class="error">El DOI no puede superar los 255 caracteres.</small> }</div>
                     </div>
                   </form>
                 }

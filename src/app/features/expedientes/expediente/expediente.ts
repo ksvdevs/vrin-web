@@ -92,6 +92,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
   protected readonly modoOpp = signal<'IA' | 'MANUAL'>('IA');
   protected readonly archivoOppSeleccionado = signal<File | null>(null);
   protected readonly vistaArchivoOppVisible = signal(false);
+  protected readonly vistaArchivoOppEnPagina = signal(false);
   protected readonly urlArchivoOpp = signal<SafeResourceUrl | null>(null);
   protected readonly errorArchivoOpp = signal(false);
   private blobArchivoOpp?: string;
@@ -343,7 +344,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
 
   protected readonly rendicionForm = this.fb.group({
     fecha_informe: [new Date() as Date | null, Validators.required],
-    doi: ['', Validators.maxLength(255)],
+    doi: ['', [Validators.required, Validators.pattern(/\S/), Validators.maxLength(255)]],
   });
 
   constructor() {
@@ -389,6 +390,10 @@ export class VistaExpediente implements OnInit, OnDestroy {
     }
     this.expedienteService.obtener(id).subscribe({
       next: (detalle) => {
+        if (this.detalle()?.id !== detalle.id) {
+          this.vistaArchivoOppEnPagina.set(false);
+          this.urlArchivoOpp.set(null);
+        }
         this.detalle.set(detalle);
         if (this.pasoInicializado && !this.pasoDisponible(this.indiceActivoVisible())) {
           this.indiceActivoVisible.set([3, 2, 1, 0].find((paso) => this.pasoDisponible(paso)) ?? 0);
@@ -899,10 +904,11 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.editandoOpp.set(false);
   }
 
-  protected verArchivoOpp(archivo: ArchivoDetalle): void {
+  protected verArchivoOpp(archivo: ArchivoDetalle, enPagina = false): void {
     const detalle = this.detalle();
     if (!detalle) return;
-    this.vistaArchivoOppVisible.set(true);
+    this.vistaArchivoOppEnPagina.set(enPagina);
+    this.vistaArchivoOppVisible.set(!enPagina);
     this.urlArchivoOpp.set(null);
     this.errorArchivoOpp.set(false);
     this.archivoService.obtenerBlob(detalle.id, archivo.id).subscribe({
@@ -928,13 +934,13 @@ export class VistaExpediente implements OnInit, OnDestroy {
       next: (guardado) => {
         this.adjuntandoOpp.set(false);
         this.archivoOppSeleccionado.set(null);
+        this.vistaArchivoOppEnPagina.set(false);
         this.mensajes.add({
           severity: 'success',
           summary: 'Escaneo adjuntado',
           detail: guardado.nombre_original,
         });
         this.cargar(detalle.id, true);
-        if (this.modoOpp() === 'IA') this.analizarEscaneoOpp(archivo);
       },
       error: (error) => {
         this.adjuntandoOpp.set(false);
@@ -949,6 +955,27 @@ export class VistaExpediente implements OnInit, OnDestroy {
     });
   }
 
+  protected analizarAdjuntoOpp(archivo: ArchivoDetalle): void {
+    const detalle = this.detalle();
+    if (!detalle || this.modoOpp() !== 'IA' || this.analizandoOpp() || this.adjuntandoOpp()
+      || !this.adjuntosOpp().some((adjunto) => adjunto.id === archivo.id)) return;
+
+    this.analizandoOpp.set(true);
+    this.archivoService.obtenerBlob(detalle.id, archivo.id).subscribe({
+      next: (blob) => {
+        const archivoParaAnalisis = new File([blob], archivo.nombre_original, {
+          type: archivo.mime || blob.type || 'application/pdf',
+        });
+        this.analizarEscaneoOpp(archivoParaAnalisis);
+      },
+      error: () => {
+        this.analizandoOpp.set(false);
+        this.mensajes.add({ severity: 'error', summary: 'No se pudo leer la carta OPP',
+          detail: 'Comprueba que el archivo adjunto siga disponible e inténtalo de nuevo.' });
+      },
+    });
+  }
+
   private analizarEscaneoOpp(archivo: File): void {
     const detalle = this.detalle();
     if (!detalle) return;
@@ -956,6 +983,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
     this.expedienteService.analizarCartaOpp(detalle.id, archivo).subscribe({
       next: ({ datos }) => {
         this.analizandoOpp.set(false);
+        if (this.modoOpp() !== 'IA') return;
         const fecha = (valor: unknown): Date | null => typeof valor === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(valor)
           ? new Date(`${valor}T00:00:00`) : null;
         const texto = (valor: unknown): string => typeof valor === 'string' ? valor.trim() : '';
@@ -1583,7 +1611,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
         this.expedienteService
           .cerrarRendicion(detalle.id, {
             fecha_informe: this.iso(fecha) ?? '',
-            doi: this.rendicionForm.controls.doi.value?.trim() || null,
+            doi: this.rendicionForm.controls.doi.value!.trim(),
           })
           .subscribe({
             next: () => {

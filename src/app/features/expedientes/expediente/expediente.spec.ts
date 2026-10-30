@@ -368,8 +368,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     fixture.componentInstance['rendicionForm'].controls.fecha_informe.setValue(new Date(2026, 9, 10));
     const doiInput = fixture.nativeElement.querySelector('#doi_rendicion') as HTMLInputElement;
     expect(doiInput).not.toBeNull();
-    fixture.componentInstance['rendicionForm'].controls.doi.setValue('10.1234/articulo.2026');
-    fixture.componentInstance['rendicionForm'].controls.doi.markAsDirty();
+    expect(doiInput.required).toBe(true);
     const input = fixture.nativeElement.querySelector('#comprobante-rendicion') as HTMLInputElement;
     const archivo = new File(['PDF'], 'pago.pdf', { type: 'application/pdf' });
     Object.defineProperty(input, 'files', { configurable: true, value: [archivo] });
@@ -379,6 +378,13 @@ describe('Etapas de carta VRIN y resolución', () => {
     fixture.detectChanges();
 
     expect(fixture.nativeElement.textContent).toContain('pago.pdf');
+    expect(boton('Confirmar y cerrar rendición').disabled).toBe(true);
+    fixture.componentInstance['rendicionForm'].controls.doi.setValue('   ');
+    fixture.detectChanges();
+    expect(boton('Confirmar y cerrar rendición').disabled).toBe(true);
+    fixture.componentInstance['rendicionForm'].controls.doi.setValue('10.1234/articulo.2026');
+    fixture.componentInstance['rendicionForm'].controls.doi.markAsDirty();
+    fixture.detectChanges();
     expect(boton('Confirmar y cerrar rendición').disabled).toBe(false);
     const confirmar = TestBed.inject(ConfirmationService);
     vi.spyOn(confirmar, 'confirm').mockImplementation((opciones) => {
@@ -583,7 +589,11 @@ describe('Etapas de carta VRIN y resolución', () => {
   it('usa la IA de la carta OPP para proponer datos editables antes de guardar', async () => {
     esperarOpp();
     pasoQuery = '2';
-    api.subirArchivo.mockReturnValue(of({ nombre_original: 'respuesta.pdf' }));
+    api.subirArchivo.mockImplementation(() => {
+      detalle = { ...detalle, archivos: [{ id: 31, tipo: 'CARTA_OPP', etapa: 3, nombre_original: 'respuesta.pdf',
+        mime: 'application/pdf', tamano_bytes: 5, sha256: null, created_at: '2026-10-05' }] };
+      return of({ nombre_original: 'respuesta.pdf' });
+    });
     api.analizarCartaOpp.mockReturnValue(of({ datos: {
       disponibilidad: 'SI', monto_aprobado: 1500, meta_presupuestal: '017',
       especifica_gasto: '2.3.27.11', fuente_financiamiento: 'Recursos ordinarios',
@@ -591,6 +601,9 @@ describe('Etapas de carta VRIN y resolución', () => {
       registro_vrin_numero: '1538-2026-VRIN', registro_vrin_fecha: '2026-10-06',
     }, nombre_archivo: 'respuesta.pdf' }));
     await abrir();
+    const tieneBotonAnalizar = () => Array.from(fixture.nativeElement.querySelectorAll('button'))
+      .some((element) => (element as HTMLButtonElement).textContent?.trim() === 'Analizar');
+    expect(tieneBotonAnalizar()).toBe(false);
     const archivo = new File(['carta'], 'respuesta.pdf', { type: 'application/pdf' });
     const selector = fixture.nativeElement.querySelector('#archivo_opp') as HTMLInputElement;
     Object.defineProperty(selector, 'files', { configurable: true, value: [archivo] });
@@ -599,8 +612,19 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(fixture.nativeElement.querySelector('.etiqueta-archivo-opp')?.textContent).toContain('PDF');
     expect(fixture.nativeElement.querySelector('.nombre-archivo-opp')?.textContent).toContain('respuesta.pdf');
     fixture.componentInstance['subirEscaneoOpp']();
+    fixture.detectChanges();
     expect(api.subirArchivo).toHaveBeenCalledWith(1, archivo, 'CARTA_OPP', 3);
-    expect(api.analizarCartaOpp).toHaveBeenCalledWith(1, archivo);
+    expect(api.analizarCartaOpp).not.toHaveBeenCalled();
+    expect(boton('Ver')).toBeDefined();
+    expect(boton('Analizar')).toBeDefined();
+    fixture.componentInstance['modoOpp'].set('MANUAL');
+    fixture.detectChanges();
+    expect(tieneBotonAnalizar()).toBe(false);
+    fixture.componentInstance['modoOpp'].set('IA');
+    fixture.detectChanges();
+    boton('Analizar').click();
+    expect(archivos.obtenerBlob).toHaveBeenCalledWith(1, 31);
+    expect(api.analizarCartaOpp).toHaveBeenCalledWith(1, expect.objectContaining({ name: 'respuesta.pdf' }));
     expect(fixture.componentInstance['oppForm'].controls.carta_numero.value).toBe('017-2026-OPP');
     expect(fixture.componentInstance['oppForm'].controls.meta_presupuestal.value).toBe('017');
     expect(fixture.componentInstance['oppForm'].controls.carta_fecha.value?.getFullYear()).toBe(2026);

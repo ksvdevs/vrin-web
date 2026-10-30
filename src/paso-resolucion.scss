@@ -2,7 +2,36 @@
   min-width: 0;
   .cabecera-acciones { display: none; }
   .contenido, .columna-izquierda, .resolucion-principal, .resumen-solicitud { min-width: 0; }
+  .contenido { grid-template-columns: minmax(0, 1fr) minmax(290px, 338px); gap: 1rem; }
+  .resumen-solicitud { min-height: 820px; }
   .resolucion-principal { gap: 1.25rem; }
+  .resolucion-principal.resolucion-en-edicion { padding: 0; gap: 0; border: 0; background: transparent; box-shadow: none; }
+  .resolucion-en-edicion > .registro-cabecera { padding: 1rem 1.25rem; border: 1px solid #dfe7ef; border-bottom-color: #edf1f5; border-radius: 15px 15px 0 0; background: #fff; }
+  .resolucion-principal.resolucion-en-edicion > .formulario { margin-top: 0; gap: 1rem; }
+  .resolucion-en-edicion > :is(.documentos-cabecera, .archivo-solicitud, .historial-cartas, .aviso-carta) { margin-top: 1rem; }
+  .resolucion-carga-card { display: flex; flex-direction: column; gap: 1rem; min-width: 0; padding: 1rem 1.25rem 1.25rem; border: 1px solid #dfe7ef; border-top: 0; border-radius: 0 0 15px 15px; background: #fff; }
+  .resolucion-carga-card .archivo-solicitud.documento-generado { padding: .35rem 0 0; border: 0; background: transparent; }
+  .resolucion-carga-card .documento-acciones p-button[severity="success"] .p-button { border-color: #10b981; background: #10b981; color: #fff; }
+  .resolucion-opciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .resolucion-campos-principales { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr) minmax(0, 1.4fr) minmax(0, 1.5fr) minmax(0, 1.8fr); gap: .75rem; padding: 1.25rem 1rem; border: 1px solid #dfe7ef; border-radius: 15px; background: #fff; }
+  .resolucion-campos-principales .campo { min-width: 0; }
+  .resolucion-campos-principales .campo label { font-size: .62rem; white-space: nowrap; }
+  .resolucion-trabajo { min-width: 0; }
+  .resolucion-trabajo.con-vista { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 260px); align-items: start; gap: .85rem; }
+  .resolucion-datos { display: flex; flex-direction: column; gap: 1rem; min-width: 0; padding: 1.25rem; border: 1px solid #dfe7ef; border-radius: 12px; background: #fff; }
+  .resolucion-datos .fila { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+  .resolucion-trabajo.con-vista .resolucion-datos { padding: 1rem; }
+  .resolucion-trabajo.con-vista .resolucion-datos .fila { grid-template-columns: minmax(0, 1fr); gap: .85rem; }
+  .resolucion-trabajo.con-vista .seccion-resolucion { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+  .resolucion-documento { min-width: 0; overflow: hidden; border: 1px solid #dfe7ef; border-radius: 12px; background: #f4f7fb; }
+  .resolucion-documento-cabecera { display: flex; align-items: center; gap: .6rem; padding: .75rem; background: #fff; border-bottom: 1px solid #dfe7ef;
+    > div { flex: 1; min-width: 0; }
+    strong, small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    strong { font-size: .7rem; } small { margin-top: .25rem; font-size: .6rem; color: #879bb0; }
+    .pdf-insignia { padding: .55rem .4rem; }
+  }
+  .resolucion-documento-iframe { display: block; width: 100%; height: min(74vh, 920px); border: 0; }
+  .resolucion-documento-estado { display: grid; place-items: center; min-height: 320px; padding: 1rem; color: #627890; font-size: .8rem; text-align: center; }
   .registro-cabecera > div { min-width: 0; flex: 1; }
   .formulario { margin-top: .2rem; gap: 1rem; }
   .documento-generado ~ .formulario, .aviso-carta ~ .formulario { margin-top: 1.25rem; }
@@ -34,6 +63,7 @@
   .input-archivo-opp { position: absolute; width: 1px !important; height: 1px; padding: 0 !important; opacity: 0; }
   .etiqueta-archivo-opp { display: grid; place-items: center; flex: 0 0 auto; min-width: 29px; height: 29px; margin-left: 12px; padding: 0 4px; border-radius: 7px; background: #fff0f0; color: #cd5b5b; font-size: .55rem; font-weight: 700; }
   .nombre-archivo-opp { flex: 1; min-width: 0; padding: 0 13px; overflow: hidden; color: #627890; font-size: .7rem; text-overflow: ellipsis; white-space: nowrap; }
+  .opp-archivo-icono { display: grid; place-items: center; flex: 0 0 28px; width: 28px; height: 28px; border-radius: 7px; background: #eaf4ff; color: #2773b8; font-size: .85rem; }
   .documentos-cabecera { display: flex; justify-content: space-between; align-items: center; gap: .75rem; font-size: .75rem; small { display: block; margin-top: .4rem; font-size: .6rem; color: #96a7b8; } }
   .vigente { color: #00856c; background: #ecfcf5; padding: .4rem .7rem; border-radius: 20px; font-size: .55rem; }
   .documento-generado { background: #f7f9fc; padding: .85rem; gap: .75rem; .archivo-info { min-width: 0; } .p-button { font-size: .7rem; padding: .55rem .7rem; background: white; border-color: #dbe5ef; color: #58738f; } }
@@ -45,15 +75,24 @@
 }
 @media (max-width: 1250px) {
   .paso-resolucion .documento-generado { flex-wrap: wrap; .documento-acciones { width: 100%; justify-content: flex-end; } }
+  .paso-resolucion .resolucion-opciones { grid-template-columns: minmax(0, 1fr); }
+  .paso-resolucion .resolucion-campos-principales { grid-template-columns: repeat(3, minmax(0, 1fr)); .campo label { white-space: normal; } }
 }
 @media (max-width: 1000px) {
+  .paso-resolucion .contenido { grid-template-columns: minmax(0, 1fr); }
+  .paso-resolucion .resumen-solicitud { min-height: auto; }
   .paso-resolucion .pasos-solicitud { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.25rem .5rem; padding: 1.25rem .75rem; button { min-width: 0; padding: 0 .2rem; &::after { display: none; } strong, small { overflow-wrap: anywhere; } } }
+  .paso-resolucion .resolucion-trabajo.con-vista { grid-template-columns: minmax(0, 1fr); }
 }
 @media (max-width: 700px) {
   .paso-resolucion {
+    .contenido { grid-template-columns: minmax(0, 1fr); }
+    .resumen-solicitud { min-height: auto; }
     .registro-cabecera { flex-wrap: wrap; }
     .resolucion-principal, .resumen-solicitud { padding: 1rem; }
     .opciones-resolucion { grid-template-columns: 1fr; }
+    .resolucion-datos .fila { grid-template-columns: minmax(0, 1fr); }
+    .resolucion-campos-principales { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .carga-opp { flex-wrap: wrap; .archivo-campo-opp, > p-button { width: 100%; } .p-button { width: 100%; justify-content: center; } }
     .documentos-cabecera > div { min-width: 0; }
     .documento-generado .archivo-info, .historial-cartas .archivo-info { flex-basis: calc(100% - 60px); }
@@ -63,6 +102,7 @@
 }
 @media (max-width: 480px) {
   .paso-resolucion {
+    .resolucion-campos-principales { grid-template-columns: minmax(0, 1fr); }
     .titulo { min-width: 0; .linea-principal { min-width: 0; flex-wrap: wrap; } h1 { overflow-wrap: anywhere; } }
     .registro-cabecera .estado-registro { margin-left: 0; }
     .acciones-resolucion { align-items: stretch; flex-direction: column; > p-button, .acciones-carta-secundarias, .acciones-carta-secundarias p-button { width: 100%; } .acciones-carta-secundarias { flex-direction: column; } .p-button { width: 100%; justify-content: center; } }
