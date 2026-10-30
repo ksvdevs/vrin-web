@@ -1,4 +1,5 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { AbstractControl } from '@angular/forms';
 import { By } from '@angular/platform-browser';
 import { ActivatedRoute, convertToParamMap, provideRouter } from '@angular/router';
 import { ConfirmationService, MessageService } from 'primeng/api';
@@ -184,6 +185,9 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(formulario.controls.carta_aceptacion.value).toBe(false);
     expect(fixture.nativeElement.textContent).toContain('Motivo de la reevaluación');
     formulario.patchValue({ carta_aceptacion: true, motivo_correccion: 'Se revisó nuevamente la carta.' });
+    expect(drawer.resultado).toBe('NO_CUMPLE');
+    formulario.controls.observacion.setValue('');
+    expect(drawer.resultado).toBe('CUMPLE');
     drawer['guardar']();
 
     expect(api.validar).toHaveBeenCalledWith(1, {
@@ -488,6 +492,7 @@ describe('Etapas de carta VRIN y resolución', () => {
 
   it('guarda la respuesta en el paso 3 y habilita la resolución sin volver al paso 2', async () => {
     esperarOpp();
+    detalle.articulo!.monto_solicitado = 1600;
     await abrir();
     expect(fixture.componentInstance['indiceActivoVisible']()).toBe(1);
     fixture.componentInstance['cambiarPaso'](2);
@@ -504,12 +509,52 @@ describe('Etapas de carta VRIN y resolución', () => {
       fecha_carta_especialista_investigacion: new Date(2026, 9, 4),
     });
     fixture.detectChanges();
-    boton('Guardar cambios').click();
+    expect(fixture.nativeElement.textContent).toContain('Los montos no son iguales');
+    expect(fixture.nativeElement.textContent).toContain('el monto solicitado tomará el valor aprobado');
+    expect(boton('Guardar y previsualizar').disabled).toBe(false);
+    boton('Guardar y previsualizar').click();
     fixture.detectChanges();
     expect(api.registrarRespuestaOpp).toHaveBeenCalledTimes(1);
     expect(fixture.componentInstance['indiceActivoVisible']()).toBe(2);
     expect(resoluciones.preview).toHaveBeenCalledWith(1, expect.objectContaining({ numero: 13, carta_especialista_investigacion: 'CARTA N° 042-2026', fecha_carta_especialista_investigacion: '2026-10-04' }));
     expect(boton('Generar y guardar resolución')).toBeDefined();
+  });
+
+  it('habilita guardar y previsualizar solo con todos los datos obligatorios', async () => {
+    esperarOpp();
+    pasoQuery = '2';
+    await abrir();
+    const opp = fixture.componentInstance['oppForm'];
+    const resolucion = fixture.componentInstance['resolucionForm'];
+    expect(boton('Guardar y previsualizar').disabled).toBe(true);
+
+    opp.patchValue({ disponibilidad: 'SI', carta_numero: '017-OPP', carta_fecha: new Date(2026, 9, 5),
+      registro_vrin_numero: '123', registro_vrin_fecha: new Date(2026, 9, 5),
+      especifica_gasto: '2.3', meta_presupuestal: '017', fuente_financiamiento: 'Recursos', monto_aprobado: 1500 });
+    resolucion.patchValue({ numero: 13, anio: 2026, fecha_emision: new Date(2026, 9, 7),
+      carta_especialista_investigacion: 'CARTA N° 042-2026', fecha_carta_especialista_investigacion: new Date(2026, 9, 4) });
+    fixture.detectChanges();
+    expect(boton('Guardar y previsualizar').disabled).toBe(false);
+
+    const obligatorios: AbstractControl[] = [
+      opp.controls.carta_numero, opp.controls.carta_fecha, opp.controls.registro_vrin_numero,
+      opp.controls.registro_vrin_fecha, opp.controls.especifica_gasto, opp.controls.meta_presupuestal,
+      opp.controls.fuente_financiamiento, opp.controls.monto_aprobado,
+      resolucion.controls.numero, resolucion.controls.anio, resolucion.controls.fecha_emision,
+      resolucion.controls.carta_especialista_investigacion,
+      resolucion.controls.fecha_carta_especialista_investigacion,
+    ];
+    for (const control of obligatorios) {
+      const valor = control.value;
+      control.setValue(null);
+      fixture.detectChanges();
+      expect(boton('Guardar y previsualizar').disabled).toBe(true);
+      control.setValue(valor);
+    }
+    fixture.detectChanges();
+    expect(boton('Guardar y previsualizar').disabled).toBe(false);
+    expect(api.registrarRespuestaOpp).not.toHaveBeenCalled();
+    expect(fixture.nativeElement.textContent).not.toContain('Generar y guardar resolución');
   });
 
   it('permite llenar la carta especialista después de guardar OPP y la envía a la vista previa', async () => {
@@ -647,7 +692,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     expect(fixture.componentInstance['oppForm'].controls.meta_presupuestal.value).toBe('017');
     fixture.componentInstance['oppForm'].controls.meta_presupuestal.setValue('018');
     fixture.detectChanges();
-    boton('Guardar cambios').click();
+    boton('Guardar y previsualizar').click();
     expect(api.actualizarRespuestaOpp).toHaveBeenCalledWith(1, expect.objectContaining({ meta_presupuestal: '018', resolucion_numero: 13 }));
   });
 

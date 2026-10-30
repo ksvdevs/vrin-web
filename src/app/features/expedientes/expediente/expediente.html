@@ -311,6 +311,9 @@
                   <div class="campo"><label for="fuente">Fuente de financiamiento *</label><input pInputText id="fuente" formControlName="fuente_financiamiento" maxlength="100" /></div>
                   <div class="campo"><label for="monto_aprobado">Monto aprobado (S/) *</label><p-inputnumber inputId="monto_aprobado" formControlName="monto_aprobado" mode="currency" currency="PEN" locale="es-PE" [min]="0.01" [minFractionDigits]="2" [maxFractionDigits]="2" styleClass="numero-ancho" /></div>
                 </div>
+                @if (montosOppDiferentes()) {
+                  <p class="aviso-diferencia-montos" role="alert"><i class="pi pi-exclamation-triangle" aria-hidden="true"></i><span>Los montos no son iguales: solicitado {{ formatoSoles(e.articulo?.monto_solicitado) }} y aprobado {{ formatoSoles(oppForm.controls.monto_aprobado.value) }}. Al guardar, el monto solicitado tomará el valor aprobado.</span></p>
+                }
               }
 
                 </div>
@@ -359,7 +362,7 @@
           <div class="acciones-carta-opp acciones-resolucion">
             @if (puedeRegistrarOpp() || editandoOpp()) {
               <p-button [label]="editandoOpp() ? 'Cancelar edición' : 'Descartar'" severity="secondary" [outlined]="true" [disabled]="guardandoOpp()" (onClick)="descartarRespuestaOpp()" />
-              <p-button label="Guardar cambios" icon="pi pi-eye" iconPos="right" [loading]="guardandoOpp()" [disabled]="oppForm.invalid || (oppForm.controls.disponibilidad.value === 'SI' && datosResolucionBaseInvalidos()) || guardandoOpp() || adjuntandoOpp() || analizandoOpp()" (onClick)="guardarRespuestaOpp()" />
+              <p-button [label]="oppForm.controls.disponibilidad.value === 'SI' ? 'Guardar y previsualizar' : 'Guardar cambios'" icon="pi pi-eye" iconPos="right" [loading]="guardandoOpp()" [disabled]="oppForm.invalid || (oppForm.controls.disponibilidad.value === 'SI' && resolucionForm.invalid) || guardandoOpp() || adjuntandoOpp() || analizandoOpp()" (onClick)="guardarRespuestaOpp()" />
             } @else {
               <p-button label="Volver a expedientes" icon="pi pi-chevron-left" severity="secondary" [outlined]="true" routerLink="/expedientes" />
               @if (docResolucionGenerada(); as doc) {
@@ -370,7 +373,7 @@
               } @else if (puedeGenerarResolucion()) {
                 <div class="acciones-carta-secundarias">
                   @if (puedeEditarOpp()) { <p-button label="Editar información" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="editarRespuestaOpp()" /> }
-                  <p-button label="Ver vista previa y generar resolución" icon="pi pi-eye" [disabled]="resolucionForm.invalid" (onClick)="confirmarGenerarResolucion()" />
+                  <p-button label="Previsualizar resolución" icon="pi pi-eye" [disabled]="resolucionForm.invalid" (onClick)="confirmarGenerarResolucion()" />
                 </div>
               }
             }
@@ -563,7 +566,7 @@
     </div>
     <ng-template #footer><div class="vista-footer"><small>La resolución se emitirá usando la plantilla vigente de Resolución.</small><div>
       @if (vistaResolucionGenerada()) { <p-button label="Descargar Word y guardar en Drive" icon="pi pi-download" severity="secondary" [outlined]="true" [loading]="sincronizandoDriveId() === documentoResolucionVista()?.id" (onClick)="descargarDocResolucion('docx')" /><p-button label="Abrir carpeta en Drive" icon="pi pi-external-link" severity="secondary" [outlined]="true" (onClick)="abrirCarpetaResolucionesDrive()" /><p-button label="Cerrar" severity="secondary" [outlined]="true" (onClick)="vistaResolucionVisible.set(false)" /> }
-      @else { <p-button label="Volver a revisar" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="vistaResolucionVisible.set(false)" /><p-button [label]="docResolucionGenerada() ? 'Generar y guardar nueva versión' : 'Generar y guardar resolución'" icon="pi pi-book" [loading]="guardandoResolucion()" [disabled]="!urlVistaResolucion() || cargandoVistaResolucion()" (onClick)="generarResolucion()" /> }
+      @else { <p-button label="Volver a revisar" icon="pi pi-pencil" severity="secondary" [outlined]="true" (onClick)="vistaResolucionVisible.set(false)" />@if (urlVistaResolucion() && !cargandoVistaResolucion()) { <p-button [label]="docResolucionGenerada() ? 'Generar y guardar nueva versión' : 'Generar y guardar resolución'" icon="pi pi-book" [loading]="guardandoResolucion()" [disabled]="guardandoResolucion()" (onClick)="generarResolucion()" /> } }
     </div></div></ng-template>
   </p-dialog>
 

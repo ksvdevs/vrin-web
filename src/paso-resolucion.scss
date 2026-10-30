@@ -22,6 +22,8 @@
   .resolucion-datos .fila { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
   .resolucion-trabajo.con-vista .resolucion-datos { padding: 1rem; }
   .resolucion-trabajo.con-vista .resolucion-datos .fila { grid-template-columns: minmax(0, 1fr); gap: .85rem; }
+  .aviso-diferencia-montos { display: flex; align-items: flex-start; gap: .5rem; margin: 0; padding: .7rem .85rem; border: 1px solid #f4d48e; border-radius: 8px; background: #fff8e8; color: #805307; font-size: .72rem; line-height: 1.45; }
+  .aviso-diferencia-montos i { flex: 0 0 auto; margin-top: .1rem; }
   .resolucion-trabajo.con-vista .seccion-resolucion { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
   .resolucion-documento { min-width: 0; overflow: hidden; border: 1px solid #dfe7ef; border-radius: 12px; background: #f4f7fb; }
   .resolucion-documento-cabecera { display: flex; align-items: center; gap: .6rem; padding: .75rem; background: #fff; border-bottom: 1px solid #dfe7ef;

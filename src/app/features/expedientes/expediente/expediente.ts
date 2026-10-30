@@ -315,13 +315,13 @@ export class VistaExpediente implements OnInit, OnDestroy {
 
   protected readonly oppForm = this.fb.group({
     disponibilidad: ['SI' as 'SI' | 'NO', Validators.required],
-    monto_aprobado: [null as number | null],
-    meta_presupuestal: [''],
-    especifica_gasto: [''],
-    fuente_financiamiento: [''],
-    carta_numero: ['', Validators.required],
+    monto_aprobado: [null as number | null, [Validators.required, Validators.min(0.01)]],
+    meta_presupuestal: ['', [Validators.required, Validators.pattern(/^[0-9]{3}$/)]],
+    especifica_gasto: ['', [Validators.required, Validators.pattern(/\S/)]],
+    fuente_financiamiento: ['', [Validators.required, Validators.pattern(/\S/)]],
+    carta_numero: ['', [Validators.required, Validators.pattern(/\S/)]],
     carta_fecha: [null as Date | null, Validators.required],
-    registro_vrin_numero: ['', Validators.required],
+    registro_vrin_numero: ['', [Validators.required, Validators.pattern(/\S/)]],
     registro_vrin_fecha: [null as Date | null, Validators.required],
   });
 
@@ -761,17 +761,26 @@ export class VistaExpediente implements OnInit, OnDestroy {
     return fecha instanceof Date ? fecha.toLocaleDateString('es-PE', { day: 'numeric', month: 'long', year: 'numeric' }) : '—';
   }
 
+  protected montosOppDiferentes(): boolean {
+    const solicitado = this.detalle()?.articulo?.monto_solicitado;
+    const aprobado = this.oppForm.controls.monto_aprobado.value;
+    return this.oppForm.controls.disponibilidad.value === 'SI'
+      && solicitado !== undefined && aprobado !== null && aprobado > 0
+      && Math.round(solicitado * 100) !== Math.round(aprobado * 100);
+  }
+
   protected guardarRespuestaOpp(): void {
     const detalle = this.detalle();
     if (!detalle || this.guardandoOpp()) {
       return;
     }
-    if (this.oppForm.invalid || (this.oppForm.controls.disponibilidad.value === 'SI' && this.datosResolucionBaseInvalidos())) {
+    if (this.oppForm.invalid || (this.oppForm.controls.disponibilidad.value === 'SI' && this.resolucionForm.invalid)) {
       this.oppForm.markAllAsTouched();
       this.resolucionForm.markAllAsTouched();
       return;
     }
     const valores = this.oppForm.getRawValue();
+    const montosDiferentes = this.montosOppDiferentes();
 
     if (valores.disponibilidad === 'SI') {
       const faltantes: string[] = [];
@@ -832,7 +841,9 @@ export class VistaExpediente implements OnInit, OnDestroy {
             respuesta.estado === 'RESOLUCION_EMITIDA' ? 'Datos de la resolución actualizados'
               : respuesta.estado === 'DISPONIBILIDAD_CONFIRMADA' ? 'Disponibilidad confirmada'
                 : 'Expediente cerrado: sin disponibilidad presupuestal',
-          detail: `${detalle.codigo} · ${respuesta.estado}.`,
+          detail: montosDiferentes
+            ? `Los montos no eran iguales. El monto solicitado se actualizó a ${this.formatoSoles(valores.monto_aprobado)}.`
+            : `${detalle.codigo} · ${respuesta.estado}.`,
         });
         this.oppForm.reset({ disponibilidad: 'SI' });
         this.cargar(detalle.id);
@@ -1216,11 +1227,6 @@ export class VistaExpediente implements OnInit, OnDestroy {
 
   protected condicionLaboral(tipo: string): string {
     return tipo === 'NOMBRADO' ? 'Nombrado' : tipo === 'CONTRATADO' ? 'Contratado' : tipo;
-  }
-
-  protected datosResolucionBaseInvalidos(): boolean {
-    const controles = this.resolucionForm.controls;
-    return controles.numero.invalid || controles.anio.invalid || controles.fecha_emision.invalid;
   }
 
   protected confirmarGenerarResolucion(trasGuardar = false): void {
