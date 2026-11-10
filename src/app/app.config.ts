@@ -7,6 +7,7 @@ import { definePreset } from '@primeuix/themes';
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { providePrimeNG } from 'primeng/config';
 
+import { primeuiLicenseKey } from '../environments/license.generated';
 import { routes } from './app.routes';
 import { authInterceptor } from './core/interceptors/auth.interceptor';
 
@@ -16,6 +17,7 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideHttpClient(withInterceptors([authInterceptor])),
     providePrimeNG({
+      license: primeuiLicenseKey,
       theme: {
         preset: definePreset(Aura, {
           semantic: {

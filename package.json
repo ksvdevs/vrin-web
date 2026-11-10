@@ -2,6 +2,13 @@
   "name": "vrin-web",
   "version": "0.0.0",
   "scripts": {
+    "env:generate": "node scripts/generate-env.mjs",
+    "preng": "npm run env:generate",
+    "prestart": "npm run env:generate",
+    "prestart:tunnel": "npm run env:generate",
+    "prebuild": "npm run env:generate",
+    "prewatch": "npm run env:generate",
+    "pretest": "npm run env:generate",
     "ng": "ng",
     "start": "ng serve",
     "start:tunnel": "ng serve --proxy-config proxy.tunnel.conf.cjs",

@@ -1,5 +1,11 @@
 # VRIN Web
 
+## Licencia PrimeUI
+
+Crea `.env` en la raíz del frontend (puedes copiar `.env.example`) y configura `PRIMEUI_LICENSE_KEY="tu-clave-completa"`. Los comandos npm de inicio, compilación y pruebas generan automáticamente la configuración que consume `app.config.ts`. Reinicia el comando después de cambiar la clave. Si ejecutas Angular directamente mediante `npx ng`, ejecuta primero `npm run env:generate`.
+
+`.env` y el archivo generado están excluidos de Git. La clave se incluye en el JavaScript del navegador; este mecanismo no almacena secretos del servidor. En Vercel configura `PRIMEUI_LICENSE_KEY` como variable de entorno para los entornos correspondientes y vuelve a desplegar. Las variables del proceso tienen prioridad sobre `.env`.
+
 Frontend Angular del SGR-VRIN. La compilación de producción utiliza `/api` y `/sanctum` en el mismo dominio del frontend; Vercel reenvía ambas rutas a Laravel mediante las reglas de `vercel.json`.
 
 ## Despliegue desde GitHub a Vercel

@@ -13,6 +13,7 @@ yarn-error.log
 /.vercel
 /.env*
 !/.env.example
+/src/environments/license.generated.ts
 
 # IDEs and editors
 .idea/
