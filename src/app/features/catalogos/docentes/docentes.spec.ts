@@ -7,6 +7,7 @@ import { vi } from 'vitest';
 import { Docente } from '../../../core/models/docente.model';
 import { RespuestaPaginada } from '../../../core/models/paginacion.model';
 import { AuthService } from '../../../core/services/auth.service';
+import { CatalogoService } from '../../../core/services/catalogo.service';
 import { DocenteService } from '../../../core/services/docente.service';
 import { Docentes } from './docentes';
 
@@ -18,7 +19,6 @@ describe('Tabla de docentes', () => {
   };
   let respuestas: Subject<RespuestaPaginada<Docente>>[];
   let listar: ReturnType<typeof vi.fn>;
-  let cambiarEstado: ReturnType<typeof vi.fn>;
 
   beforeEach(async () => {
     respuestas = [];
@@ -27,14 +27,16 @@ describe('Tabla de docentes', () => {
       respuestas.push(respuesta);
       return respuesta.asObservable();
     });
-    cambiarEstado = vi.fn(() => of({ ...docente, activo: false }));
 
     await TestBed.configureTestingModule({
       imports: [Docentes],
       providers: [
         MessageService, ConfirmationService,
         { provide: AuthService, useValue: { verificarSesion: () => of(true), usuarioActual: signal({ rol_codigo: 'ADMINISTRADOR_GENERAL' }) } },
-        { provide: DocenteService, useValue: { listar, cambiarEstado } },
+        { provide: CatalogoService, useValue: { listarFacultades: () => of([
+          { id: 1, nombre: 'Ingeniería', escuelas: [{ id: 4, nombre: 'Ingeniería Civil' }] },
+        ]) } },
+        { provide: DocenteService, useValue: { listar } },
       ],
     }).overrideComponent(Docentes, { set: { template: '' } }).compileComponents();
   });
@@ -58,11 +60,46 @@ describe('Tabla de docentes', () => {
     expect(componente['total']()).toBe(1);
   });
 
-  it('cambia el estado enviando solo el nuevo valor', () => {
+  it('presenta el nombre y la categoría como en la tabla', () => {
     const componente = abrir();
-    componente['cambiarEstado'](docente);
+    expect(componente['nombreCompleto']({ ...docente, apellido_materno: 'Rojas' })).toBe('Maria Quispe Rojas');
+    expect(componente['nombreCategoria'](docente)).toBe('Contratado');
+    expect(componente['nombreCategoria']({ ...docente, categoria: 'ORDINARIO_ASOCIADO' }))
+      .toBe('Ordinario/Asociado');
+  });
 
-    expect(cambiarEstado).toHaveBeenCalledWith(1, false);
-    expect(listar).toHaveBeenCalledTimes(2);
+  it('envía filtros de carrera, categoría, género y estado sin grado', () => {
+    const componente = abrir();
+    expect(componente['opcionesCarrera']()).toContainEqual({
+      label: 'Ingeniería Civil (Ingeniería)', value: 4,
+    });
+    componente['filtroCarrera'].set(4);
+    componente['filtroCategoria'].set('CONTRATADO');
+    componente['filtroGenero'].set('FEMENINO');
+    componente['filtroEstado'].set(false);
+    componente['reiniciarPagina']();
+
+    expect(listar).toHaveBeenLastCalledWith({
+      busqueda: undefined, escuela_id: 4, categoria: 'CONTRATADO',
+      genero: 'FEMENINO', activo: 0,
+    }, 1);
+  });
+
+  it('vuelve a la primera página sin filtros después de registrar un docente', () => {
+    const componente = abrir();
+    componente['busqueda'].set('Quispe');
+    componente['filtroEstado'].set(false);
+    componente['filtroCategoria'].set('CONTRATADO');
+    componente['filtroGenero'].set('FEMENINO');
+    componente['filtroCarrera'].set(4);
+    componente['primeraFila'] = 30;
+
+    componente['alGuardarDocente']();
+
+    expect(componente['primeraFila']).toBe(0);
+    expect(listar).toHaveBeenLastCalledWith({
+      busqueda: undefined, activo: undefined, categoria: undefined,
+      genero: undefined, escuela_id: undefined,
+    }, 1);
   });
 });

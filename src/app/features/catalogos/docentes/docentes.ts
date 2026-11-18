@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { DatePipe } from '@angular/common';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormsModule } from '@angular/forms';
 import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
@@ -11,8 +12,11 @@ import { TableModule } from 'primeng/table';
 import { Tag } from 'primeng/tag';
 import { Toast } from 'primeng/toast';
 
-import { CATEGORIAS, Docente, GRADOS } from '../../../core/models/docente.model';
+import { CATEGORIAS, Docente, GENEROS } from '../../../core/models/docente.model';
+import { Escuela } from '../../../core/models/escuela.model';
+import { Facultad } from '../../../core/models/facultad.model';
 import { AuthService } from '../../../core/services/auth.service';
+import { CatalogoService } from '../../../core/services/catalogo.service';
 import { DocenteService } from '../../../core/services/docente.service';
 import { DocenteFormulario } from '../../../shared/docente-formulario/docente-formulario';
 
@@ -22,6 +26,7 @@ import { DocenteFormulario } from '../../../shared/docente-formulario/docente-fo
   imports: [
     Button,
     ConfirmDialog,
+    DatePipe,
     DocenteFormulario,
     FormsModule,
     Select,
@@ -35,6 +40,7 @@ import { DocenteFormulario } from '../../../shared/docente-formulario/docente-fo
 export class Docentes implements OnInit {
   protected readonly auth = inject(AuthService);
   private readonly docenteService = inject(DocenteService);
+  private readonly catalogoService = inject(CatalogoService);
   private readonly mensajes = inject(MessageService);
   private readonly confirmacion = inject(ConfirmationService);
   private readonly destroyRef = inject(DestroyRef);
@@ -49,7 +55,9 @@ export class Docentes implements OnInit {
   protected readonly busqueda = signal('');
   protected readonly filtroEstado = signal<boolean | null>(null);
   protected readonly filtroCategoria = signal<string | null>(null);
-  protected readonly filtroGrado = signal<string | null>(null);
+  protected readonly filtroGenero = signal<string | null>(null);
+  protected readonly filtroCarrera = signal<number | null>(null);
+  protected readonly facultades = signal<Facultad[]>([]);
   protected readonly opcionesEstado = [
     { label: 'Todos', value: null },
     { label: 'Activo', value: true },
@@ -59,10 +67,18 @@ export class Docentes implements OnInit {
     { label: 'Todos', value: null },
     ...CATEGORIAS.map((categoria) => ({ label: categoria.replaceAll('_', ' '), value: categoria })),
   ];
-  protected readonly opcionesGrado = [
+  protected readonly opcionesGenero = [
     { label: 'Todos', value: null },
-    ...GRADOS.map((grado) => ({ label: grado, value: grado })),
+    ...GENEROS.map((genero) => ({ label: genero.charAt(0) + genero.slice(1).toLowerCase(), value: genero })),
   ];
+  protected readonly opcionesCarrera = computed(() => [
+    { label: 'Todas', value: null as number | null },
+    ...this.facultades().flatMap((facultad) =>
+      (facultad.escuelas ?? []).map((escuela: Escuela) => ({
+        label: `${escuela.nombre} (${facultad.nombre})`, value: escuela.id,
+      })),
+    ),
+  ]);
   protected readonly registrosPorPagina = 15;
   protected primeraFila = 0;
 
@@ -71,6 +87,12 @@ export class Docentes implements OnInit {
 
   ngOnInit(): void {
     this.auth.verificarSesion().subscribe();
+    this.catalogoService.listarFacultades().subscribe({
+      next: (facultades) => this.facultades.set(facultades),
+      error: () => this.mensajes.add({
+        severity: 'error', summary: 'Sin conexión', detail: 'No se pudo obtener el catálogo de carreras.',
+      }),
+    });
     this.cambiosBusqueda
       .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.reiniciarPagina());
@@ -107,26 +129,37 @@ export class Docentes implements OnInit {
   }
 
   protected alGuardarDocente(): void {
+    if (this.docenteEnEdicion() === null) {
+      this.busqueda.set('');
+      this.filtroEstado.set(null);
+      this.filtroCategoria.set(null);
+      this.filtroGenero.set(null);
+      this.filtroCarrera.set(null);
+      this.primeraFila = 0;
+      this.cargar(1);
+      return;
+    }
     this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
-  }
-
-  protected confirmarCambioEstado(docente: Docente): void {
-    const desactivar = docente.activo;
-    this.confirmacion.confirm({
-      header: desactivar ? 'Desactivar docente' : 'Activar docente',
-      message: `¿${desactivar ? 'Desactivar' : 'Activar'} a ${this.apellidos(docente)}, ${docente.nombres}?`,
-      icon: 'pi pi-exclamation-triangle',
-      acceptLabel: desactivar ? 'Desactivar' : 'Activar',
-      rejectLabel: 'Cancelar',
-      acceptButtonStyleClass: desactivar ? 'p-button-danger' : undefined,
-      accept: () => this.cambiarEstado(docente),
-    });
   }
 
   protected nombreEscuela(docente: Docente): string {
     const facultad = docente.escuela?.facultad?.nombre;
     const escuela = docente.escuela?.nombre ?? '—';
     return facultad ? `${escuela} (${facultad})` : escuela;
+  }
+
+  protected nombreCompleto(docente: Docente): string {
+    return [docente.nombres, docente.apellido_paterno, docente.apellido_materno].filter(Boolean).join(' ');
+  }
+
+  protected nombreCategoria(docente: Docente): string {
+    const nombres: Record<string, string> = {
+      ORDINARIO_PRINCIPAL: 'Ordinario/Principal',
+      ORDINARIO_ASOCIADO: 'Ordinario/Asociado',
+      ORDINARIO_AUXILIAR: 'Ordinario/Auxiliar',
+      CONTRATADO: 'Contratado',
+    };
+    return docente.categoria ? nombres[docente.categoria] ?? docente.categoria : '—';
   }
 
   protected apellidos(docente: Docente): string {
@@ -136,7 +169,7 @@ export class Docentes implements OnInit {
   protected confirmarEliminar(docente: Docente): void {
     this.confirmacion.confirm({
       header: 'Eliminar docente',
-      message: `¿Eliminar a ${this.apellidos(docente)}, ${docente.nombres}? Dejará de aparecer en todos los listados.`,
+      message: `¿Eliminar permanentemente a ${this.apellidos(docente)}, ${docente.nombres}? Si tiene expedientes, desactívalo desde Modificar docente.`,
       icon: 'pi pi-trash',
       acceptLabel: 'Eliminar',
       rejectLabel: 'Cancelar',
@@ -165,28 +198,6 @@ export class Docentes implements OnInit {
     });
   }
 
-  private cambiarEstado(docente: Docente): void {
-    this.docenteService
-      .cambiarEstado(docente.id, !docente.activo)
-      .subscribe({
-        next: () => {
-          this.mensajes.add({
-            severity: 'success',
-            summary: docente.activo ? 'Docente desactivado' : 'Docente activado',
-            detail: `${this.apellidos(docente)}, ${docente.nombres}`,
-          });
-          this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
-        },
-        error: (error) => {
-          this.mensajes.add({
-            severity: 'error',
-            summary: 'No se pudo cambiar el estado',
-            detail: this.detalleError(error),
-          });
-        },
-      });
-  }
-
   private cargar(pagina: number): void {
     const carga = ++this.ultimaCarga;
     this.cargando.set(true);
@@ -197,7 +208,8 @@ export class Docentes implements OnInit {
           busqueda: this.busqueda().trim() || undefined,
           activo: estado === null ? undefined : estado ? 1 : 0,
           categoria: this.filtroCategoria() ?? undefined,
-          grado: this.filtroGrado() ?? undefined,
+          genero: this.filtroGenero() ?? undefined,
+          escuela_id: this.filtroCarrera() ?? undefined,
         },
         pagina,
       )

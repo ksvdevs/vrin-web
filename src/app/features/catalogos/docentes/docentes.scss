@@ -2,7 +2,7 @@
 
 .docentes-page .filtros-docentes {
   display: grid;
-  grid-template-columns: minmax(220px, 3fr) minmax(180px, 1.4fr) repeat(2, minmax(130px, 1fr));
+  grid-template-columns: minmax(220px, 2fr) repeat(4, minmax(140px, 1fr));
   align-items: end;
   gap: 12px;
   min-height: 108px;
@@ -89,7 +89,9 @@
   height: 75px;
   padding: 12px 18px;
 }
-.docentes-page .col-acciones { width: 128px; white-space: nowrap; text-align: right; }
+.docentes-page .nombre-docente { font-weight: 600; }
+.docentes-page .email-docente { color: #8b9aaa; font-size: 11px; }
+.docentes-page .col-acciones { width: 96px; text-align: right; }
 .docentes-page .acciones-docente { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
 .docentes-page .acciones-docente .accion { color: #6d90b5; }
 .docentes-page .acciones-docente .accion i { font-size: 14px; }

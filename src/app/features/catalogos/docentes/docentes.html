@@ -26,7 +26,7 @@
         <input
           id="docentes-busqueda"
           type="search"
-          placeholder="Buscar por DNI, apellidos o nombres…"
+          placeholder="Buscar por nombre, DNI o carrera…"
           [value]="busqueda()"
           (input)="alBuscar($any($event.target).value)"
         />
@@ -57,14 +57,28 @@
         />
       </div>
       <div class="filtro-docentes">
-        <label for="docentes-grado">Grado</label>
+        <label for="docentes-genero">Género</label>
         <p-select
-          inputId="docentes-grado"
-          [options]="opcionesGrado"
-          [ngModel]="filtroGrado()"
-          (ngModelChange)="filtroGrado.set($event); reiniciarPagina()"
+          inputId="docentes-genero"
+          [options]="opcionesGenero"
+          [ngModel]="filtroGenero()"
+          (ngModelChange)="filtroGenero.set($event); reiniciarPagina()"
           optionLabel="label"
           optionValue="value"
+          class="select-filtro-docentes"
+        />
+      </div>
+      <div class="filtro-docentes">
+        <label for="docentes-carrera">Carrera</label>
+        <p-select
+          inputId="docentes-carrera"
+          [options]="opcionesCarrera()"
+          [ngModel]="filtroCarrera()"
+          (ngModelChange)="filtroCarrera.set($event); reiniciarPagina()"
+          optionLabel="label"
+          optionValue="value"
+          [filter]="true"
+          filterPlaceholder="Buscar carrera"
           class="select-filtro-docentes"
         />
       </div>
@@ -81,20 +95,18 @@
     (onPage)="alCambiarPagina($event)"
     [showCurrentPageReport]="true"
     [currentPageReportTemplate]="textoPaginacion()"
-    [tableStyle]="{ 'min-width': '76rem' }"
+    [tableStyle]="{ 'min-width': '68rem' }"
     class="sgr-table"
   >
     <ng-template #header>
       <tr>
-        <th>DNI</th>
-        <th>Apellidos</th>
-        <th>Nombres</th>
-        <th>Género</th>
-        <th>Celular</th>
-        <th>Grado</th>
-        <th>Categoría</th>
-        <th>Escuela</th>
         <th>Estado</th>
+        <th>Nombre</th>
+        <th>DNI</th>
+        <th>Celular</th>
+        <th>Carrera</th>
+        <th>Categoría</th>
+        <th>Creado</th>
         @if (esAdmin()) {
           <th class="col-acciones">Acciones</th>
         }
@@ -102,28 +114,28 @@
     </ng-template>
     <ng-template #body let-docente>
       <tr>
-        <td>{{ docente.dni }}</td>
-        <td>{{ apellidos(docente) }}</td>
-        <td>{{ docente.nombres }}</td>
-        <td>{{ docente.genero ? docente.genero.charAt(0) + docente.genero.slice(1).toLowerCase() : '—' }}</td>
-        <td>{{ docente.celular || '—' }}</td>
-        <td>{{ docente.grado }}</td>
-        <td>{{ docente.categoria ? docente.categoria.replaceAll('_', ' ').toLowerCase() : '—' }}</td>
-        <td>{{ nombreEscuela(docente) }}</td>
         <td>
           <p-tag
             [value]="docente.activo ? 'Activo' : 'Inactivo'"
             [severity]="docente.activo ? 'success' : 'danger'"
           />
         </td>
+        <td>
+          <div class="nombre-docente">{{ nombreCompleto(docente) }}</div>
+          @if (docente.email) {
+            <div class="email-docente">{{ docente.email }}</div>
+          }
+        </td>
+        <td>{{ docente.dni }}</td>
+        <td>{{ docente.celular || '—' }}</td>
+        <td>{{ docente.escuela?.nombre || '—' }}</td>
+        <td>{{ nombreCategoria(docente) }}</td>
+        <td>{{ docente.created_at ? (docente.created_at | date: 'dd/MM/yyyy') : '—' }}</td>
         @if (esAdmin()) {
           <td class="col-acciones">
             <div class="acciones-docente">
               <button type="button" class="accion" (click)="abrirEdicion(docente)" [attr.aria-label]="'Editar ' + docente.nombres" [title]="'Editar ' + docente.nombres">
                 <i class="pi pi-pencil" aria-hidden="true"></i>
-              </button>
-              <button type="button" class="accion" (click)="confirmarCambioEstado(docente)" [attr.aria-label]="(docente.activo ? 'Desactivar ' : 'Activar ') + docente.nombres" [title]="(docente.activo ? 'Desactivar ' : 'Activar ') + docente.nombres">
-                <i [class]="docente.activo ? 'pi pi-ban' : 'pi pi-check'" aria-hidden="true"></i>
               </button>
               <button type="button" class="accion" (click)="confirmarEliminar(docente)" [attr.aria-label]="'Eliminar ' + docente.nombres" [title]="'Eliminar ' + docente.nombres">
                 <i class="pi pi-trash" aria-hidden="true"></i>
@@ -135,7 +147,7 @@
     </ng-template>
     <ng-template #emptymessage>
       <tr>
-        <td [attr.colspan]="esAdmin() ? 10 : 9" class="vacio">
+        <td [attr.colspan]="esAdmin() ? 8 : 7" class="vacio">
           @if (!cargando()) {
             No se encontraron docentes.
           }

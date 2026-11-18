@@ -12,7 +12,7 @@ import {
   signal,
 } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Subscription } from 'rxjs';
+import { Subscription, catchError, debounceTime, distinctUntilChanged, map, of, switchMap, tap } from 'rxjs';
 
 import { MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
@@ -62,6 +62,8 @@ export class DocenteFormulario implements OnInit, OnDestroy {
 
   protected readonly facultades = signal<Facultad[]>([]);
   protected readonly guardando = signal(false);
+  protected readonly buscandoDni = signal(false);
+  protected readonly dniRegistrado = signal(false);
 
   protected readonly grados = GRADOS.map((g) => ({ label: g, value: g }));
   protected readonly categorias = CATEGORIAS.map((categoria) => ({
@@ -112,6 +114,8 @@ export class DocenteFormulario implements OnInit, OnDestroy {
     });
 
   private suscripcionFacultad?: Subscription;
+  private suscripcionDni?: Subscription;
+  private dniAutocompletado: string | null = null;
 
   constructor() {
     effect(() => {
@@ -144,14 +148,70 @@ export class DocenteFormulario implements OnInit, OnDestroy {
         }
       },
     );
+
+    this.suscripcionDni = this.formulario.controls.dni.valueChanges.pipe(
+      tap((dni) => {
+        if (this.dniAutocompletado && dni !== this.dniAutocompletado) {
+          this.dniAutocompletado = null;
+          this.formulario.patchValue({ nombres: '', apellido_paterno: '', apellido_materno: '' });
+        }
+        this.dniRegistrado.set(false);
+        this.buscandoDni.set(this.visible() && !this.docente() && /^\d{8}$/.test(dni ?? ''));
+      }),
+      debounceTime(350),
+      distinctUntilChanged(),
+      switchMap((dni) => {
+        if (!this.visible() || this.docente() || !/^\d{8}$/.test(dni ?? '')) {
+          this.buscandoDni.set(false);
+          return of(null);
+        }
+        return this.docenteService.consultarDni(dni!).pipe(
+          map((resultado) => ({ dni, resultado })),
+          catchError((error) => {
+            this.buscandoDni.set(false);
+            this.mensajes.add({
+              severity: 'warn',
+              summary: 'Consulta de DNI',
+              detail: this.detalleError(error),
+            });
+            return of(null);
+          }),
+        );
+      }),
+    ).subscribe((consulta) => {
+      if (!consulta || !this.visible() || this.docente() || this.formulario.controls.dni.value !== consulta.dni) {
+        return;
+      }
+      this.buscandoDni.set(false);
+      const { resultado } = consulta;
+      if (resultado.registrado) {
+        this.dniRegistrado.set(true);
+        this.mensajes.add({ severity: 'warn', summary: 'Docente ya registrado' });
+        return;
+      }
+      if (resultado.datos) {
+        this.dniAutocompletado = consulta.dni;
+        this.formulario.patchValue(resultado.datos);
+      }
+    });
   }
 
   ngOnDestroy(): void {
     this.suscripcionFacultad?.unsubscribe();
+    this.suscripcionDni?.unsubscribe();
+  }
+
+  protected filtrarNumeros(evento: Event, campo: 'dni' | 'celular', longitud: number): void {
+    const entrada = evento.target as HTMLInputElement;
+    const valor = entrada.value.replace(/\D/g, '').slice(0, longitud);
+    if (entrada.value !== valor || this.formulario.controls[campo].value !== valor) {
+      entrada.value = valor;
+      this.formulario.controls[campo].setValue(valor);
+    }
   }
 
   protected guardar(): void {
-    if (this.formulario.invalid || this.guardando()) {
+    if (this.formulario.invalid || this.guardando() || this.buscandoDni() || this.dniRegistrado()) {
       this.formulario.markAllAsTouched();
       return;
     }
@@ -220,12 +280,17 @@ export class DocenteFormulario implements OnInit, OnDestroy {
   }
 
   private prepararFormulario(docente: Docente | null): void {
-    this.formulario.reset();
+    this.dniAutocompletado = null;
+    this.dniRegistrado.set(false);
+    this.buscandoDni.set(false);
+    this.formulario.reset(undefined, { emitEvent: false });
+    this.facultadSeleccionadaId.set(null);
     this.formulario.controls.escuela_id.disable({ emitEvent: false });
     if (!docente) {
       return;
     }
     const facultadId = docente.escuela?.facultad?.id ?? null;
+    this.facultadSeleccionadaId.set(facultadId);
     this.formulario.reset({
       dni: docente.dni,
       nombres: docente.nombres,
@@ -238,7 +303,7 @@ export class DocenteFormulario implements OnInit, OnDestroy {
       facultad_id: facultadId,
       email: docente.email ?? '',
       activo: docente.activo,
-    });
+    }, { emitEvent: false });
     if (facultadId !== null) {
       this.formulario.controls.escuela_id.enable({ emitEvent: false });
       this.formulario.controls.escuela_id.setValue(docente.escuela_id);

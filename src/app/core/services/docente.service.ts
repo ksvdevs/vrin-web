@@ -9,7 +9,18 @@ export interface FiltrosDocente {
   busqueda?: string;
   activo?: number;
   categoria?: string;
-  grado?: string;
+  genero?: string;
+  escuela_id?: number;
+}
+
+export interface ConsultaDniDocente {
+  registrado: boolean;
+  message?: string;
+  datos?: {
+    nombres: string;
+    apellido_paterno: string;
+    apellido_materno: string;
+  };
 }
 
 @Injectable({ providedIn: 'root' })
@@ -27,8 +38,11 @@ export class DocenteService {
     if (filtros.categoria) {
       params['categoria'] = filtros.categoria;
     }
-    if (filtros.grado) {
-      params['grado'] = filtros.grado;
+    if (filtros.genero) {
+      params['genero'] = filtros.genero;
+    }
+    if (filtros.escuela_id) {
+      params['escuela_id'] = filtros.escuela_id;
     }
     return this.api.get<RespuestaPaginada<Docente>>('/docentes', params);
   }
@@ -36,6 +50,10 @@ export class DocenteService {
   // Autocompletado (registro de expediente): array plano de activos vía ?q=.
   buscarPorNombre(q: string): Observable<Docente[]> {
     return this.api.get<Docente[]>('/docentes', { q: q.trim(), solo_nombre: 1 });
+  }
+
+  consultarDni(dni: string): Observable<ConsultaDniDocente> {
+    return this.api.get<ConsultaDniDocente>('/docentes/consultar-dni', { dni });
   }
 
   crear(payload: DocentePayload): Observable<Docente> {
