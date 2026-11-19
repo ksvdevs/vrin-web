@@ -158,19 +158,29 @@
     <div class="campo">
       <label for="u-dni">DNI <span class="req">*</span></label>
       <div class="dni-grupo">
-        <input pInputText id="u-dni" formControlName="dni" placeholder="DNI" maxlength="8" />
-        <p-button
-          icon="pi pi-search"
-          styleClass="sgr-primary-button"
-          [loading]="validandoDni()"
-          (onClick)="validarDni()"
-          aria-label="Validar DNI"
+        <i [class]="validandoDni() ? 'pi pi-spin pi-spinner' : 'pi pi-search'" aria-hidden="true"></i>
+        <input
+          pInputText
+          id="u-dni"
+          type="text"
+          inputmode="numeric"
+          pattern="[0-9]*"
+          autocomplete="off"
+          formControlName="dni"
+          placeholder="DNI"
+          maxlength="8"
+          (input)="normalizarDni($event)"
         />
       </div>
+      @if (validandoDni()) {
+        <small class="dni-msg">Consultando DNI...</small>
+      }
       @if (dniEstado() === 'disponible') {
-        <small class="dni-msg ok">DNI disponible</small>
+        <small class="dni-msg ok">Datos encontrados; DNI disponible</small>
       } @else if (dniEstado() === 'ocupado') {
         <small class="dni-msg error">DNI ya registrado</small>
+      } @else if ((formulario.controls.dni.touched || formulario.controls.dni.dirty) && formulario.controls.dni.invalid) {
+        <small class="dni-msg error">El DNI debe tener exactamente 8 dígitos numéricos.</small>
       }
     </div>
 
@@ -189,18 +199,14 @@
       <input pInputText id="u-email" type="email" formControlName="email" />
     </div>
 
-    <div class="campo">
-      <label for="u-password">
-        Contraseña @if (!usuarioEnEdicion()) { <span class="req">*</span> }
-      </label>
-      <input
-        pInputText
-        id="u-password"
-        type="password"
-        formControlName="password"
-        [placeholder]="usuarioEnEdicion() ? 'Dejar en blanco para no cambiar' : ''"
-      />
-    </div>
+    @if (usuarioEnEdicion()) {
+      <div class="campo">
+        <label for="u-password">Contraseña</label>
+        <input pInputText id="u-password" type="password" formControlName="password" placeholder="Dejar en blanco para no cambiar" />
+      </div>
+    } @else {
+      <small>La contraseña se generará y enviará al correo indicado.</small>
+    }
 
     <div class="campo">
       <label for="u-rol">Rol <span class="req">*</span></label>
@@ -240,6 +246,7 @@
         icon="pi pi-save"
         styleClass="sgr-primary-button"
         [loading]="guardando()"
+        [disabled]="validandoDni() || dniEstado() === 'ocupado'"
         (onClick)="guardar()"
       />
     </div>

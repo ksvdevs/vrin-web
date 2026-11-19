@@ -66,4 +66,10 @@ export class UsuarioService {
   validarDni(dni: string): Observable<{ disponible: boolean }> {
     return this.api.get<{ disponible: boolean }>('/usuarios/validar-dni', { dni });
   }
+
+  consultarDni(dni: string): Observable<{ registrado: boolean; datos?: { nombres: string; apellidos: string }; message?: string }> {
+    return this.api.get<{ registrado: boolean; datos?: { nombres: string; apellidos: string }; message?: string }>(
+      '/usuarios/consultar-dni', { dni },
+    );
+  }
 }

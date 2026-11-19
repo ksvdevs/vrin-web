@@ -10,7 +10,7 @@
       <div class="campo">
         <label for="dni">DNI</label>
         <div class="entrada-dni">
-          <i class="pi pi-search" aria-hidden="true"></i>
+          <i [class]="buscandoDni() ? 'pi pi-spin pi-spinner' : 'pi pi-search'" aria-hidden="true"></i>
           <span>DNI</span>
           <input pInputText id="dni" formControlName="dni" inputmode="numeric" pattern="[0-9]*" maxlength="8" autocomplete="off" (input)="filtrarNumeros($event, 'dni', 8)" />
         </div>

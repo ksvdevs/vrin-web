@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, DestroyRef, OnInit, inject, signal 
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { DatePipe } from '@angular/common';
 import { FormBuilder, FormsModule, ReactiveFormsModule, Validators } from '@angular/forms';
-import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
+import { Subject, catchError, debounceTime, distinctUntilChanged, map, of, switchMap, tap } from 'rxjs';
 
 import { ConfirmationService, MessageService } from 'primeng/api';
 import { Button } from 'primeng/button';
@@ -76,13 +76,14 @@ export class Usuarios implements OnInit {
   protected readonly guardando = signal(false);
   protected readonly dniEstado = signal<'disponible' | 'ocupado' | null>(null);
   protected readonly validandoDni = signal(false);
+  private dniAutocompletado: string | null = null;
 
   protected readonly formulario = this.fb.group({
     dni: ['', [Validators.required, Validators.pattern(/^\d{8}$/)]],
     nombres: ['', Validators.required],
     apellidos: ['', Validators.required],
     email: ['', [Validators.required, Validators.email]],
-    password: ['', Validators.required],
+    password: [''],
     rol_id: [null as number | null, Validators.required],
     activo: [true, Validators.required],
   });
@@ -90,6 +91,49 @@ export class Usuarios implements OnInit {
   ngOnInit(): void {
     this.cambiosBusqueda.pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
       .subscribe(() => this.cargar());
+    this.formulario.controls.dni.valueChanges.pipe(
+      tap((dni) => {
+        if (this.dniAutocompletado && dni !== this.dniAutocompletado) {
+          this.dniAutocompletado = null;
+          this.formulario.patchValue({ nombres: '', apellidos: '' });
+        }
+        this.dniEstado.set(null);
+        this.validandoDni.set(this.dialogoVisible() && !this.usuarioEnEdicion() && /^\d{8}$/.test(dni ?? ''));
+      }),
+      debounceTime(350),
+      distinctUntilChanged(),
+      switchMap((dni) => {
+        if (!this.dialogoVisible() || this.usuarioEnEdicion() || !/^\d{8}$/.test(dni ?? '')) {
+          this.validandoDni.set(false);
+          return of(null);
+        }
+        return this.usuarioService.consultarDni(dni!).pipe(
+          map((respuesta) => ({ dni, respuesta })),
+          catchError((error) => {
+            this.validandoDni.set(false);
+            if (this.formulario.controls.dni.value === dni) {
+              this.mensajes.add({
+                severity: 'warn',
+                summary: 'Consulta de DNI',
+                detail: this.detalleError(error),
+              });
+            }
+            return of(null);
+          }),
+        );
+      }),
+      takeUntilDestroyed(this.destroyRef),
+    ).subscribe((consulta) => {
+      if (!consulta || !this.dialogoVisible() || this.usuarioEnEdicion() || this.formulario.controls.dni.value !== consulta.dni) {
+        return;
+      }
+      this.validandoDni.set(false);
+      this.dniEstado.set(consulta.respuesta.registrado ? 'ocupado' : 'disponible');
+      if (!consulta.respuesta.registrado && consulta.respuesta.datos) {
+        this.dniAutocompletado = consulta.dni;
+        this.formulario.patchValue(consulta.respuesta.datos);
+      }
+    });
     this.cargar();
     this.rolService.listar({ activo: 1 }).subscribe({
       next: (roles) => this.roles.set(roles),
@@ -151,7 +195,7 @@ export class Usuarios implements OnInit {
 
   protected abrirNuevo(): void {
     this.usuarioEnEdicion.set(null);
-    this.formulario.controls.password.setValidators(Validators.required);
+    this.dniAutocompletado = null;
     this.formulario.reset({ dni: '', nombres: '', apellidos: '', email: '', password: '', rol_id: null, activo: true });
     this.dniEstado.set(null);
     this.dialogoVisible.set(true);
@@ -159,6 +203,7 @@ export class Usuarios implements OnInit {
 
   protected abrirEdicion(usuario: Usuario): void {
     this.usuarioEnEdicion.set(usuario);
+    this.dniAutocompletado = null;
     this.formulario.controls.password.clearValidators();
     this.formulario.reset({
       dni: usuario.dni,
@@ -178,41 +223,17 @@ export class Usuarios implements OnInit {
     this.detalleVisible.set(true);
   }
 
-  protected validarDni(): void {
-    const dni = (this.formulario.controls.dni.value ?? '').trim();
-    if (!/^\d{8}$/.test(dni)) {
-      this.dniEstado.set(null);
-      this.mensajes.add({
-        severity: 'warn',
-        summary: 'DNI inválido',
-        detail: 'Ingresa un DNI de 8 dígitos para validar.',
-      });
-      return;
+  protected normalizarDni(evento: Event): void {
+    const campo = evento.target as HTMLInputElement;
+    const dni = campo.value.replace(/[^0-9]/g, '').slice(0, 8);
+    if (campo.value !== dni || this.formulario.controls.dni.value !== dni) {
+      campo.value = dni;
+      this.formulario.controls.dni.setValue(dni);
     }
-    if (this.usuarioEnEdicion()?.dni === dni) {
-      this.dniEstado.set('disponible');
-      return;
-    }
-    this.validandoDni.set(true);
-    this.usuarioService.validarDni(dni).subscribe({
-      next: (respuesta) => {
-        this.validandoDni.set(false);
-        this.dniEstado.set(respuesta.disponible ? 'disponible' : 'ocupado');
-      },
-      error: () => {
-        this.validandoDni.set(false);
-        this.dniEstado.set(null);
-        this.mensajes.add({
-          severity: 'error',
-          summary: 'Error',
-          detail: 'No se pudo validar el DNI.',
-        });
-      },
-    });
   }
 
   protected guardar(): void {
-    if (this.formulario.invalid || this.guardando()) {
+    if (this.formulario.invalid || this.guardando() || this.validandoDni() || this.dniEstado() === 'ocupado') {
       this.formulario.markAllAsTouched();
       return;
     }
@@ -225,7 +246,7 @@ export class Usuarios implements OnInit {
       rol_id: valores.rol_id ?? 0,
       activo: valores.activo ?? true,
     };
-    if ((valores.password ?? '').trim()) {
+    if (this.usuarioEnEdicion() && (valores.password ?? '').trim()) {
       payload.password = (valores.password ?? '').trim();
     }
 
@@ -241,7 +262,7 @@ export class Usuarios implements OnInit {
         this.mensajes.add({
           severity: 'success',
           summary: enEdicion ? 'Usuario actualizado' : 'Usuario registrado',
-          detail: `${payload.apellidos}, ${payload.nombres}`,
+          detail: enEdicion ? `${payload.apellidos}, ${payload.nombres}` : `Se enviaron las credenciales a ${payload.email}.`,
         });
         this.cargar();
       },
@@ -259,7 +280,7 @@ export class Usuarios implements OnInit {
   protected confirmarEliminar(usuario: Usuario): void {
     this.confirmacion.confirm({
       header: 'Eliminar usuario',
-      message: `¿Estás seguro de eliminar a ${usuario.nombre}? Esta acción no se puede deshacer.`,
+      message: `¿Estás seguro de eliminar definitivamente a ${usuario.nombre}? Esta acción no se puede deshacer.`,
       icon: 'pi pi-exclamation-triangle',
       acceptLabel: 'Sí, eliminar',
       rejectLabel: 'Cancelar',

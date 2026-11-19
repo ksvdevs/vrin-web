@@ -211,11 +211,27 @@ export class ListaExpedientes implements OnInit {
 
   protected abrirOpciones(event: Event, fila: ExpedienteFila, menu: Menu): void {
     event.stopPropagation();
-    this.opcionesFila.set([
-      { label: 'Modificar', icon: 'pi pi-pencil', command: () => this.editarFila(fila) },
-      { label: 'Eliminar', icon: 'pi pi-times', command: () => this.confirmarEliminar(fila) },
-    ]);
+    const opciones: MenuItem[] = [];
+    if (this.puedeModificar(fila)) {
+      opciones.push({ label: 'Modificar', icon: 'pi pi-pencil', command: () => this.editarFila(fila) });
+    }
+    if (this.puedeRetirar(fila)) {
+      opciones.push({
+        label: fila.estado === 'RENDIDO' ? 'Retirar de la lista' : 'Eliminar',
+        icon: 'pi pi-times',
+        command: () => this.confirmarEliminar(fila),
+      });
+    }
+    this.opcionesFila.set(opciones);
     menu.toggle(event);
+  }
+
+  protected puedeModificar(fila: ExpedienteFila): boolean {
+    return this.esSecretariaOAdmin() && ['OBSERVADO', 'EN_REVISION_CALIDAD'].includes(fila.estado);
+  }
+
+  protected puedeRetirar(fila: ExpedienteFila): boolean {
+    return this.esAdmin() || (this.esSecretariaOAdmin() && fila.estado !== 'RENDIDO');
   }
 
   protected iniciales(nombre: string | null): string {
@@ -293,11 +309,14 @@ export class ListaExpedientes implements OnInit {
   private readonly confirmacion = inject(ConfirmationService);
 
   protected confirmarEliminar(fila: ExpedienteFila): void {
+    const rendido = fila.estado === 'RENDIDO';
     this.confirmacion.confirm({
-      message: `¿Estás seguro de eliminar lógicamente el expediente ${fila.codigo}? Esta acción no se puede deshacer.`,
-      header: 'Confirmar Eliminación',
+      message: rendido
+        ? `¿Retirar ${fila.codigo} de la lista? Sus datos y documentos se conservarán, pero dejará de aparecer en la lista.`
+        : `¿Eliminar ${fila.codigo} de la lista? Sus datos y documentos se conservarán, pero dejará de aparecer en la lista.`,
+      header: rendido ? 'Retirar expediente rendido' : 'Eliminar expediente',
       icon: 'pi pi-exclamation-triangle',
-      acceptLabel: 'Sí, eliminar',
+      acceptLabel: rendido ? 'Sí, retirar' : 'Sí, eliminar',
       rejectLabel: 'Cancelar',
       acceptButtonStyleClass: 'p-button-danger',
       accept: () => {
@@ -306,8 +325,8 @@ export class ListaExpedientes implements OnInit {
           next: () => {
             this.mensajes.add({
               severity: 'success',
-              summary: 'Expediente eliminado',
-              detail: `El expediente ${fila.codigo} fue eliminado.`,
+              summary: rendido ? 'Expediente retirado' : 'Expediente eliminado',
+              detail: `El expediente ${fila.codigo} dejó de aparecer en la lista. Sus datos y documentos se conservaron.`,
             });
             const pagina = Math.min(
               this.paginaActual(),

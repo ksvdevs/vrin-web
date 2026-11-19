@@ -68,6 +68,7 @@
           "builder": "@angular/build:dev-server",
           "options": {
             "proxyConfig": "proxy.conf.json",
+            "host": "127.0.0.1",
             "allowedHosts": [
             ]
           },
