@@ -11,7 +11,7 @@
       </div>
     </div>
     <div class="sgr-header-actions">
-      @if (esAdmin()) {
+      @if (puedeRegistrar()) {
         <p-button label="Nuevo docente" icon="pi pi-plus" styleClass="sgr-primary-button" (onClick)="abrirNuevo()" />
       }
     </div>
@@ -137,7 +137,7 @@
               <button type="button" class="accion" (click)="abrirEdicion(docente)" [attr.aria-label]="'Editar ' + docente.nombres" [title]="'Editar ' + docente.nombres">
                 <i class="pi pi-pencil" aria-hidden="true"></i>
               </button>
-              <button type="button" class="accion" (click)="confirmarEliminar(docente)" [attr.aria-label]="'Eliminar ' + docente.nombres" [title]="'Eliminar ' + docente.nombres">
+              <button type="button" class="accion" (click)="confirmarEliminar(docente)" [disabled]="docente.tiene_expedientes" [attr.aria-label]="'Eliminar ' + docente.nombres" [title]="docente.tiene_expedientes ? 'No se puede eliminar: tiene expedientes registrados. Desactívalo desde Modificar docente.' : 'Eliminar ' + docente.nombres">
                 <i class="pi pi-trash" aria-hidden="true"></i>
               </button>
             </div>

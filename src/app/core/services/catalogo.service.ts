@@ -13,6 +13,10 @@ export class CatalogoService {
     return this.api.get<Facultad[]>('/facultades');
   }
 
+  listarEscuelas(facultadId: number): Observable<Escuela[]> {
+    return this.api.get<Escuela[]>(`/facultades/${facultadId}/escuelas`);
+  }
+
   crearFacultad(payload: FacultadPayload): Observable<Facultad> {
     return this.api.post<Facultad>('/facultades', payload);
   }

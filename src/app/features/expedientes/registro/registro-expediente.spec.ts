@@ -89,6 +89,23 @@ describe('Asociación del docente extraído de la carta', () => {
     expect(componente['formulario'].controls.carta_docente_registro_numero.invalid).toBe(true);
   });
 
+  it('impide continuar si el registro de la carta es anterior a su fecha, incluso con OCR', () => {
+    const componente = abrir();
+    componente['aplicarOcr']({
+      carta_docente_fecha: '2026-09-01',
+      carta_docente_registro_fecha: '2026-08-03',
+    });
+
+    expect(componente['formulario'].hasError('registroAnteriorCarta')).toBe(true);
+    componente['continuar']();
+    expect(componente['pasoActual']()).toBe(1);
+
+    componente['formulario'].controls.carta_docente_registro_fecha.setValue(new Date(2026, 8, 1));
+    expect(componente['formulario'].hasError('registroAnteriorCarta')).toBe(false);
+    componente['continuar']();
+    expect(componente['pasoActual']()).toBe(2);
+  });
+
   it('permite comparar el artículo con la carta aunque el OCR no encuentre la fecha y vuelve al dato pendiente al guardar', () => {
     const componente = abrir();
     expect(componente['formulario'].controls.carta_docente_fecha.invalid).toBe(true);

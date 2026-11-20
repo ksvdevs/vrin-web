@@ -231,10 +231,13 @@
 .campo label b { color: #d95656; }
 .campo input { width: 100%; height: 42px; padding-inline: 12px; border: 1px solid #d9e5ed; border-radius: 8px; background: #fff; color: #284866; font-size: 11px; box-shadow: none; }
 .campo input::placeholder { color: #a4b1bd; }
-.campo input[readonly] { background: #fbfcfd; color: #647d93; }
+.campo input[readonly] { background: #fbfcfd; color: #284866; font-weight: 700; }
+.campo input[readonly]::placeholder { font-weight: 400; }
 .campo-horizontal { display: flex; min-width: 0; gap: 6px; }
 .campo-horizontal p-autocomplete { flex: 1; min-width: 0; }
-.nuevo-docente { width: 42px; flex: 0 0 42px; border: 1px solid #d9e5ed; border-radius: 8px; background: #fff; color: #22559a; cursor: pointer; }
+.nuevo-docente { width: 42px; flex: 0 0 42px; border: 1px solid #22559a; border-radius: 8px; background: #22559a; color: #fff; box-shadow: 0 5px 10px #22559a22; cursor: pointer; }
+.nuevo-docente:hover { background: #17447f; border-color: #17447f; }
+.nuevo-docente:focus-visible { outline: 2px solid #2765f5; outline-offset: 2px; }
 .error { color: #c43c3c; font-size: 10px; }
 .pie {
   min-height: 80px;

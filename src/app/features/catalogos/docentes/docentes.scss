@@ -95,6 +95,7 @@
 .docentes-page .acciones-docente { display: flex; align-items: center; justify-content: flex-end; gap: 6px; }
 .docentes-page .acciones-docente .accion { color: #6d90b5; }
 .docentes-page .acciones-docente .accion i { font-size: 14px; }
+.docentes-page .acciones-docente .accion:disabled { opacity: .4; cursor: not-allowed; }
 .docentes-page .vacio { padding: 28px 14px; text-align: center; color: #7e93a8; }
 
 :host ::ng-deep .docentes-page .sgr-table .p-paginator {

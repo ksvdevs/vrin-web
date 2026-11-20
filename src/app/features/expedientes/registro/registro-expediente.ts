@@ -1,5 +1,5 @@
 import { ChangeDetectionStrategy, Component, OnDestroy, OnInit, computed, inject, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators, type AbstractControl, type ValidationErrors } from '@angular/forms';
 import { Router, ActivatedRoute } from '@angular/router';
 import { DomSanitizer, type SafeResourceUrl } from '@angular/platform-browser';
 import { Subject, Subscription, catchError, debounceTime, distinctUntilChanged, forkJoin, of, switchMap } from 'rxjs';
@@ -140,7 +140,7 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     monto_solicitado: [null as number | null, [Validators.required, Validators.min(0.01)]],
     doi: [''],
     documentos_completos: [null as boolean | null, Validators.required],
-  });
+  }, { validators: this.validarOrdenFechasCarta });
 
   ngOnInit(): void {
     this.auth.verificarSesion().subscribe();
@@ -255,12 +255,16 @@ export class RegistroExpediente implements OnInit, OnDestroy {
     if (this.formulario.invalid) {
       this.formulario.markAllAsTouched();
       const controles = this.formulario.controls;
-      if (controles.carta_docente_numero.invalid || controles.carta_docente_registro_numero.invalid || controles.carta_docente_registro_fecha.invalid || controles.carta_docente_fecha.invalid || controles.docente.invalid) {
+      const fechasFueraDeOrden = this.formulario.hasError('registroAnteriorCarta');
+      if (controles.carta_docente_numero.invalid || controles.carta_docente_registro_numero.invalid || controles.carta_docente_registro_fecha.invalid || controles.carta_docente_fecha.invalid || controles.docente.invalid || fechasFueraDeOrden) {
+        if (fechasFueraDeOrden) controles.carta_docente_registro_fecha.markAsTouched();
         this.pasoActual.set(1);
         this.mensajes.add({
           severity: 'warn',
-          summary: 'Faltan datos de la carta o del docente',
-          detail: 'Revisa los campos obligatorios marcados antes de registrar el expediente.',
+          summary: fechasFueraDeOrden ? 'Fechas de carta inconsistentes' : 'Faltan datos de la carta o del docente',
+          detail: fechasFueraDeOrden
+            ? 'La fecha de registro debe ser igual o posterior a la fecha de la carta.'
+            : 'Revisa los campos obligatorios marcados antes de registrar el expediente.',
         });
       } else {
         this.mensajes.add({
@@ -280,7 +284,23 @@ export class RegistroExpediente implements OnInit, OnDestroy {
 
   protected continuar(): void {
     if (this.analizando()) return;
+    if (this.formulario.hasError('registroAnteriorCarta')) {
+      this.formulario.controls.carta_docente_registro_fecha.markAsTouched();
+      return;
+    }
     this.pasoActual.set(2);
+  }
+
+  private validarOrdenFechasCarta(control: AbstractControl): ValidationErrors | null {
+    const fechaCarta = control.get('carta_docente_fecha')?.value;
+    const fechaRegistro = control.get('carta_docente_registro_fecha')?.value;
+    if (!(fechaCarta instanceof Date) || Number.isNaN(fechaCarta.getTime())
+      || !(fechaRegistro instanceof Date) || Number.isNaN(fechaRegistro.getTime())) {
+      return null;
+    }
+    const diaCarta = fechaCarta.getFullYear() * 10000 + (fechaCarta.getMonth() + 1) * 100 + fechaCarta.getDate();
+    const diaRegistro = fechaRegistro.getFullYear() * 10000 + (fechaRegistro.getMonth() + 1) * 100 + fechaRegistro.getDate();
+    return diaRegistro < diaCarta ? { registroAnteriorCarta: true } : null;
   }
 
   protected seleccionarArchivo(event: Event): void {

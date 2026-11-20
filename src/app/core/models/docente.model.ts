@@ -46,6 +46,7 @@ export interface Docente {
   escuela_id: number;
   email?: string | null;
   activo: boolean;
+  tiene_expedientes?: boolean;
   created_at?: string | null;
   escuela?: Escuela;
 }

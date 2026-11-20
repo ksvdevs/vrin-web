@@ -392,18 +392,26 @@
               <span class="rendicion-paso">Paso 1</span>
               <h3 id="rendicion-desembolso-titulo">Registrar desembolso</h3>
               <p>El plazo de 60 días hábiles comienza a partir de la fecha registrada.</p>
-              @if (e.rendicion; as ren) {
+              @if (e.rendicion && !editandoDesembolso()) {
+                @let ren = e.rendicion;
                 <div class="rendicion-desembolso-lectura">
                   <div class="campo"><span class="rendicion-etiqueta">Fecha de desembolso</span><output class="valor-carta">{{ formatoFecha(ren.fecha_desembolso) }}</output></div>
                   <div class="campo"><span class="rendicion-etiqueta">Monto desembolsado</span><output class="valor-carta">{{ formatoSoles(ren.monto_desembolsado) }}</output></div>
                   <div class="campo"><span class="rendicion-etiqueta">Fecha límite</span><output class="valor-carta">{{ formatoFecha(ren.fecha_limite) }}</output></div>
                 </div>
-              } @else if (e.estado === 'RESOLUCION_EMITIDA' && puedeGestionarRendicion()) {
-                <form [formGroup]="desembolsoForm" (ngSubmit)="registrarDesembolso()" class="rendicion-desembolso-form">
+                @if (ren.estado !== 'CERRADA' && puedeGestionarRendicion()) {
+                  <div class="rendicion-desembolso-acciones"><p-button label="Editar desembolso" icon="pi pi-pencil" [outlined]="true" (onClick)="iniciarEdicionDesembolso()" /></div>
+                }
+              } @else if (puedeGestionarRendicion() && (editandoDesembolso() || e.estado === 'RESOLUCION_EMITIDA')) {
+                <form [formGroup]="desembolsoForm" (ngSubmit)="editandoDesembolso() ? actualizarDesembolso() : registrarDesembolso()" class="rendicion-desembolso-form">
                   <div class="campo"><label for="fecha_desembolso">Fecha de desembolso *</label><p-datepicker inputId="fecha_desembolso" formControlName="fecha_desembolso" dateFormat="dd/mm/yy" [showIcon]="true" [showOnFocus]="false" appendTo="body" class="select-ancho sgr-datepicker" /></div>
                   <div class="campo"><label for="monto_desembolsado">Monto desembolsado *</label><p-inputnumber inputId="monto_desembolsado" formControlName="monto_desembolsado" mode="currency" currency="PEN" locale="es-PE" [min]="0.01" [minFractionDigits]="2" [maxFractionDigits]="2" styleClass="numero-ancho" /></div>
-                  <p-button label="Registrar y activar plazo" icon="pi pi-check" type="submit" [loading]="guardandoDesembolso()" [disabled]="desembolsoForm.invalid" />
+                  <div class="rendicion-desembolso-acciones">
+                    @if (editandoDesembolso()) { <p-button label="Cancelar" severity="secondary" [outlined]="true" type="button" [disabled]="guardandoDesembolso()" (onClick)="cancelarEdicionDesembolso()" /> }
+                    <p-button [label]="editandoDesembolso() ? 'Guardar cambios' : 'Registrar y activar plazo'" icon="pi pi-check" type="submit" [loading]="guardandoDesembolso()" [disabled]="desembolsoForm.invalid" />
+                  </div>
                 </form>
+                @if (editandoDesembolso()) { <p class="rendicion-aviso">Al cambiar la fecha de desembolso se recalculará automáticamente la fecha límite.</p> }
               } @else {
                 <p class="rendicion-aviso">El desembolso se registra cuando la resolución está emitida y tu usuario tiene permiso para gestionarlo.</p>
               }

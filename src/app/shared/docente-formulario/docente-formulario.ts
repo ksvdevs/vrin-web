@@ -95,11 +95,16 @@ export class DocenteFormulario implements OnInit, OnDestroy {
   });
 
   protected readonly facultadSeleccionadaId = signal<number | null>(null);
+  private readonly carrerasConsultadas = signal<{ facultadId: number; escuelas: Escuela[] } | null>(null);
 
   protected readonly escuelasDisponibles = computed<Escuela[]>(() => {
     const facultadId = this.facultadSeleccionadaId();
     if (facultadId === null) {
       return [];
+    }
+    const consultadas = this.carrerasConsultadas();
+    if (consultadas?.facultadId === facultadId) {
+      return consultadas.escuelas;
     }
     return this.facultades().find((f) => f.id === facultadId)?.escuelas ?? [];
   });
@@ -136,18 +141,41 @@ export class DocenteFormulario implements OnInit, OnDestroy {
         }),
     });
 
-    this.suscripcionFacultad = this.formulario.controls.facultad_id.valueChanges.subscribe(
-      (facultadId) => {
+    this.suscripcionFacultad = this.formulario.controls.facultad_id.valueChanges.pipe(
+      switchMap((valor) => {
+        const facultadId = valor === null ? null : Number(valor);
         this.facultadSeleccionadaId.set(facultadId);
+        this.carrerasConsultadas.set(null);
         const control = this.formulario.controls.escuela_id;
         control.reset(null);
         if (facultadId === null) {
           control.disable({ emitEvent: false });
-        } else {
-          control.enable({ emitEvent: false });
+          return of(null);
         }
-      },
-    );
+        control.enable({ emitEvent: false });
+        return this.catalogoService.listarEscuelas(facultadId).pipe(
+          map((escuelas) => ({ facultadId, escuelas })),
+          catchError(() => {
+            this.mensajes.add({
+              severity: 'error',
+              summary: 'No se pudieron cargar las carreras',
+              detail: 'Vuelve a seleccionar la facultad para intentarlo de nuevo.',
+            });
+            return of(null);
+          }),
+        );
+      }),
+    ).subscribe((resultado) => {
+      if (resultado === null) {
+        return;
+      }
+      this.carrerasConsultadas.set(resultado);
+      this.facultades.update((lista) => lista.map((facultad) =>
+        facultad.id === resultado.facultadId
+          ? { ...facultad, escuelas: resultado.escuelas }
+          : facultad,
+      ));
+    });
 
     this.suscripcionDni = this.formulario.controls.dni.valueChanges.pipe(
       tap((dni) => {
@@ -248,6 +276,12 @@ export class DocenteFormulario implements OnInit, OnDestroy {
       },
       error: (error) => {
         this.guardando.set(false);
+        const errores = (error as { status?: number; error?: { errors?: Record<string, string[]> } });
+        if (errores.status === 422 && errores.error?.errors?.['email']) {
+          const correo = this.formulario.controls.email;
+          correo.setErrors({ ...correo.errors, duplicado: true });
+          correo.markAsTouched();
+        }
         this.mensajes.add({
           severity: 'error',
           summary: 'No se pudo guardar',
@@ -285,6 +319,7 @@ export class DocenteFormulario implements OnInit, OnDestroy {
     this.buscandoDni.set(false);
     this.formulario.reset(undefined, { emitEvent: false });
     this.facultadSeleccionadaId.set(null);
+    this.carrerasConsultadas.set(null);
     this.formulario.controls.escuela_id.disable({ emitEvent: false });
     if (!docente) {
       return;

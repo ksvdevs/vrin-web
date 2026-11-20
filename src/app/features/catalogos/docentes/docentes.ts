@@ -48,6 +48,9 @@ export class Docentes implements OnInit {
   private ultimaCarga = 0;
 
   protected readonly esAdmin = computed(() => this.auth.usuarioActual()?.rol_codigo === 'ADMINISTRADOR_GENERAL');
+  protected readonly puedeRegistrar = computed(() =>
+    ['ADMINISTRADOR_GENERAL', 'SECRETARIA'].includes(this.auth.usuarioActual()?.rol_codigo ?? ''),
+  );
 
   protected readonly docentes = signal<Docente[]>([]);
   protected readonly cargando = signal(true);
@@ -169,7 +172,7 @@ export class Docentes implements OnInit {
   protected confirmarEliminar(docente: Docente): void {
     this.confirmacion.confirm({
       header: 'Eliminar docente',
-      message: `¿Eliminar permanentemente a ${this.apellidos(docente)}, ${docente.nombres}? Si tiene expedientes, desactívalo desde Modificar docente.`,
+      message: `¿Eliminar definitivamente a ${this.apellidos(docente)}, ${docente.nombres} de la base de datos? Esta acción no se puede deshacer.`,
       icon: 'pi pi-trash',
       acceptLabel: 'Eliminar',
       rejectLabel: 'Cancelar',
@@ -184,7 +187,7 @@ export class Docentes implements OnInit {
         this.mensajes.add({
           severity: 'success',
           summary: 'Docente eliminado',
-          detail: `${this.apellidos(docente)}, ${docente.nombres}`,
+          detail: `${this.apellidos(docente)}, ${docente.nombres} fue eliminado del catálogo.`,
         });
         this.cargar(Math.floor(this.primeraFila / this.registrosPorPagina) + 1);
       },

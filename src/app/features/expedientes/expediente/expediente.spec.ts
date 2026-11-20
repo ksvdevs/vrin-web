@@ -34,6 +34,7 @@ describe('Etapas de carta VRIN y resolución', () => {
     actualizarResolucion: vi.fn(),
     subirArchivo: vi.fn(),
     registrarDesembolso: vi.fn(),
+    actualizarDesembolso: vi.fn(),
     cerrarRendicion: vi.fn(),
     retirarComprobante: vi.fn(),
     analizarCartaOpp: vi.fn(),
@@ -285,6 +286,60 @@ describe('Etapas de carta VRIN y resolución', () => {
       fecha_desembolso: expect.stringMatching(/^\d{4}-\d{2}-\d{2}$/),
       monto_desembolsado: 1500,
     });
+  });
+
+  it('permite corregir fecha y monto mientras la rendición está abierta', async () => {
+    pasoQuery = '3';
+    detalle.estado = 'POR_RENDIR';
+    detalle.etapa_actual = 4;
+    detalle.rendicion = {
+      fecha_desembolso: '2026-10-07', monto_desembolsado: 1500, fecha_limite: '2026-12-30',
+      fecha_informe: null, estado: 'BORRADOR', dias_habiles_restantes: 60,
+      con_retraso: false, cerrada_at: null, cerrada_por: null,
+    };
+    api.actualizarDesembolso.mockImplementation(() => {
+      detalle = {
+        ...detalle,
+        rendicion: {
+          ...detalle.rendicion!, fecha_desembolso: '2026-10-08',
+          monto_desembolsado: 1750.50, fecha_limite: '2026-12-31',
+        },
+      };
+      return of({});
+    });
+    await abrir();
+
+    boton('Editar desembolso').click();
+    fixture.detectChanges();
+    expect(fixture.componentInstance['desembolsoForm'].controls.fecha_desembolso.value?.getDate()).toBe(7);
+    expect(fixture.componentInstance['desembolsoForm'].controls.monto_desembolsado.value).toBe(1500);
+
+    fixture.componentInstance['desembolsoForm'].patchValue({
+      fecha_desembolso: new Date(2026, 9, 8), monto_desembolsado: 1750.50,
+    });
+    fixture.detectChanges();
+    boton('Guardar cambios').click();
+
+    expect(api.actualizarDesembolso).toHaveBeenCalledWith(1, {
+      fecha_desembolso: '2026-10-08', monto_desembolsado: 1750.50,
+    });
+    fixture.detectChanges();
+    expect(fixture.componentInstance['editandoDesembolso']()).toBe(false);
+    expect(fixture.nativeElement.textContent).toContain('08/10/2026');
+  });
+
+  it('no ofrece editar el desembolso de una rendición cerrada', async () => {
+    pasoQuery = '3';
+    detalle.estado = 'RENDIDO';
+    detalle.etapa_actual = 4;
+    detalle.rendicion = {
+      fecha_desembolso: '2026-10-07', monto_desembolsado: 1500, fecha_limite: '2026-12-30',
+      fecha_informe: '2026-12-15', estado: 'CERRADA', dias_habiles_restantes: 0,
+      con_retraso: false, cerrada_at: '2026-12-15', cerrada_por: null,
+    };
+    await abrir();
+
+    expect(fixture.nativeElement.textContent).not.toContain('Editar desembolso');
   });
 
   it('exige comprobantes y permite subir un PDF antes de cerrar la rendición', async () => {

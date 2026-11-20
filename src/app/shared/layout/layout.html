@@ -35,6 +35,8 @@
             <a routerLink="/usuarios" routerLinkActive="active">Usuarios</a>
           </div>
         }
+      }
+      @if (puedeVerDocentes) {
         <a
           class="nav-item"
           routerLink="/catalogos/docentes"
@@ -43,6 +45,8 @@
         >
           <i class="pi pi-user" aria-hidden="true"></i><span>Docentes</span>
         </a>
+      }
+      @if (esAdmin) {
         <a
           class="nav-item"
           routerLink="/plantillas"

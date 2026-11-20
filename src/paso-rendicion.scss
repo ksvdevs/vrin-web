@@ -12,6 +12,8 @@
   .rendicion-paso { color: #2765f5; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
   .rendicion-desembolso-form { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .8fr) auto; align-items: end; gap: .75rem; margin-top: 1rem; }
   .rendicion-desembolso-lectura { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; margin-top: 1rem; }
+  .rendicion-desembolso-acciones { display: flex; justify-content: flex-end; align-items: center; gap: .6rem; margin-top: .75rem; }
+  .rendicion-desembolso-form .rendicion-desembolso-acciones { grid-column: 1 / -1; margin-top: 0; }
   .rendicion-etiqueta, .rendicion-etapa .campo label { font-size: .7rem; color: #58738f; font-weight: 500; }
   .rendicion-etapa .campo { min-width: 0;
     input, .p-datepicker-input, .p-inputnumber-input { min-width: 0; padding: .85rem; border: 1px solid #dbe5ef; border-radius: 9px; background: #fff; color: #38536c; font-size: .75rem; }
@@ -22,6 +24,7 @@
   }
   .rendicion-etapa .valor-carta { display: flex; align-items: center; min-height: 44px; padding: .85rem; border: 1px solid #dbe5ef; border-radius: 9px; background: #fff; color: #38536c; font-size: .75rem; overflow-wrap: anywhere; }
   .rendicion-desembolso-form .p-button, .rendicion-cierre .p-button { min-height: 43px; border-radius: 9px; background: #245693; border-color: #245693; font-size: .75rem; }
+  .rendicion-desembolso-form .p-button.p-button-secondary { background: #fff; border-color: #cbd5e1; color: #38536c; }
   .rendicion-informe-form { width: 100%; margin: .65rem 0 1rem; }
   .rendicion-adjuntos-cabecera { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: .5rem; margin: .8rem 0 .6rem;
     strong { color: #38536c; font-size: .7rem; font-weight: 600; }
@@ -71,6 +74,7 @@
     .rendicion-principal { padding: 1rem; }
     .rendicion-etapa { padding: .9rem; }
     .rendicion-desembolso-form, .rendicion-desembolso-lectura { grid-template-columns: 1fr; > p-button { grid-column: auto; width: 100%; } }
+    .rendicion-desembolso-acciones { flex-wrap: wrap; p-button { flex: 1; } .p-button { width: 100%; justify-content: center; } }
     .rendicion-carga { flex-wrap: wrap; .archivo-campo-opp, > p-button { width: 100%; } .p-button { width: 100%; justify-content: center; } }
     .rendicion-cierre p-button, .rendicion-cierre .p-button { width: 100%; }
   }

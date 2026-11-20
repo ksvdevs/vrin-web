@@ -73,6 +73,10 @@ export class LayoutComponent {
     return this.usuario?.rol_codigo === 'ADMINISTRADOR_GENERAL';
   }
 
+  get puedeVerDocentes() {
+    return ['ADMINISTRADOR_GENERAL', 'SECRETARIA'].includes(this.usuario?.rol_codigo ?? '');
+  }
+
   cerrarSesion() {
     this.auth.salir();
   }

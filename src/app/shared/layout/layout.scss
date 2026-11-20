@@ -77,7 +77,7 @@
   padding: 0 12px;
   margin-bottom: 12px;
   font-size: 9px;
-  font-weight: 600;
+  font-weight: 700;
   letter-spacing: 1.3px;
   text-transform: uppercase;
   color: #91a1b3;
@@ -100,6 +100,7 @@
   text-decoration: none;
   font: inherit;
   font-size: 13px;
+  font-weight: 700;
   text-align: left;
   cursor: pointer;
   i {
@@ -119,7 +120,7 @@
   &.active {
     color: #20539a;
     background: #eaf1ff;
-    font-weight: 600;
+    font-weight: 700;
   }
   &.active::before {
     content: '';
@@ -140,6 +141,7 @@
   a {
     padding: 9px 0;
     font-size: 11px;
+    font-weight: 700;
     text-decoration: none;
     color: #698097;
   }

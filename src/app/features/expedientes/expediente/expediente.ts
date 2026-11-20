@@ -337,6 +337,7 @@ export class VistaExpediente implements OnInit, OnDestroy {
     fecha_desembolso: [new Date() as Date | null, Validators.required],
     monto_desembolsado: [null as number | null, [Validators.required, Validators.min(0.01)]],
   });
+  protected readonly editandoDesembolso = signal(false);
 
   protected readonly doiForm = this.fb.group({
     doi: ['', Validators.required],
@@ -1438,6 +1439,52 @@ export class VistaExpediente implements OnInit, OnDestroy {
           });
         },
       });
+  }
+
+  protected iniciarEdicionDesembolso(): void {
+    const detalle = this.detalle();
+    if (!detalle?.rendicion || !this.puedeGestionarRendicion() || detalle.rendicion.estado === 'CERRADA') return;
+    this.desembolsoForm.reset({
+      fecha_desembolso: new Date(`${detalle.rendicion.fecha_desembolso}T00:00:00`),
+      monto_desembolsado: detalle.rendicion.monto_desembolsado,
+    });
+    this.editandoDesembolso.set(true);
+  }
+
+  protected cancelarEdicionDesembolso(): void {
+    this.editandoDesembolso.set(false);
+  }
+
+  protected actualizarDesembolso(): void {
+    if (this.desembolsoForm.invalid || this.guardandoDesembolso()) {
+      this.desembolsoForm.markAllAsTouched();
+      return;
+    }
+    const detalle = this.detalle();
+    const fecha = this.desembolsoForm.controls.fecha_desembolso.value;
+    const monto = this.desembolsoForm.controls.monto_desembolsado.value;
+    if (!detalle?.rendicion || !this.puedeGestionarRendicion() || !fecha || monto === null) return;
+
+    this.guardandoDesembolso.set(true);
+    this.expedienteService.actualizarDesembolso(detalle.id, {
+      fecha_desembolso: this.iso(fecha) ?? '',
+      monto_desembolsado: monto,
+    }).subscribe({
+      next: () => {
+        this.guardandoDesembolso.set(false);
+        this.editandoDesembolso.set(false);
+        this.mensajes.add({ severity: 'success', summary: 'Desembolso actualizado', detail: 'La fecha límite se recalculó.' });
+        this.cargar(detalle.id);
+      },
+      error: (error) => {
+        this.guardandoDesembolso.set(false);
+        this.mensajes.add({
+          severity: 'error',
+          summary: 'No se pudo actualizar el desembolso',
+          detail: (error as { error?: { message?: string } })?.error?.message ?? 'Ocurrió un error inesperado.',
+        });
+      },
+    });
   }
 
   protected abrirModalDoi(): void {

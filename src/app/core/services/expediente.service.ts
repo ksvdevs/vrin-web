@@ -47,6 +47,10 @@ export class ExpedienteService {
     return this.api.delete<void>(`/expedientes/${id}`);
   }
 
+  eliminarDefinitivo(id: number): Observable<void> {
+    return this.api.delete<void>(`/expedientes/${id}/definitivo`);
+  }
+
   listar(filtros: FiltrosExpediente, pagina: number): Observable<Paginado<ExpedienteFila>> {
     const params: Record<string, string | number> = { page: pagina };
     if (filtros.busqueda) params['busqueda'] = filtros.busqueda;
@@ -189,6 +193,10 @@ export class ExpedienteService {
 
   registrarDesembolso(id: number, payload: { fecha_desembolso: string; monto_desembolsado: number }): Observable<unknown> {
     return this.api.post(`/expedientes/${id}/rendicion/desembolso`, payload);
+  }
+
+  actualizarDesembolso(id: number, payload: { fecha_desembolso: string; monto_desembolsado: number }): Observable<unknown> {
+    return this.api.put(`/expedientes/${id}/rendicion/desembolso`, payload);
   }
 
   retirarComprobante(expedienteId: number, archivoId: number): Observable<void> {

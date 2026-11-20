@@ -217,8 +217,15 @@ export class ListaExpedientes implements OnInit {
     }
     if (this.puedeRetirar(fila)) {
       opciones.push({
-        label: fila.estado === 'RENDIDO' ? 'Retirar de la lista' : 'Eliminar',
+        label: 'Retirar de la lista',
         icon: 'pi pi-times',
+        command: () => this.confirmarRetirar(fila),
+      });
+    }
+    if (this.puedeEliminar(fila)) {
+      opciones.push({
+        label: 'Eliminar definitivamente de la base de datos',
+        icon: 'pi pi-trash',
         command: () => this.confirmarEliminar(fila),
       });
     }
@@ -230,8 +237,12 @@ export class ListaExpedientes implements OnInit {
     return this.esSecretariaOAdmin() && ['OBSERVADO', 'EN_REVISION_CALIDAD'].includes(fila.estado);
   }
 
-  protected puedeRetirar(fila: ExpedienteFila): boolean {
-    return this.esAdmin() || (this.esSecretariaOAdmin() && fila.estado !== 'RENDIDO');
+  protected puedeRetirar(_fila: ExpedienteFila): boolean {
+    return this.esAdmin();
+  }
+
+  protected puedeEliminar(_fila: ExpedienteFila): boolean {
+    return this.esAdmin();
   }
 
   protected iniciales(nombre: string | null): string {
@@ -308,15 +319,12 @@ export class ListaExpedientes implements OnInit {
 
   private readonly confirmacion = inject(ConfirmationService);
 
-  protected confirmarEliminar(fila: ExpedienteFila): void {
-    const rendido = fila.estado === 'RENDIDO';
+  protected confirmarRetirar(fila: ExpedienteFila): void {
     this.confirmacion.confirm({
-      message: rendido
-        ? `¿Retirar ${fila.codigo} de la lista? Sus datos y documentos se conservarán, pero dejará de aparecer en la lista.`
-        : `¿Eliminar ${fila.codigo} de la lista? Sus datos y documentos se conservarán, pero dejará de aparecer en la lista.`,
-      header: rendido ? 'Retirar expediente rendido' : 'Eliminar expediente',
+      message: `¿Retirar ${fila.codigo} de la lista? Sus datos y documentos permanecerán en la base de datos.`,
+      header: 'Retirar expediente de la lista',
       icon: 'pi pi-exclamation-triangle',
-      acceptLabel: rendido ? 'Sí, retirar' : 'Sí, eliminar',
+      acceptLabel: 'Sí, retirar',
       rejectLabel: 'Cancelar',
       acceptButtonStyleClass: 'p-button-danger',
       accept: () => {
@@ -325,8 +333,42 @@ export class ListaExpedientes implements OnInit {
           next: () => {
             this.mensajes.add({
               severity: 'success',
-              summary: rendido ? 'Expediente retirado' : 'Expediente eliminado',
-              detail: `El expediente ${fila.codigo} dejó de aparecer en la lista. Sus datos y documentos se conservaron.`,
+              summary: 'Expediente retirado',
+              detail: `El expediente ${fila.codigo} dejó de aparecer en la lista. Sus datos se conservaron.`,
+            });
+            const pagina = Math.min(this.paginaActual(), Math.max(1, Math.ceil((this.total() - 1) / 5)));
+            this.primeraFila.set((pagina - 1) * 5);
+            this.cargar(pagina);
+          },
+          error: (error) => {
+            this.cargando.set(false);
+            this.mensajes.add({
+              severity: 'error',
+              summary: 'Error al retirar',
+              detail: (error as any)?.error?.message ?? 'No se pudo retirar el expediente.',
+            });
+          },
+        });
+      },
+    });
+  }
+
+  protected confirmarEliminar(fila: ExpedienteFila): void {
+    this.confirmacion.confirm({
+      message: `¿Eliminar definitivamente ${fila.codigo} de la base de datos? Se borrarán el expediente y sus registros asociados. Esta acción no se puede deshacer. Los archivos físicos se conservarán por la regla de archivo del sistema.`,
+      header: 'Eliminar expediente de la base de datos',
+      icon: 'pi pi-exclamation-triangle',
+      acceptLabel: 'Sí, eliminar definitivamente',
+      rejectLabel: 'Cancelar',
+      acceptButtonStyleClass: 'p-button-danger',
+      accept: () => {
+        this.cargando.set(true);
+        this.expedienteService.eliminarDefinitivo(fila.id).subscribe({
+          next: () => {
+            this.mensajes.add({
+              severity: 'success',
+              summary: 'Expediente eliminado',
+              detail: `El expediente ${fila.codigo} y sus registros asociados se eliminaron de la base de datos.`,
             });
             const pagina = Math.min(
               this.paginaActual(),

@@ -199,7 +199,7 @@
                       {{ fila.accion_principal.etiqueta
                       }}<i class="pi pi-angle-right" aria-hidden="true"></i>
                     </button>
-                    @if (puedeModificar(fila) || puedeRetirar(fila)) {
+                    @if (puedeModificar(fila) || puedeRetirar(fila) || puedeEliminar(fila)) {
                       <button
                         type="button"
                         class="mas-opciones"

@@ -66,7 +66,7 @@
         <label for="email">Email*</label>
         <input pInputText id="email" type="email" formControlName="email" maxlength="190" autocomplete="email" />
         @if (formulario.controls.email.touched && formulario.controls.email.invalid) {
-          <small class="error">Ingresa un email válido.</small>
+          <small class="error">{{ formulario.controls.email.hasError('duplicado') ? 'Este correo ya está registrado por otro docente.' : 'Ingresa un email válido.' }}</small>
         }
       </div>
     </div>
